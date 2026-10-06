@@ -16,6 +16,8 @@ npm run preview:workbench -- "C:\你的备份目录\作品.cuigengji.json"
 
 当前已验证 DSH 0.2.0-rc.2，其他版本请先在副本中试用。插件目前从源码构建，本仓库尚未发布 npm 包。
 
+拿到维护者提供的预构建 `.tgz` 文件后，可从 DSH 原生插件安装入口填写文件的绝对路径安装，无需 Git。给 Agent 的安装步骤、发布状态和失败处理见[Windows Agent 安装指南](agent-installation.md)。下面的源码构建流程供开发者使用。
+
 1. 安装并启动过 DSH 桌面版，让它创建 `desktop` profile。
 2. 克隆本仓库，进入项目目录，执行 `npm ci`。
 3. 从 DSH 菜单退出应用，包括托盘进程。
