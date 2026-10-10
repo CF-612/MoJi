@@ -6,17 +6,23 @@ import {tmpdir} from 'node:os';
 import {resolve,join} from 'node:path';
 import {Store} from '../src/core/store.js';
 import {WorkData} from '../src/data/workspace.js';
+import {TransferService} from '../src/application/transfer/service.ts';
+import {convertLegacyExport} from '../src/infrastructure/migrations/legacy.js';
 import {seedCanvasDemo} from './canvas-demo.mjs';
 
 const root=resolve(import.meta.dirname,'..');
 const directory=await mkdtemp(join(tmpdir(),'cuigengji-preview-'));
 const store=new Store(directory),workData=new WorkData(store);
+const transfer=new TransferService(store,workData);
 const actor={kind:'human',sessionId:'production-preview'};
 let layoutFault=process.argv.includes('--fail-layout-once')?'before':process.argv.includes('--lose-layout-response-once')?'after':null;
 let novelId;
+const welcome=process.argv.includes('--welcome'),empty=process.argv.includes('--empty');
 if(process.argv[2]==='--canvas-demo'){
   novelId=await seedCanvasDemo(store,actor);
-}else if(process.argv[2]){
+}else if(empty){
+  // A genuine first launch, with no works and no session binding.
+}else if(process.argv[2]&&!process.argv[2].startsWith('--')){
   const backup=JSON.parse(await readFile(resolve(process.argv[2]),'utf8'));
   backup.novel.title+=' · 试用副本';
   novelId=(await store.dispatch('novel.import',{backup},actor)).id;
@@ -24,8 +30,8 @@ if(process.argv[2]==='--canvas-demo'){
   novelId=(await store.dispatch('novel.create',{title:'催更姬 · 试用作品'},actor)).id;
   await store.dispatch('chapter.create',{novelId,title:'第一章 雨夜来信',content:'　　雨停以后，街道重新安静下来。窗边的灯仍亮着，故事还在继续。'},actor);
 }
-await store.dispatch('binding.set',{novelId},actor);
-const output=await build({stdin:{contents:`import React from 'react';import{createRoot}from'react-dom/client';import{Workbench}from'./src/client/index.tsx';const rpc=async(action,args)=>{const response=await fetch('/dispatch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,args})});const result=await response.json();if(!response.ok)throw new Error(result.error);return result;};createRoot(document.getElementById('root')).render(<Workbench sessionId="production-preview" rpc={rpc}/>);`,resolveDir:root,loader:'tsx'},bundle:true,write:false,format:'iife',define:{'process.env.NODE_ENV':'"development"'}});
+if(novelId&&!welcome&&!empty)await store.dispatch('binding.set',{novelId},actor);
+const output=await build({stdin:{contents:`import React from 'react';import{createRoot}from'react-dom/client';import{Workbench}from'./src/client/index.tsx';const rpc=async(action,args)=>{const response=await fetch('/dispatch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,args})});const result=await response.json();if(!response.ok)throw new Error(result.error);return result;};createRoot(document.getElementById('root')).render(<Workbench sessionId="production-preview" rpc={rpc}/>);`,resolveDir:root,loader:'tsx'},bundle:true,write:false,format:'iife',loader:{'.png':'dataurl'},define:{'process.env.NODE_ENV':'"development"'}});
 const server=createServer(async(req,res)=>{
   try{
     res.setHeader('Cache-Control','no-store');
@@ -37,7 +43,8 @@ const server=createServer(async(req,res)=>{
       const layout=action==='graph.layout'||(action==='planning.apply'&&args.reason==='调整画布布局');
       if(layout&&layoutFault==='before'){layoutFault=null;throw new Error('试用：模拟布局保存失败，尚未提交');}
       const method={'workspace.status':'status','workspace.export':'export','workspace.preview':'preview','workspace.import':'import'}[action];
-      const result=method?await workData[method](args.backup):await store.dispatch(action,args,actor);
+      const transferMethod={'transfer.catalog':'catalog','transfer.inspect':'inspect','transfer.preview':'preview','transfer.import':'import','transfer.exportPreview':'exportPreview','transfer.export':'export'}[action];
+      const result=transferMethod?await transfer[transferMethod](args,actor):action==='legacy.preview'?convertLegacyExport(args.input):method?await workData[method](args.backup):await store.dispatch(action,args,actor);
       if(layout&&layoutFault==='after'){layoutFault=null;throw new Error('试用：模拟布局已提交但响应丢失');}
       res.setHeader('Content-Type','application/json');res.end(JSON.stringify(result));return;
     }

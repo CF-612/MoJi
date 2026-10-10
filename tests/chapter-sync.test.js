@@ -12,6 +12,26 @@ function setup(t,custom={}){
 test('clean editor follows remote updates without a confirmation',async t=>{
  const s=setup(t);s.set({...initial,content:'AI 新正文',revision:2});await s.sync.refresh();assert.equal(s.sync.state.value.content,'AI 新正文');assert.equal(s.sync.dirty,false);
 });
+test('removal waits for the in-flight receipt and flushes keystrokes added after that snapshot',async t=>{
+ let release;const gate=new Promise(resolve=>release=resolve),submitted=[];
+ const {sync}=setup(t,{write:async(value,base)=>{submitted.push({...value});if(submitted.length===1)await gate;return {...value,revision:base.revision+1};}});
+ sync.change(v=>({...v,content:'先输入的正文'}));const saving=sync.flush();
+ sync.change(v=>({...v,content:'先输入的正文，继续输入的正文'}));
+ let completed=false;const removal=sync.prepareRemoval().then(value=>{completed=true;return value;});
+ await new Promise(resolve=>setImmediate(resolve));assert.equal(completed,false);
+ release();await saving;const snapshot=await removal;
+ assert.equal(snapshot.content,'先输入的正文，继续输入的正文');assert.equal(snapshot.revision,3);
+ assert.equal(submitted.length,2);assert.equal(sync.dirty,false);
+});
+test('failed saves and unresolved conflicts prevent removal while retaining the local prose',async t=>{
+ const failed=setup(t,{write:async()=>{throw new Error('disk failure');}});
+ failed.sync.change(v=>({...v,content:'仍未保存的正文'}));
+ await assert.rejects(()=>failed.sync.prepareRemoval(),/草稿已保留/);
+ assert.equal(failed.sync.state.value.content,'仍未保存的正文');assert.equal(failed.sync.dirty,true);
+ const conflict=setup(t);conflict.sync.change(v=>({...v,content:'作者版本'}));conflict.set({...initial,revision:2,content:'AI 版本'});
+ await assert.rejects(()=>conflict.sync.prepareRemoval(),/版本冲突/);
+ assert.equal(conflict.sync.state.value.content,'作者版本');assert.equal(conflict.sync.state.remote.content,'AI 版本');
+});
 test('safe disjoint edits merge; overlapping edits and competing insertions stop',()=>{
  assert.equal(mergeText('甲段。\n\n乙段。','甲段改。\n\n乙段。','甲段。\n\n乙段改。'),'甲段改。\n\n乙段改。');
  assert.equal(mergeText('甲','作者甲','AI甲'),null);
@@ -35,6 +55,27 @@ test('true conflicts preserve both sides until explicitly merged',async t=>{
 test('composition is never submitted halfway, and no-op edits do not create versions',async t=>{
  const {sync,writes}=setup(t);sync.composition(true);sync.change(v=>({...v,content:'中文输入中'}));await sync.flush();assert.equal(writes.length,0);
  sync.composition(false);await sync.flush();assert.equal(writes.length,1);sync.change(v=>({...v}));await sync.flush();assert.equal(writes.length,1);
+});
+
+test('an in-flight conflict waits for final IME input before merging and saving',async t=>{
+ let release;const gate=new Promise(resolve=>release=resolve),writes=[];
+ const remote={...initial,revision:2,content:'甲段。\n\n乙段新。'};
+ const {sync}=setup(t,{read:async()=>remote,write:async(value,base)=>{writes.push(value.content);if(base.revision===1){await gate;throw Object.assign(new Error('conflict'),{code:'CONFLICT'});}return {...value,revision:3};}});
+ sync.change(v=>({...v,content:'甲段改。\n\n乙段。'}));const saving=sync.flush();
+ sync.composition(true);sync.change(v=>({...v,content:'甲段改写zhong。\n\n乙段。'}));release();await saving;
+ assert.equal(sync.state.base.revision,1);assert.equal(sync.state.value.content,'甲段改写zhong。\n\n乙段。');assert.equal(writes.length,1);
+ sync.change(v=>({...v,content:'甲段改写中文。\n\n乙段。'}));sync.composition(false);await sync.flush();
+ assert.equal(sync.state.value.content,'甲段改写中文。\n\n乙段新。');assert.equal(sync.state.base.revision,3);
+ assert.deepEqual(writes,['甲段改。\n\n乙段。','甲段改写中文。\n\n乙段新。']);
+});
+
+test('an overlapping remote edit is exposed only after composition, preserving the final author text',async t=>{
+ let release;const gate=new Promise(resolve=>release=resolve),remote={...initial,revision:2,content:'AI 的走向'};
+ const {sync}=setup(t,{read:async()=>remote,write:async()=>{await gate;throw Object.assign(new Error('conflict'),{code:'CONFLICT'});}});
+ sync.change(v=>({...v,content:'作者的走向'}));const saving=sync.flush();sync.composition(true);sync.change(v=>({...v,content:'作者的zhong文'}));release();await saving;
+ assert.equal(sync.state.remote,null);assert.equal(sync.state.base.revision,1);
+ sync.change(v=>({...v,content:'作者的中文定稿'}));sync.composition(false);await sync.flush();
+ assert.equal(sync.state.phase,'conflict');assert.equal(sync.state.value.content,'作者的中文定稿');assert.equal(sync.state.remote.content,'AI 的走向');
 });
 test('failed writes retain the draft and retry the same request identity',async t=>{
  let fail=true;const ids=[];const {sync}=setup(t,{write:async(value,base,id)=>{ids.push(id);if(fail)throw new Error('offline');return {...value,revision:2};}});

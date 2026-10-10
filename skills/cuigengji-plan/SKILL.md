@@ -1,11 +1,25 @@
 ---
 name: cuigengji-plan
-description: 和作者讨论情节走向，更新或续接共享流程图，处理分支、独立页面、画布批注、分组、正文关联与协作冲突。
+description: 讨论剧情走向、人物行动、因果或备选方案时使用；主动把结构性讨论维护到相关共享画布页，用事件、并行动线与分支帮助作者对齐思路。
 ---
 
 # 共同讨论与维护剧情流程图
 
-规划区用于展示“当前处境 → 选择/行动 → 后果/新问题”。聊天讨论细节，图保留可继续使用的情节与未决路线，不是聊天逐条归档区。作者明确要求只聊不改时只读取；授权整理、推进或修改规划后，才更新对应节点。
+规划区用于展示“当前处境 → 选择/行动 → 后果/新问题”，是与作者共同思考的工作台。作者讨论具体剧情结构、行动因果或比较走向时，主动把核心结构维护在相关画布页，无需等他点名画布。明确只聊不改/不保存、简单问答或只读审阅时只读取。
+
+## 讨论时默认怎么协作
+
+先用页面名称和摘要找到本次讨论的位置，按需读已有事件与关系。拿出有实质内容的推演后，把当前处境、可选行动、后果和未决问题更新到这一页，再在聊天中说明重点；后续反馈继续修改同一张图。不要等整套大纲谈妥才画，也不把聊天逐句归档。
+
+例如作者问“码头决战怎么写更有张力”，主动组织各方目标与行动，分行展示并行推进，在真实交汇处汇合；两种走向画成分支，代价写在摘要，待解问题放便签。复杂局部讨论可有专页，主线保留目标与结果。页按事件或讨论任务组织，不随章号或每轮反馈新建。
+
+新提案用 idea，作者明确采用后才用 selected。画图不会自动改正文、确定结局或改人物事实。只更新这轮真正发生变化的部分，保留作者已有布局；简单顺序情节可以是一条线，结构由故事决定。
+
+## 节点是情节单元，不是章节目录
+
+节点承载一个能独立讨论和继续使用的事件、冲突、人物选择、关键转折或阶段目标。按情节的用途拆分，不按章节数、字数或聊天次数拆分：一个章节可以实现多个节点，一个跨章事件也可以保留为一个节点。长线伏笔、尚未采用的分歧可以长期保留，不需要为它们预先分配章节。
+
+先想清楚本次讨论的结构，再选工具。顺序推进可以是一条线；同时发生的人物行动放在不同横行，有共同后果时汇入同一节点；互斥方案从同一处境分叉，摘要说清各自代价。连线表达前因后果、依赖或选择，不表达“章节编号相邻”。
 
 ## 定位与决定怎么改
 
@@ -18,7 +32,8 @@ description: 和作者讨论情节走向，更新或续接共享流程图，处�
 | 需要做的事 | 操作 |
 | --- | --- |
 | 补充原有情节 | `planning.apply` 中 `node.update {id,expectedRevision,value}`；只提交要改的字段 |
-| 接续独立的下一步 | `planning.continue {nodeId,expectedRevision,requestId,value}`，同时创建新节点和普通箭头，默认继承起点页面与分组；`side:"in"` 可补前置事件，默认 out 续接后续 |
+| 从一个起点接出下一事件 | `planning.continue {nodeId,expectedRevision,requestId,value}`，同时创建新节点和普通箭头，默认继承起点页面与分组；`side:"in"` 可补前置事件，默认 out 续接后续 |
+| 多方行动与共同后果 | 一次 `planning.apply` 新建相关事件及连线，按不同横行布局；多个前因连向同一个后果节点，不为每条线重复创建高潮 |
 | 两种未定走向 | 同一起点连接两个具体事件；新节点用 `idea`，标题/摘要交代差别；不要要求作者填写边类型 |
 | 连上已有节点 | 先检查是否已有边，再 `planning.apply` 的 `edge.create {value:{from,to}}` |
 | 取消连线 | `edge.delete {id,expectedRevision,confirm:true}`，不删除两个节点 |
@@ -27,7 +42,7 @@ description: 和作者讨论情节走向，更新或续接共享流程图，处�
 | 查作者或 AI 的改动 | 已知 sequence 时按需 `planning.changes {after,nodeId?,limit}`；回顾用 `planning.history {nodeId?,offset,limit}` |
 | 撤销一次图修改 | 查明影响后 `planning.revert {transactionId,requestId}`；有后续改动导致冲突时不强行回滚 |
 
-独立故事线可以有自己的起点；不要为了让所有节点相连而编造因果，也不要按创建时间把旧节点串成一条线。连线不允许自环或循环。
+独立行动、待定构想和伏笔可以有自己的起点，之后发现真实关联再连线。图的结构取决于故事，不为了凑网状图编造因果，也不按创建时间把旧节点串成一条线。连线不允许自环或循环。
 
 删除节点用 apply 的 `node.delete {id,expectedRevision,confirm:true}`，同时移除相连的边；有下级节点时指定 childPolicy:detach（保留下级并移出）或 subtree（一起删除）。作者要删整段路线时先读清范围，并把读到的 sequence 放在 args.expectedSequence 中，避免并行更新扩大删除范围。放弃一个方案通常只需标 dropped。
 
@@ -36,19 +51,22 @@ description: 和作者讨论情节走向，更新或续接共享流程图，处�
 - **标题**让作者一眼看懂事件，例如“发现假账，暂时隐瞒”。
 - **摘要**写触发原因和发生的变化，便于扫图、检索；不要把全文挤进摘要。
 - **正文**自由组织动机、细节、伏笔、分歧和待解问题，不强制套模板。
-- `idea`：还在讨论；`selected`：作者决定采用；`written`：已在保存的正文中实现；`dropped`：暂不采用。不要因自己提出了方案就标 selected，也不要把备选当成已发生事实。
+- `idea`：还在讨论；`selected`：作者决定采用；`written`：这个节点的情节已在保存的正文中完整实现；`dropped`：暂不采用。不要因自己提出了方案就标 selected，也不要把备选当成已发生事实。
+- `written` 是落地证据标记，不是每个节点都要达到的终点。未关联章节的构想或伏笔可以长期保持 idea/selected；部分实现时在正文中记下已落地内容和剩余问题，保留合适的讨论状态。
 
 分组是检索目录，不是故事中的关系；规划分组和设定分组有各自的 ID，不能混用。用 `planning.group.create {name,summary?,requestId}` 建组，修改/删除用 groupId 和 expectedRevision，删除还需 confirm:true。删除组保留节点并移到未分组；分组调整后成员 revision 可能改变，应重新读取。日常协作不依赖旧 parentId 层级；保留已有层级与位置，不顺手整理作者的画布。
 
 ## 页面与画布批注
 
 - `planning.pages {}` 返回页面 ID、名称、用途摘要和内容数量。默认“主线规划”的 pageId 为 null；未传 pageId 的 list/search 为全局检索，日常讨论用选定的 pageId 只读这一页。UI 当前选页不是 Agent 隐式上下文，不要猜测，应根据作者提到的情节、页名和摘要定位。
-- 与旧情节关系不大的新篇章或独立讨论，用 `planning.page.create {name,summary,requestId}` 创建独立页；同一事件的补充留在原页原节点。创建节点明确带 value.pageId；`planning.continue` 强制继承起点页面，避免续接散落。
+- 页面也是局部推演工作台。作者要求设计一场决战、推演多方博弈或比较复杂方案时，先查是否已有相关页；需要展开较多细节时主动新建“码头决战推演”这类专页，不必等到新卷或外传。主线保留该事件的目标、结果与详细页名称，细节在专页展开；跨页通过文字指路，不建立跨页边。独立新篇章也可新建页，同一事件的小补充仍留在原节点。创建节点明确带 value.pageId；`planning.continue` 强制继承起点页面。
 - 页面用于隔离画布，分组用于页内筛选，不能互相替代。跨页不能连线或建立父子层级。迁移完整路线时在同一 apply 更新所有相关节点的 pageId；迁移局部时先核对并删除跨页边、断开跨页 parentId。保留节点正文、引用和页内边。改名/摘要用 `planning.page.update {pageId,expectedRevision,name?,summary?,requestId}`；page.delete 仅删除空页，仍需 expectedRevision、confirm:true、requestId。
 - `planning.decorations {pageId,offset,limit}` 读取本页文字批注和讨论框（items、nextOffset）。讨论时按需读作者的问题、备选说明和区域标题；这些不是正式情节节点或已发生事实。不能用批注代替情节节点，也不能只凭卡片位置推断因果关系。
+- 推演时主动让画布便于审阅：多个步骤组成一个阶段，或需要区分不同阵营时，用 `frame` 加区域标题；作者提出待解问题、关键台词、伏笔或名场面灵感时，在相关事件旁用 `note` 留下必要的短注。内容已有记录就更新，简单情节不必加框，也不逐条抄录聊天。继续讨论时读相关框与便签，将已解决问题更新或删去。
 - `planning.apply` 支持 `decoration.create {ref?,value}`、`decoration.update {id,expectedRevision,value}`、`decoration.delete {id,expectedRevision,confirm:true}`。value 可含 pageId、kind:note/frame、title、content、position:{x,y}、width、height、color:neutral/sand/sage/sky/rose、fontSize:14/18/24/32、fontFamily:sans/serif、moveContents:boolean。坐标为有限数值，可正可负；宽度 160–6000，高度 80–6000。更新只提交需要的字段；同样支持事务撤销、版本冲突和导入导出。
 - 讨论框用于圈出一片讨论区域，分组用于检索，二者独立。新建框可设 moveContents:true，让作者拖框时带动内部卡片与批注；旧框没有该字段时只移动自身。删除框保留情节与连线。工具直接更新框的 position 只移动框本身；要整体搬动，先冻结要移动的对象列表，在同一个 apply 中更新框及每个成员的坐标和 expectedRevision。
 - 作者的视口、缩放与选择只存在本机偏好中，不是作品事实，也不作为 Agent 上下文。除非本次授权整理布局，保留已有节点坐标与外观；新增内容不触发自动重排。多对象调整用一次 apply，任一版本冲突就不提交，重新读取后合并，不能用新 revision 强行覆盖旧草稿。
+- 新建内容由 Agent 安排清晰的位置：横向表示推进阶段，纵向区分同时发生的动线，汇合节点位于相关动线右侧。卡片约 224 × 144，留出箭头、框标题和便签的位置；坐标单位为画布像素，可正可负，x/y 必须为数值。
 
 创建独立页及讨论材料可以一次完成；后续用 mapping 返回的真实 ID：
 
@@ -56,9 +74,36 @@ description: 和作者讨论情节走向，更新或续接共享流程图，处�
 {"action":"planning.apply","args":{"requestId":"new-independent-page-unique","reason":"另开一页讨论远行篇，不混入当前路线","operations":[{"op":"page.create","ref":"journey","value":{"name":"远行篇 · 讨论","summary":"离开雨城后的独立情节，还未决定采用。"}},{"op":"node.create","ref":"arrival","value":{"pageId":"journey","title":"抵达陌生港口","summary":"旅途的第一处落脚点，先核对人物目标。","content":"这是备选事件，具体冲突等待作者讨论。","position":{"x":100,"y":120}}},{"op":"decoration.create","ref":"question","value":{"pageId":"journey","kind":"note","title":"待讨论","content":"这一段的驱动力来自人物主动选择，还是外界压力？","position":{"x":420,"y":120},"color":"sand","fontSize":18}}]}}
 ```
 
+例如作者要求共同设计一场码头决战：主角潜入、守方设伏、第三方断电各自推进，最终汇入“黑暗中抢夺账本”。这是一张局部沙盘，不是七章目录；事件未落地时都可保持 idea，不挂 chapterRefs。三个框区分行动方，便签保留待决定的问题。以下示例演示三线汇合，按实际剧情取舍，不是每次规划都要套用的模板：
+
+```json
+{"action":"planning.apply","args":{"requestId":"dock-sandbox-unique","reason":"用局部沙盘推演三方行动及交汇点","operations":[
+  {"op":"page.create","ref":"dock","value":{"name":"码头决战推演","summary":"主角、守方和第三方的行动如何交汇；方案尚未采用。"}},
+  {"op":"decoration.create","ref":"hero-frame","value":{"pageId":"dock","kind":"frame","title":"主角 · 取回账本","position":{"x":60,"y":100},"width":660,"height":240,"color":"sky","moveContents":true}},
+  {"op":"decoration.create","ref":"guard-frame","value":{"pageId":"dock","kind":"frame","title":"守方 · 诱敌入局","position":{"x":60,"y":360},"width":660,"height":240,"color":"rose","moveContents":true}},
+  {"op":"decoration.create","ref":"third-frame","value":{"pageId":"dock","kind":"frame","title":"第三方 · 借乱行动","position":{"x":60,"y":620},"width":660,"height":240,"color":"sage","moveContents":true}},
+  {"op":"node.create","ref":"infiltrate","value":{"pageId":"dock","title":"主角潜入仓库","summary":"为找回账本绕开正门，进入守方视线。","content":"讨论入口与主角掌握的信息。","threads":["主角"],"position":{"x":100,"y":160}}},
+  {"op":"node.create","ref":"alarm","value":{"pageId":"dock","title":"发现诱饵，触发警报","summary":"假账本暴露陷阱，主角必须改变路线。","content":"让警报来自识破诱饵后的行动，避免无缘无故暴露。","threads":["主角"],"position":{"x":420,"y":160}}},
+  {"op":"node.create","ref":"ambush","value":{"pageId":"dock","title":"守方布置诱饵","summary":"以假账本吸引潜入者，真账本另有人看守。","content":"推演守方目标与行动依据。","threads":["守方"],"position":{"x":100,"y":420}}},
+  {"op":"node.create","ref":"block","value":{"pageId":"dock","title":"警报后封锁出口","summary":"守方从伏击转为围堵，压缩主角选择。","content":"核对封锁需要的时间，以及守方不知道的信息。","threads":["守方"],"position":{"x":420,"y":420}}},
+  {"op":"node.create","ref":"observe","value":{"pageId":"dock","title":"第三方等候交火","summary":"借两方冲突制造夺取账本的机会。","content":"第三方另有目标，不默认与主角合作。","threads":["第三方"],"position":{"x":100,"y":680}}},
+  {"op":"node.create","ref":"blackout","value":{"pageId":"dock","title":"趁封锁切断照明","summary":"断电打乱围堵，也给第三方靠近账本的机会。","content":"让断电有行动成本与事先准备。","threads":["第三方"],"position":{"x":420,"y":680}}},
+  {"op":"node.create","ref":"converge","value":{"pageId":"dock","title":"黑暗中抢夺账本","summary":"警报、围堵与断电汇合，三方在同一处正面冲突。","content":"共同讨论谁先拿到账本、谁付出代价，以及冲突留下的后果。","position":{"x":820,"y":420}}},
+  {"op":"edge.create","value":{"from":"infiltrate","to":"alarm"}},
+  {"op":"edge.create","value":{"from":"ambush","to":"block"}},
+  {"op":"edge.create","value":{"from":"observe","to":"blackout"}},
+  {"op":"edge.create","value":{"from":"alarm","to":"converge"}},
+  {"op":"edge.create","value":{"from":"block","to":"converge"}},
+  {"op":"edge.create","value":{"from":"blackout","to":"converge"}},
+  {"op":"decoration.create","ref":"choice","value":{"pageId":"dock","kind":"note","title":"结局待讨论","content":"账本完整带走，还是付出损失才能保住关键证据？选定后更新汇合节点。","position":{"x":820,"y":640},"color":"sand","fontSize":18}}
+]}}
+```
+
 ## 调用示例
 
 示例中的大写 ID 是占位说明，必须换成查询返回的真实 ID；revision=1 仅是假设读到的版本。每个 requestId 换成该操作唯一的值；真正重试原请求时保持不变。
+
+`planning.apply` 的操作形状是 `{op,id,expectedRevision,value}`：`op`、`id`、`expectedRevision` 同层，`value` 只放要改的内容。单条 get/continue 用 args.nodeId，apply 内修改节点用 operations[].id。一次 apply 为一个事务，任一步失败全部不保存。收到版本冲突后读取最新节点，合并实际差异后再提交，不只修改 expectedRevision 原样覆盖；其他参数错误按提示纠正。
 
 补充原节点，不新建备忘录。`value` 中省略的字段保留：
 
@@ -72,16 +117,18 @@ description: 和作者讨论情节走向，更新或续接共享流程图，处�
 {"action":"planning.continue","args":{"nodeId":"SCENE_ID","expectedRevision":1,"requestId":"continue-scene-unique","value":{"title":"暗中跟踪送账人","summary":"送账人没有回账房，而是走向废弃码头。","content":"这是尚未采用的下一步：跟踪可能找到幕后人，也可能让主角暴露。","status":"idea"}}}
 ```
 
-插入中间事件。`clue` 是本次事务的 ref，直接使用这个字符串，不加 `$`；只在本次 apply 内有效，之后用返回 mapping 里的真实 ID：
+插入中间事件。SCENE_PAGE_ID 使用起点实际 pageId（默认页为 null），不能省略独立页的归属。`clue` 是本次事务的 ref，直接使用这个字符串，不加 `$`；只在本次 apply 内有效，之后用返回 mapping 里的真实 ID：
 
 ```json
-{"action":"planning.apply","args":{"requestId":"insert-scene-unique","reason":"在发现假账与追查码头之间补上线索","operations":[{"op":"node.create","ref":"clue","value":{"title":"核对送账时间","summary":"账本时间与码头收据不符，提供追查方向。","content":"由人物主动核对得出线索，避免突然知道目的地。","groupId":"PLAN_GROUP_ID","status":"idea"}},{"op":"edge.delete","id":"DIRECT_EDGE_ID","expectedRevision":1,"confirm":true},{"op":"edge.create","value":{"from":"SCENE_ID","to":"clue"}},{"op":"edge.create","value":{"from":"clue","to":"NEXT_SCENE_ID"}}]}}
+{"action":"planning.apply","args":{"requestId":"insert-scene-unique","reason":"在发现假账与追查码头之间补上线索","operations":[{"op":"node.create","ref":"clue","value":{"pageId":"SCENE_PAGE_ID","title":"核对送账时间","summary":"账本时间与码头收据不符，提供追查方向。","content":"由人物主动核对得出线索，避免突然知道目的地。","groupId":"PLAN_GROUP_ID","status":"idea"}},{"op":"edge.delete","id":"DIRECT_EDGE_ID","expectedRevision":1,"confirm":true},{"op":"edge.create","value":{"from":"SCENE_ID","to":"clue"}},{"op":"edge.create","value":{"from":"clue","to":"NEXT_SCENE_ID"}}]}}
 ```
 
 apply 返回 mapping、changed、sequence 和 transactionId，不是节点全文；continue 返回新 node 的元数据及 from。保存后按需 `planning.get` 核对内容和前后关系。
 
 ## 与正文、设定协作
 
-`memoryRefs` 放相关设定节点 ID，`chapterRefs` 放 `{chapterId,revision}`；增补这些数组时保留已有引用。真正写入正文后，读取已保存章节版本，再更新对应节点的 chapterRefs 和 written 状态；工具要求 written 至少有一个正文版本引用。部分实现的情节在节点正文中说明剩余部分，不把整条路线标成完成。
+`memoryRefs` 放相关设定节点 ID，`chapterRefs` 放 `{chapterId,revision}`；增补这些数组时保留已有引用。这是多对多的落地证据：多个情节节点可以引用同一章，一个情节节点可以引用多章，不能据此反推节点必须等于章节。
+
+正文保存后，只核对这次实际涉及的事件；读到已保存章节版本后补充对应引用。完整实现的节点才标 written，工具要求至少有一个有效正文版本引用；部分实现的节点说明剩余内容，未涉及的伏笔、备选与推演不改状态。无需为每章新建规划节点，也不要求每个节点最终都关联正文。
 
 不要因为改了规划就连锁重写正文或改人物事实。来源正文被作者修改后，对相关节点按需核对引用与意图；只调整受影响部分。历史引用本身可以保留，不为了看起来“最新”而机械换版本。

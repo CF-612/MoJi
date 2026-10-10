@@ -1,0 +1,7 @@
+{
+  "publicCommit": "3edeccf59d95b590211f4a0f5cc61631f58636cf",
+  "pluginVersion": "0.3.13",
+  "synthetic": true,
+  "sha256": "ea4c02c901c4a2e42501ab161236735a400f6beca8592140e91a91fef52a5300",
+  "generationScript": "scripts/generate-upgrade-fixture.mjs"
+}

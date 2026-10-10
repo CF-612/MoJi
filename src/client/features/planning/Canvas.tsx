@@ -7,6 +7,11 @@ import {DecorationCard} from './Decorations.tsx';
 import {CanvasMenu} from './CanvasMenu.tsx';
 import type {MenuItem} from './CanvasMenu.tsx';
 import type {Decoration,NodeIndex,PlanningEdge,PlanningGroup,Point} from '../../../contracts/planning.ts';
+import {CanvasDraft} from './CanvasDraft.tsx';
+import type {CanvasCreation,CanvasDraftValue} from './CanvasDraft.tsx';
+import {SceneCard} from './SceneCard.tsx';
+import {DecorationInlineEditor} from './DecorationInlineEditor.tsx';
+import {CanvasSelectionTools} from '../../shared/CanvasSelectionTools.tsx';
 interface Props {
   nodes:NodeIndex[];allNodes:NodeIndex[];edges:PlanningEdge[];groups:PlanningGroup[];decorations:Decoration[];
   scopeKey:string;filtered:boolean;emptyMessage?:string|null;seen:number;busy:boolean;
@@ -21,6 +26,9 @@ interface Props {
   onRemove:(ids:string[])=>void;onDuplicate:(ids:string[],points?:Record<string,Point>)=>void;
   onMove:(ids:string[],groupId:string|null)=>void;
   onReady:(center:()=>Point)=>void;
+  creation:CanvasCreation|null;saveCreation:(value:CanvasDraftValue,requestId:string)=>Promise<boolean|undefined>;cancelCreation:()=>void;
+  editingDecoration:Decoration|null;saveDecoration:(value:Decoration,requestId:string)=>Promise<boolean|undefined>;closeDecoration:()=>void;
+  focusId?:string|null;focused:()=>void;
 }
 export function PlanningCanvas(props:Props){
   const {nodes,allNodes,edges,groups,decorations,busy,filtered,onSelect,onLayout,onConnect,onDisconnect,onNew,onDecorate,onEditDecoration}=props;
@@ -36,6 +44,9 @@ export function PlanningCanvas(props:Props){
   const graph=useGraph({nodes:objects,edges,fallback,busy,scopeKey:props.scopeKey,acyclic:true,onLayout,onConnect,onContext:setMenu,onCreateConnected:(id,side,point)=>onNew(point,{id,side}),onFrame:createFrame,visibleIds:[...nodes.map(n=>n.id),...(!filtered?decorations.map(d=>d.id):[])]});
   const {points,zoom}=graph;
   useEffect(()=>{props.onReady(graph.centerPoint);});
+  useEffect(()=>{if(props.creation)graph.ensureVisible(props.creation.position,280,250);},[props.creation?.key]);
+  useEffect(()=>{if(props.editingDecoration&&points[props.editingDecoration.id])graph.ensureVisible(points[props.editingDecoration.id],280,300);},[props.editingDecoration?.id]);
+  useEffect(()=>{if(props.focusId&&objects.some(n=>n.id===props.focusId)){graph.select([props.focusId]);props.focused();}},[props.focusId,objects]);
   const visibleDecorations=decorations.filter(d=>!filtered||(d.kind==='frame'&&nodes.some(n=>contains({...points[d.id],width:d.width,height:d.height},{...points[n.id],width:CARD_WIDTH,height:CARD_HEIGHT}))));
   const ids=new Set(nodes.map(n=>n.id)),links=edges.filter(e=>ids.has(e.from)&&ids.has(e.to));
   const drawn=[...nodes,...visibleDecorations],left=Math.min(-200,...drawn.map(n=>points[n.id].x-180)),top=Math.min(-200,...drawn.map(n=>points[n.id].y-180));
@@ -61,12 +72,13 @@ export function PlanningCanvas(props:Props){
         {links.map(e=>{const a=points[e.from],b=points[e.to],path=curve({x:a.x+CARD_WIDTH,y:a.y+PORT_Y},{x:b.x,y:b.y+PORT_Y});return <g key={e.id} className={graph.selectedEdge===e.id?'edge-selected':''}><path d={path} className="graph-line" markerEnd={`url(#${marker})`}/><path data-edge-id={e.id} className="edge-hit" d={path} role="button" tabIndex={0} aria-label={`连线：${nodes.find(n=>n.id===e.from)?.title} → ${nodes.find(n=>n.id===e.to)?.title}`} aria-pressed={graph.selectedEdge===e.id} onClick={()=>graph.setSelectedEdge(e.id)} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();graph.setSelectedEdge(e.id);}}}/></g>;})}
         {graph.preview&&<path className="graph-preview" d={graph.preview}/>}
       </svg>
-      {nodes.map(n=><section key={n.id} data-node-id={n.id} aria-label={n.title} {...graph.cardProps(n.id,()=>onSelect(n.id))} className={`planning-card ${graph.selected.includes(n.id)?'selected':''}`} style={{left:points[n.id].x,top:points[n.id].y}}>
-        <button {...graph.portProps(n.id,'in',n.title)}/><button {...graph.portProps(n.id,'out',n.title)}/><button className="planning-title" title={n.title}>{n.title}</button><p title={n.summary}>{n.summary||'双击展开这个情节'}</p>{n.status!=='idea'&&<span className={`planning-state state-${n.status}`}>{{selected:'准备采用',written:'已写入正文',dropped:'暂不采用'}[n.status]}</span>}
-      </section>)}
+      {nodes.map(n=><SceneCard key={n.id} node={n} point={points[n.id]} selected={graph.selected.includes(n.id)} dragProps={graph.cardProps(n.id,()=>onSelect(n.id))} inPort={graph.portProps(n.id,'in',n.title)} outPort={graph.portProps(n.id,'out',n.title)}/>)}
+      {props.creation&&<CanvasDraft key={props.creation.key} creation={props.creation} draftKey={`${props.scopeKey}:create:${props.creation.kind}:${props.creation.source?.id||'new'}`} busy={busy} save={props.saveCreation} close={props.cancelCreation}/>}
+      {props.editingDecoration&&points[props.editingDecoration.id]&&<DecorationInlineEditor key={props.editingDecoration.id} initial={props.editingDecoration} latest={decorations.find(d=>d.id===props.editingDecoration!.id)} point={points[props.editingDecoration.id]} scopeKey={props.scopeKey} busy={busy} save={props.saveDecoration} close={props.closeDecoration}/>}
     </div>
-    {!drawn.length&&<p className="canvas-empty">{props.emptyMessage||'右键开始新的情节'}</p>}
+    {!drawn.length&&!props.creation&&<p className="canvas-empty">{props.emptyMessage||'右键开始新的情节'}</p>}
     {graph.lasso&&<div className="graph-lasso" style={{left:graph.lasso.x,top:graph.lasso.y,width:graph.lasso.width,height:graph.lasso.height}}/>}
     <GraphControls graph={graph} busy={busy}/>
+    {!graph.selectedEdge&&!graph.wire&&<CanvasSelectionTools selected={graph.selected.filter(id=>drawn.some(n=>n.id===id))} nodeIds={graph.selected.filter(id=>nodes.some(n=>n.id===id))} groups={groups} busy={busy||graph.saving||graph.failed} clear={()=>graph.select([])} move={groupId=>props.onMove(graph.selected.filter(id=>nodes.some(n=>n.id===id)),groupId)} duplicate={()=>props.onDuplicate(graph.selected.filter(id=>nodes.some(n=>n.id===id)),points)} remove={()=>props.onRemove(graph.selected.filter(id=>drawn.some(n=>n.id===id)))} frame={()=>createFrame(graph.selected)}/>}
   </div>{menu&&<CanvasMenu {...menu} items={items} close={()=>{setMenu(null);graph.scroll.current?.focus({preventScroll:true});}}/>}</>;
 }

@@ -7,14 +7,17 @@ import { styles } from './style.ts';
 import { DialogProvider, useDialog } from './dialog.tsx';
 import { LocaleContext, registerLocale } from './locale.js';
 import { Memory } from './features/memory/index.jsx';
-import { Manage } from './features/manage/index.jsx';
-import { WorkDataPage } from './features/work-data/index.tsx';
+import { Manage } from './features/manage/index.tsx';
+import { TransferPage } from './features/transfer/index.tsx';
+import {Welcome} from './features/welcome/index.tsx';
 import { Chapters } from './features/chapters/index.jsx';
 import { Planning } from './features/planning/index.jsx';
-import { Preset } from './features/preset/index.jsx';
+import { Preset } from './features/preset/index.tsx';
 import { SessionScope, usePreference, useResource } from './shared/state.js';
 import { ResourceState } from './shared/ui.jsx';
 import { Launcher } from './launcher.tsx';
+import {WorkbenchHeader} from './shared/WorkbenchHeader.tsx';
+import {RefreshProvider, useWorkbenchRefresh} from './shared/refresh.tsx';
 
 const ID = 'dsh-cuigengji';
 const RPC_ENDPOINT = 'cuigengji/dispatch';
@@ -55,21 +58,27 @@ export function applyWithRPC(ctx, rpc) {
 }
 
 export function Workbench(props) {
-  return <SessionScope.Provider value={props.sessionId}><PreferencesProvider><DialogProvider><WorkbenchContent {...props} /></DialogProvider></PreferencesProvider></SessionScope.Provider>;
+  return <SessionScope.Provider value={props.sessionId}><RefreshProvider><PreferencesProvider><DialogProvider><WorkbenchContent {...props} /></DialogProvider></PreferencesProvider></RefreshProvider></SessionScope.Provider>;
 }
 
 function WorkbenchContent({ sessionId, rpc }) {
   const {preferences}=useWorkbenchPreferences();
+  const {refresh}=useWorkbenchRefresh();
   const [utility,setUtility]=useState(null);
+  const [homeOpen,setHomeOpen]=useState(false);
   const [tab, setTab] = usePreference('page', 'chapters');
+  const [managementReturn, setManagementReturn] = usePreference('management-return', 'chapters');
   useEffect(()=>{if(tab==='context')setTab('chapters');},[tab]);
   const [returnTarget,setReturnTarget]=useState(null);
+  const [transferInitial,setTransferInitial]=useState(null);
+  const [transferVisit,setTransferVisit]=useState(0);
   const [error, setError] = useState(''), [busy, setBusy] = useState(false), [tick, setTick] = useState(0);
   const { ask } = useDialog();
   const call = useCallback((action, args = {}) => rpc(action, args, sessionId), [rpc, sessionId]);
   const resource = useResource(() => Promise.all([call('novel.list'), call('binding.get')]), [call, tick]);
   const [books = [], binding = null] = resource.value || [];
   const novelId = binding?.novelId, novel = books.find(n => n.id === novelId);
+  const showHome=homeOpen||(!novelId&&!['data','manage'].includes(tab));
   useEffect(()=>{
     const outside=event=>{document.querySelectorAll('.cuigengji details.menu[open]').forEach(menu=>{if(!menu.contains(event.target))menu.open=false;});};
     const escape=event=>{if(event.key==='Escape'){document.querySelectorAll('.cuigengji details.menu[open]').forEach(menu=>{menu.open=false;menu.querySelector('summary')?.focus();});}};
@@ -86,34 +95,30 @@ function WorkbenchContent({ sessionId, rpc }) {
     catch (e) { setError(message(e)); return false; }
     finally { running.current = false; setBusy(false); }
   };
-  const create = async () => { const title = await ask('作品名称'); if (title?.trim()) run(async () => { const n = await call('novel.create', { title }); await call('binding.set', { novelId: n.id }); setTab('chapters'); }); };
-  const openNovel=id=>run(async()=>{await call('binding.set',{novelId:id});setTab('chapters');setReturnTarget(null);});
+  const create = async () => { const title = await ask('作品名称'); if (title?.trim()) run(async () => { const n = await call('novel.create', { title }); await call('binding.set', { novelId: n.id }); setHomeOpen(false);setTab('chapters'); }); };
+  const openNovel=id=>run(async()=>{await call('binding.set',{novelId:id});setHomeOpen(false);setTab('chapters');setReturnTarget(null);});
+  const openManagement=page=>{if(homeOpen||!novelId)setManagementReturn('welcome');else if(['chapters','plan','memory'].includes(tab))setManagementReturn(tab);setHomeOpen(false);setReturnTarget(null);setTab(page);};
+  const openTransfer=initial=>{if(homeOpen||!novelId)setManagementReturn('welcome');else if(['chapters','plan','memory','preset','manage'].includes(tab))setManagementReturn(tab);setHomeOpen(false);setTransferInitial(initial);setTransferVisit(value=>value+1);setReturnTarget(null);setTab('data');};
+  const returnFromManagement=()=>{setReturnTarget(null);setHomeOpen(managementReturn==='welcome');setTab(['chapters','plan','memory','preset','manage'].includes(managementReturn)?managementReturn:'chapters');};
+  const managementBack={onBack:returnFromManagement,backLabel:managementReturn==='welcome'?'返回作品首页':novelId?'返回'+({plan:'规划',memory:'设定',chapters:'正文',preset:'写作预设',manage:'作品与备份'}[managementReturn]||'正文'):'返回作品选择'};
   const jump=(page,key,id)=>{setReturnTarget(tab);try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:${key}`,JSON.stringify(id));}catch{}setTab(page);};
   return <section className="cuigengji" data-motion={preferences.motion} style={{'--prose-size':`${preferences.fontSize}px`,'--prose-leading':preferences.leading}} aria-label="催更姬小说工作台">
     <style>{styles}</style>
-    <header className="workbench-header">
-      <div className="identity"><div className="row compact header-row">
-        <select aria-label="绑定小说" className="book-picker grow" disabled={busy || !resource.value} value={novelId || ''} onChange={e => { if(e.target.value) openNovel(e.target.value); }}>
-          <option value="">选择作品</option>{books.map(n => <option key={n.id} value={n.id}>{n.title}</option>)}
-        </select><details className="menu"><summary aria-label="作品操作">···</summary><div className="menu-panel"><button onClick={create} disabled={busy}>新建作品</button><button onClick={()=>setTab('manage')}>作品与备份</button><button onClick={()=>setTab('preset')}>写作预设</button><button onClick={()=>setTab('data')}>工作数据 · 导入/导出</button><button onClick={resource.retry}>刷新作品</button></div></details><div className="app-actions"><button aria-label="设置" onClick={()=>setUtility('settings')}>设置</button><button aria-label="关于催更姬" onClick={()=>setUtility('about')}>关于</button></div>
-      </div></div>
-      {novelId && <nav aria-label="小说功能">{[['chapters','正文'],['plan','规划'],['memory','设定']].map(([id,label]) => <button key={id} aria-pressed={tab===id} className={tab===id?'selected':''} onClick={()=>{setReturnTarget(null);setTab(id);}}>{label}</button>)}</nav>}
-
-    </header>
+    <WorkbenchHeader home={showHome} novelTitle={novel?.title} tab={tab} busy={busy} refreshing={resource.loading} onHome={()=>{setHomeOpen(true);setReturnTarget(null);}} onTab={page=>{setReturnTarget(null);setTab(page);}} onRefresh={refresh} onSettings={()=>setUtility('settings')} onAbout={()=>setUtility('about')}/>
     {error && <div className="notice error" role="alert">{error}<button onClick={()=>setError('')}>关闭提示</button></div>}
 
     <ResourceState resource={resource}>
-      {tab==='data'?<div className="page"><WorkDataPage {...{call,run,busy}}/></div>:<>
-      {!novelId ? <div className="page">{tab==='manage'?<><button onClick={()=>setTab('chapters')}>‹ 返回作品选择</button><Manage {...{call,run,busy}} onOpen={openNovel}/></>:<div className="empty"><h2>从一本作品开始</h2><p>从上方选择作品，或创建一本。</p><div className="row"><button className="primary" onClick={create}>新建作品</button><button onClick={()=>setTab('manage')}>导入已有作品</button></div></div>}</div> : <div className="workbench-body" key={novelId}>{returnTarget&&<div className="return-strip"><button onClick={()=>{setTab(returnTarget);setReturnTarget(null);}}>‹ 返回{({plan:'规划',memory:'设定'})[returnTarget]||'上一页'}</button></div>}
-        {tab==='chapters' && <Chapters {...{call,novelId,tick,run,busy}}/>}
-        {tab==='memory' && <Memory {...{call,novelId,tick,run,busy}} onChapter={id=>jump('chapters','chapter',id)}/>}
-        {tab==='plan' && <Planning {...{call,novelId,tick,run,busy}} onMemory={id=>jump('memory','memory-selected',id)} onChapter={id=>jump('chapters','chapter',id)}/>}
-        {tab==='preset' && <Preset {...{call,novelId,run,busy}}/>}
-        {tab==='manage' && <div className="page"><Manage {...{call,novelId,novel,run,busy}} onOpen={openNovel}/></div>}
+      {homeOpen?<Welcome {...{books,busy}} onOpen={openNovel} onCreate={create} onImport={()=>openTransfer({mode:'import'})} onManage={()=>openManagement('manage')}/>:tab==='data'?<TransferPage key={transferVisit} {...{call,run,busy,novelId}} {...managementBack} initial={transferInitial} onOpen={openNovel}/>:<>
+      {!novelId ? (tab==='manage'?<Manage {...{call,run,busy}} {...managementBack} onTransfer={openTransfer}/>:<Welcome {...{books,busy}} onOpen={openNovel} onCreate={create} onImport={()=>openTransfer({mode:'import'})} onManage={()=>openManagement('manage')}/>) : <div className="workbench-body" key={novelId}>{returnTarget&&<div className="return-strip"><button onClick={()=>{setTab(returnTarget);setReturnTarget(null);}}>‹ 返回{({plan:'规划',memory:'设定'})[returnTarget]||'上一页'}</button></div>}
+        {tab==='chapters' && <Chapters {...{call,novelId,tick,run,busy}} onTransfer={openTransfer}/>}
+        {tab==='memory' && <Memory {...{call,novelId,tick,run,busy}} onTransfer={openTransfer} onChapter={id=>jump('chapters','chapter',id)}/>}
+        {tab==='plan' && <Planning {...{call,novelId,tick,run,busy}} onTransfer={openTransfer} onMemory={id=>jump('memory','memory-selected',id)} onChapter={id=>jump('chapters','chapter',id)}/>}
+        {tab==='preset' && <Preset {...{call,novelId,run,busy}} {...managementBack} onTransfer={openTransfer}/>}
+        {tab==='manage' && <Manage {...{call,novelId,novel,run,busy}} {...managementBack} onTransfer={openTransfer}/>}
       </div>}
       </>}
     </ResourceState>
-    {utility==='settings'&&<PreferencesDialog close={()=>setUtility(null)}/>}
+    {utility==='settings'&&<PreferencesDialog close={()=>setUtility(null)} novelTitle={novel?.title} onPreset={novelId?()=>{setUtility(null);openManagement('preset');}:undefined}/>}
     {utility==='about'&&<AboutDialog close={()=>setUtility(null)}/>}
   </section>;
 }

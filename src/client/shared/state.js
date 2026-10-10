@@ -1,5 +1,6 @@
 import { draftKey, restoreDraft, persistDraft, rebaseDraft } from './drafts.js';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import {useWorkbenchRefresh} from './refresh.tsx';
 const memoryDrafts = new Map();
 function initialDraft(key, entityKey, initial) {
   if (memoryDrafts.has(key)) return memoryDrafts.get(key);
@@ -64,6 +65,7 @@ export function useDraft(entityKey, initial) {
   return { value: state.value, base: state.base, change, accept, rebase, dirty, cacheError };
 }
 export function useResource(loader, deps) {
+  const refreshRevision = useWorkbenchRefresh().revision;
   const [state, setState] = useState({ value: null, error: '', loading: true });
   const [retry, setRetry] = useState(0);
   useEffect(() => {
@@ -71,7 +73,7 @@ export function useResource(loader, deps) {
     setState(s => ({ ...s, loading: true, error: '' }));
     Promise.resolve().then(loader).then(value => live && setState({ value, loading: false, error: '' }), error => live && setState(s => ({ ...s, loading: false, error: error.message || String(error) })));
     return () => { live = false; };
-  }, [...deps, retry]);
+  }, [...deps, retry, refreshRevision]);
   return { ...state, retry: () => setRetry(n => n + 1) };
 }
 

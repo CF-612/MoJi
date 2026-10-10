@@ -15,5 +15,8 @@ export const HUMAN_ACTIONS = Object.freeze([...new Set([
   ...Object.values(TOOL_ACTIONS).flat(), 'novel.list','novel.create','novel.import',
   'novel.export','novel.update','novel.archive','binding.set','settings.get','legacy.preview','tavern.preview','tavern.import',
   'preset.get','preset.preview','preset.set',
+  'chapter.move',
   'workspace.status','workspace.export','workspace.preview','workspace.import',
+  'transfer.catalog','transfer.inspect','transfer.preview','transfer.import','transfer.exportPreview','transfer.export',
+  'maintenance.status','maintenance.verify',
 ])]);

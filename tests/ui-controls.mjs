@@ -23,10 +23,10 @@ try {
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(url);
   expect(await page.evaluate(()=>CSS.supports('appearance','base-select'))).toBe(true);
-  const picker=page.getByLabel('绑定小说',{exact:true});
-  await picker.click(); await expect(picker).toHaveJSProperty('value',novelId);
-  expect(await picker.evaluate(el=>el.matches(':open'))).toBe(true);
-  await page.screenshot({path:join(shots,'books-900.png')});await page.keyboard.press('Escape');
+  await expect(page.getByLabel('绑定小说',{exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'作品首页',exact:true}).click();
+  await expect(page.locator('.welcome-book')).toHaveCount(1);
+  await page.screenshot({path:join(shots,'books-900.png')});await page.locator('.welcome-book').click();
   await page.getByRole('button',{name:'设定',exact:true}).click();
   const groups=page.getByLabel('设定分组',{exact:true});
   await groups.click();
@@ -69,7 +69,7 @@ try {
     function App(){const wide=useSource(width);return <><aside style={{width:wide?220:56,padding:12,background:'#f2f2ee',height:'100vh',boxSizing:'border-box',display:'flex',flexDirection:'column'}}><div>DSH</div><div style={{flex:1}}>新会话</div><entry.Component {...props} wide={wide} useNovelSession={select=>select(useSource(mounted))} useNovelWorkspaces={select=>select(useSource(workspaces))} useSessions={select=>select(useSource(sessions))}/><div>设置</div></aside><output/></>}
     const width=source(true);window.fixture={mode(value){mounted.set(value==='blank'?'blank':undefined);sessions.set({byId:value==='none'?{}:{blank:{id:'blank',blank:true,retainedBy:{mainView:1}}}})},compact:()=>width.set(false),fail:()=>{fail=true},recover:()=>{fail=false},stats:()=>({opened,connects,selected}),empty:()=>workspaces.set({phase:'ready',items:[]})};
     createRoot(document.getElementById('root')).render(<App/>);
-  `},bundle:true,write:false,format:'iife',define:{'process.env.NODE_ENV':'"development"'}});
+  `},bundle:true,write:false,format:'iife',loader:{'.png':'dataurl'},define:{'process.env.NODE_ENV':'"development"'}});
   server=createServer((req,res)=>{res.setHeader('content-type',req.url==='/bundle.js'?'text/javascript':'text/html');res.end(req.url==='/bundle.js'?bundle.outputFiles[0].contents:'<!doctype html><html><meta charset="utf-8"><style>body{margin:0;font:14px system-ui}#root{display:flex}output{padding:24px}</style><div id="root"></div><script src="/bundle.js"></script></html>');});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));await page.setViewportSize({width:900,height:650});await page.goto('http://127.0.0.1:'+server.address().port);
   const entry=page.getByRole('button',{name:'打开催更姬',exact:true});

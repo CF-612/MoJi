@@ -33,8 +33,27 @@ try {
     await drawer.locator('.chapter-directory').evaluate(el=>{el.scrollTop=el.scrollHeight;});
     await expect(close).toBeInViewport();await close.click();await reopen();
     await page.keyboard.press('Escape');await expect(drawer).toHaveCount(0);await reopen();
+    await expect(close).toBeFocused();await page.keyboard.press('Enter');await expect(drawer).toHaveCount(0);await reopen();
+    const box=await drawer.boundingBox(),outsideX=box.x+box.width+12;
+    await page.mouse.click(box.x+12,box.y+26);await expect(drawer).toBeVisible();
+    // A gesture that starts inside the drawer must not dismiss it on release outside.
+    await page.mouse.move(box.x+12,box.y+26);await page.mouse.down();await page.mouse.move(outsideX,300);await page.mouse.up();await expect(drawer).toBeVisible();
+    await page.mouse.click(outsideX,300);await expect(drawer).toHaveCount(0);
+    await expect(page.getByRole('button',{name:/^(打开目录|‹ 目录)$/})).toBeFocused();await reopen();
   }
+  // A DSH tab clips/transforms its subtree and sits below the title bar. The
+  // native modal still spans the viewport; verify coordinates outside that pane.
+  await page.setViewportSize({width:1280,height:820});
+  await page.evaluate(()=>{document.getElementById('root').style.cssText='position:absolute;inset:64px 0 0 auto;width:560px;overflow:hidden;transform:translateZ(0)';});
+  await expect(drawer).toBeVisible();
+  for(const y of [8,26,44]) {await page.mouse.click(300,y);await expect(drawer).toHaveCount(0);await reopen();}
+  await drawer.locator('.chapter-directory').evaluate(el=>{el.scrollTop=el.scrollHeight;});
+  await page.mouse.click(300,26);await expect(drawer).toHaveCount(0);await reopen();
+  await page.mouse.click(980,320);await expect(drawer).toHaveCount(0);await reopen();
+  await page.keyboard.press('Escape');
+  await page.evaluate(()=>{document.getElementById('root').style.cssText='';});
   await page.setViewportSize({width:390,height:780});
+  await reopen();
   await page.screenshot({path:join(shots,'drawer-light.png')});
   const verifyAccent=async expected=>expect(await page.locator('.cuigengji').first().evaluate(el=>getComputedStyle(el).getPropertyValue('--cg-accent').trim())).toBe(expected);
   await verifyAccent('#4d6bfe');
@@ -48,12 +67,12 @@ try {
   await page.getByRole('button',{name:'收起章节目录',exact:true}).click();
   await page.getByRole('button',{name:'展开章节目录',exact:true}).click();
   await page.getByRole('button',{name:'规划',exact:true}).click();
-  await expect(page.getByRole('button',{name:'主线规划',exact:false})).toBeVisible();
-  await expect(page.getByRole('button',{name:'＋ 规划',exact:true})).toHaveCSS('background-color','rgb(108, 138, 255)');
+  await expect(page.getByRole('combobox',{name:'规划页面',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'＋ 情节',exact:true})).toHaveCSS('background-color','rgb(108, 138, 255)');
   await page.screenshot({path:join(shots,'planning-dark.png')});
   await page.evaluate(()=>{document.documentElement.style.cssText='';});
-  await expect(page.getByRole('button',{name:'＋ 规划',exact:true})).toHaveCSS('background-color','rgb(77, 107, 254)');
+  await expect(page.getByRole('button',{name:'＋ 情节',exact:true})).toHaveCSS('background-color','rgb(77, 107, 254)');
   await page.screenshot({path:join(shots,'planning-light.png')});
   expect(errors).toEqual([]);
-  console.log(JSON.stringify({ok:true,checks:['drawer corners/center hit at 360/590/750px','close remains fixed while directory scrolls','Escape and desktop collapse','blue fallback and host dark accent']}));
+  console.log(JSON.stringify({ok:true,checks:['drawer corners/center hit at 360/590/750px','close remains fixed while directory scrolls','Enter, Escape, backdrop and focus return','inside-to-outside drag does not dismiss','embedded DSH pane: top/center/bottom hit coordinates','desktop collapse, blue fallback and host dark accent']}));
 } finally {await browser?.close();preview.kill();}

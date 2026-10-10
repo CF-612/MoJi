@@ -1,11 +1,13 @@
 import {readFile, readdir, mkdir, writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {createHash, randomUUID} from 'node:crypto';
+import {isDeepStrictEqual} from 'node:util';
+import {STORAGE_VERSION} from '../../infrastructure/persistence/project-layout.ts';
 
 const hash=value=>createHash('sha256').update(value).digest('hex');
 const fail=message=>{throw Object.assign(new Error(message),{code:'INVALID_WORKSPACE_BACKUP'});};
 const object=v=>v&&typeof v==='object'&&!Array.isArray(v);
-const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+const equal=isDeepStrictEqual;
 const counts=state=>({novels:Object.keys(state.novels).length,chapters:Object.values(state.novels).reduce((sum,n)=>sum+Object.values(n.chapters).filter(c=>!c.deleted).length,0),bindings:Object.keys(state.bindings).length});
 const allowed=path=>/^audit\/[a-f0-9]{64}\.jsonl$/.test(path)||/^before-planning-[a-f0-9]{64}\.json$/.test(path);
 
@@ -22,8 +24,9 @@ export class WorkData {
   }
   return result.sort((a,b)=>a.path.localeCompare(b.path));
  }
- async status(){return this.locked(async state=>({dataRoot:this.store.root,...counts(state),books:Object.values(state.novels).map(n=>({id:n.id,title:n.title,archived:n.archived})),included:['所有作品（含归档）、正文与历史版本、预设、规划与变更、人物世界资料','会话绑定、请求记录、操作日志和规划迁移备份'],excluded:['DSH 聊天记录、附件、API 密钥','浏览器未保存草稿和界面偏好']}));}
- async export(){return this.locked(async state=>{const payload={state,files:await this.files()};return {format:'cuigengji-workspace',version:1,exportedAt:new Date().toISOString(),summary:counts(state),sha256:hash(JSON.stringify(payload)),payload};});}
+ async status(){return this.locked(async state=>({dataRoot:this.store.root,storageVersion:STORAGE_VERSION,storageLayout:'named-project-files',...counts(state),books:Object.values(state.novels).map(n=>({id:n.id,title:n.title,archived:n.archived})),included:['所有作品（含归档）、正文与历史版本、预设、规划与变更、人物世界资料','按书名目录存放；章节、设定、规划页使用名称与稳定短 ID 命名','会话绑定、请求记录、操作日志和规划迁移备份'],excluded:['DSH 聊天记录、附件、API 密钥','浏览器未保存草稿和界面偏好']}));}
+ archive(state,files){const payload={state,files};return {format:'cuigengji-workspace',version:1,exportedAt:new Date().toISOString(),summary:counts(state),sha256:hash(JSON.stringify(payload)),payload};}
+ async export(){return this.locked(async state=>this.archive(state,await this.files()));}
  validate(backup){
   if(backup?.format!=='cuigengji-workspace'||backup.version!==1||!object(backup.payload))fail('不是支持的工作数据备份');
   const {state,files}=backup.payload;
@@ -49,8 +52,9 @@ export class WorkData {
   const {payload,report}=await this.plan(state,backup);if(report.conflicts.length)fail('存在冲突，未导入：'+report.conflicts.join('；'));
   const backupDir=join(this.store.root,'backups',`before-import-${Date.now()}-${randomUUID()}`);await mkdir(backupDir,{recursive:true});
   await writeFile(join(backupDir,'workspace.json'),JSON.stringify({state,files:await this.files()}),{flag:'wx',mode:0o600});
-  for(const f of payload.files){const path=join(this.store.root,f.path);let old;try{old=await readFile(path,'utf8');}catch(e){if(e.code!=='ENOENT')throw e;}if(old===undefined){await mkdir(join(this.store.root,'audit'),{recursive:true});await writeFile(path,f.content,{flag:'wx',mode:0o600});}else if(old!==f.content&&f.content.startsWith(old)){await writeFile(path,f.content,{mode:0o600});}}
+  const attachments=new Map();
+  for(const f of payload.files){const path=join(this.store.root,f.path);let old;try{old=await readFile(path,'utf8');}catch(e){if(e.code!=='ENOENT')throw e;}if(old===undefined||old!==f.content&&f.content.startsWith(old))attachments.set(f.path,f.content);}
   for(const section of ['novels','bindings','requests'])for(const [key,v] of Object.entries(payload.state[section]))if(!Object.hasOwn(state[section],key))state[section][key]=v;
-  await this.store.save(state);return {...report,backupDir};
+  await this.store.save(state,attachments);return {...report,backupDir};
  });}
 }

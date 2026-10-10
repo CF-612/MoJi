@@ -89,3 +89,64 @@ test('planning overview rejects mixed pagination revisions without losing earlie
  assert.equal(calls,2);
  const stable=await readPlanningSnapshot(async()=>({items:[{id:'a'}],sequence:3,nextOffset:null}),'novel');assert.equal(stable.items[0].id,'a');
 });
+
+test('observed agent operation shapes normalize without losing revisions, content or retry identity',async t=>{
+ const {run,apply}=await setup(t);
+ const created=await apply([{op:'node.create',ref:'scene',value:{title:'保留事件',content:'原有动机',position:{x:-300,y:-80}}}]);
+ const id=created.mapping.scene;
+ const args={requestId:'nested-controls',operations:[{op:'node.update',value:{id,expectedRevision:1,summary:'补充原因'}}]};
+ const result=await run('planning.apply',args);
+ assert.deepEqual(await run('planning.apply',args),result);
+ assert.equal(args.operations[0].value.id,id,'normalization must not mutate the original request');
+ await apply([{action:'node.update',nodeId:id,expectedRevision:2,value:{content:'更新后的动机'}}]);
+ await apply([{op:'node.update',nodeId:id,expectedRevision:3,value:{summary:'继续推演'}}]);
+ const node=(await run('planning.get',{nodeId:id})).node;
+ assert.equal(node.revision,4);assert.equal(node.title,'保留事件');assert.equal(node.content,'更新后的动机');
+ assert.deepEqual(node.position,{x:-300,y:-80});
+ await assert.rejects(apply([{action:'node.update',nodeId:id,expectedRevision:1,value:{content:'旧版本覆盖'}}]),{code:'CONFLICT'});
+ await assert.rejects(apply([{op:'node.delete',value:{id,expectedRevision:4}}]),{code:'CONFIRM_REQUIRED'});
+ assert.equal((await run('planning.get',{nodeId:id})).node.deleted,false);
+});
+
+test('malformed or ambiguous planning controls fail with actionable paths and no partial transaction',async t=>{
+ const {run,apply}=await setup(t);
+ const created=await apply([{op:'node.create',ref:'a',value:{title:'作者原事件'}},{op:'node.create',ref:'b',value:{title:'另一事件'}}]);
+ const id=created.mapping.a;
+ for(const [operation,pattern] of [
+  [null,/operations\[1\].*对象/],
+  [{action:'update',nodeId:id,value:{}},/operations\[1\].*op/],
+  [{op:'node.update',expectedRevision:1,value:{}},/operations\[1\].*缺少 id/],
+  [{op:'node.update',id,value:{}},/operations\[1\].*expectedRevision/],
+  [{op:'node.update',id,expectedRevision:'1',value:{}},/operations\[1\].*expectedRevision/],
+  [{op:'node.update',id,nodeId:created.mapping.b,expectedRevision:1,value:{}},/operations\[1\].*id.*不同/],
+  [{op:'node.update',id,expectedRevision:1,value:{id:created.mapping.b}},/operations\[1\].*id.*不同/],
+  [{op:'node.update',id,expectedRevision:1,value:{expectedRevision:2}},/operations\[1\].*expectedRevision.*不同/],
+  [{op:'node.update',action:'node.delete',id,expectedRevision:1,value:{}},/operations\[1\].*不一致/],
+  [{op:'node.update',id,expectedRevision:1,value:'正文'},/operations\[1\].*value/],
+  [{op:'edge.create',value:{from:id}},/operations\[1\].*from,to/],
+ ]) {
+  await assert.rejects(apply([{op:'node.create',value:{title:'不能部分保存'}},operation]),{code:'INVALID_INPUT',message:pattern});
+  const board=await run('planning.list');
+  assert.equal(board.total,2);assert.equal(board.sequence,created.sequence);
+  assert.equal((await run('planning.get',{nodeId:id})).node.revision,1);
+ }
+});
+
+test('story units support many-to-many chapter evidence while unresolved ideas remain unlinked',async t=>{
+ const {run,apply}=await setup(t);
+ const first=await run('chapter.create',{title:'第一章',content:'潜入与围堵同时发生。'});
+ const second=await run('chapter.create',{title:'第二章',content:'围堵持续，最终冲突落定。'});
+ const tx=await apply([
+  {op:'node.create',ref:'a',value:{title:'潜入',status:'written',chapterRefs:[{chapterId:first.id,revision:first.revision}]}},
+  {op:'node.create',ref:'b',value:{title:'围堵',status:'written',chapterRefs:[{chapterId:first.id,revision:first.revision},{chapterId:second.id,revision:second.revision}]}},
+  {op:'node.create',ref:'idea',value:{title:'待推演的背叛'}},
+  {op:'node.create',ref:'seed',value:{title:'长线伏笔',status:'selected'}},
+ ]);
+ const shared=(await run('planning.get',{nodeId:tx.mapping.b})).node;
+ assert.equal(shared.chapterRefs.length,2);
+ assert.equal((await run('planning.get',{nodeId:tx.mapping.a})).node.chapterRefs[0].chapterId,shared.chapterRefs[0].chapterId);
+ await apply([{op:'node.update',id:tx.mapping.seed,expectedRevision:1,value:{summary:'留待更远的情节使用'}}]);
+ assert.equal((await run('planning.get',{nodeId:tx.mapping.idea})).node.status,'idea');
+ const seed=(await run('planning.get',{nodeId:tx.mapping.seed})).node;
+ assert.equal(seed.status,'selected');assert.deepEqual(seed.chapterRefs,[]);
+});

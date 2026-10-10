@@ -3,11 +3,13 @@ import { ensurePlanning, planningAction, validatePlanning } from '../domain/plan
 import { selectReference } from './queries/context.js';
 import { createHandoff } from './queries/handoff.js';
 import { writeFile } from 'node:fs/promises';
-import { AtomicStore } from '../infrastructure/persistence/atomic-store.ts';
+import { ProjectStore } from '../infrastructure/persistence/project-store.ts';
+import { chapterCounts } from '../domain/chapters/metadata.ts';
 import { join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { previewTavern } from '../infrastructure/migrations/tavern.js';
-import { countManuscript } from '../domain/manuscript.ts';
+import { checkDirectorySnapshot, directorySnapshot, planChapterMove } from '../domain/chapters/order.ts';
 import { compilePreset, importPreset, validatePreset } from '../domain/preset/index.js';
 
 export class StoreError extends Error {
@@ -32,7 +34,7 @@ function cas(entity, args) {
 }
 function touch(entity) { entity.revision++; entity.updatedAt = now(); }
 function record(fields) { return { id: randomUUID(), revision: 1, createdAt: now(), updatedAt: now(), ...fields }; }
-function meta(chapter) { const { content, versions, ...metadata } = chapter; return { ...metadata, charCount: content.length, textCount: countManuscript(content) }; }
+function meta(chapter) { const { content, versions, ...metadata } = chapter; return { ...metadata, ...chapterCounts(chapter) }; }
 function source(actor) { return { kind: actor.kind === 'human' ? 'human' : 'agent', sessionId: actor.sessionId || null }; }
 function version(chapter, actor, reason) {
   chapter.contentHash = hash(chapter.content);
@@ -97,21 +99,35 @@ function memoryFields(args, novel, creating = false, optionalName = false) {
   return result;
 }
 
-/** One portable JSON graph/project store. All access is serialized with a cross-process lock.
- * Write-ahead snapshot is fsynced before atomic promotion; recovery completes interrupted commits.
- */
-export class Store extends AtomicStore {
+/** Business commands operate on selectively hydrated project records.
+ * Storage owns file partitioning, migration and recoverable batch commits. */
+export class Store extends ProjectStore {
   constructor(root, options = {}) {
     super(root, empty, state => {
       if (!state || state.schemaVersion !== 1 || !state.novels || !state.bindings || !state.requests) fail('CORRUPT_STORE', '不支持的数据格式');
     }, options);
   }
 
+  validateMigration(state) {
+    if (!state || state.schemaVersion !== 1 || !['novels', 'bindings', 'requests'].every(key => state[key] && typeof state[key] === 'object' && !Array.isArray(state[key]))) fail('CORRUPT_STORE', '不支持的数据格式');
+    const validated = {novels: {}};
+    for (const [id, novel] of Object.entries(state.novels)) {
+      if (id !== novel.id || ['__proto__', 'constructor', 'prototype'].includes(id)) fail('CORRUPT_STORE', '作品 ID 无效');
+      this.importNovel(validated, {backup: {format: 'cuigengji', schemaVersion: 2, novel}});
+    }
+    for (const [key, binding] of Object.entries(state.bindings)) if (typeof binding?.sessionId !== 'string' || hash(binding.sessionId) !== key || !own(state.novels, binding.novelId) || !['discuss', 'plan', 'write', 'revise', 'memory'].includes(binding.stage) || (binding.chapterId && !own(state.novels[binding.novelId].chapters, binding.chapterId))) fail('CORRUPT_STORE', '会话绑定无效');
+    for (const [key, request] of Object.entries(state.requests)) if (!/^[a-f0-9]{64}$/.test(key) || typeof request?.signature !== 'string') fail('CORRUPT_STORE', '请求记录无效');
+  }
+
+  validateProject(novel) {
+    this.importNovel({novels: {}}, {backup: {format: 'cuigengji', schemaVersion: 2, novel}});
+  }
+
   async dispatch(action, args = {}, actor = {}) {
     if (!args || typeof args !== 'object' || Array.isArray(args)) fail('INVALID_INPUT', '参数必须是对象');
     const release = await this.acquire();
     try {
-      const state = await this.load();
+      const state = await this.loadForAction(action, args, actor);
       const signature = hash(JSON.stringify({ action, args, actor: source(actor) }));
       const requestKey = args.requestId === undefined ? null : hash(text(args.requestId, 'requestId'));
       if (requestKey && own(state.requests, requestKey)) {
@@ -122,6 +138,7 @@ export class Store extends AtomicStore {
       const migrationNovelId=args.novelId||state.bindings[hash(actor.sessionId||'')]?.novelId;
       const migrationNovel=migrationNovelId&&state.novels[migrationNovelId];
       if ((action.startsWith('planning.')||action==='novel.export') && migrationNovel?.plan && !migrationNovel.planning) {
+        await this.hydrateNovel(state, migrationNovelId);
         await writeFile(join(this.root, `before-planning-${hash(migrationNovelId)}.json`), JSON.stringify({format:'cuigengji',schemaVersion:1,novel:migrationNovel}), {flag:'wx',mode:0o600}).catch(error=>{if(error.code!=='EEXIST')throw error;});
       }
       const before = JSON.stringify(state);
@@ -242,6 +259,21 @@ export class Store extends AtomicStore {
       if (a.volumeId && get(n.volumes, a.volumeId, '卷').deleted) fail('DELETED', '卷已删除');
       const c = record({ title: text(a.title, 'title'), volumeId: a.volumeId || null, order: ordering(a.order ?? Object.keys(n.chapters).length), content: text(a.content ?? '', 'content', true), deleted: false, versions: [] });
       version(c, actor, a.reason); n.chapters[c.id] = c; touch(n); return meta(c);
+    }
+    if (action === 'chapter.move') {
+      if (actor.kind !== 'human') fail('HUMAN_REQUIRED', '目录拖拽排序由作者操作');
+      checkDirectorySnapshot(a.expectedDirectory, directorySnapshot(Object.values(n.chapters), Object.values(n.volumes)));
+      const move = planChapterMove(Object.values(n.chapters), Object.values(n.volumes), a.chapterId, {volumeId: a.volumeId ?? null, beforeChapterId: a.beforeChapterId ?? null});
+      if (move.changed) {
+        for (const placement of move.chapters) {
+          const chapter = n.chapters[placement.id];
+          if (chapter.order === placement.order && (chapter.volumeId || null) === placement.volumeId) continue;
+          chapter.order = placement.order; chapter.volumeId = placement.volumeId;
+          touch(chapter); version(chapter, actor, '调整章节目录');
+        }
+        touch(n);
+      }
+      return {changed: move.changed, chapters: move.chapters.map(chapter => meta(n.chapters[chapter.id]))};
     }
     if (action.startsWith('chapter.')) {
       const c = get(n.chapters, a.chapterId, '章节');
@@ -449,7 +481,7 @@ export class Store extends AtomicStore {
     if (n.planning) validatePlanning(n.planning,n);
     if (n.preset) { validatePreset(n.preset); if (!Number.isSafeInteger(n.preset.revision) || n.preset.revision < 1) fail('INVALID_BACKUP','预设版本无效'); }
     if (own(state.novels, n.id)) {
-      if (JSON.stringify(state.novels[n.id]) === JSON.stringify(n)) return { id: n.id, imported: false, reason: 'identical' };
+      if (isDeepStrictEqual(state.novels[n.id], n)) return { id: n.id, imported: false, reason: 'identical' };
       fail('IMPORT_CONFLICT', '同 ID 小说已存在且内容不同；不会覆盖现有小说');
     }
     state.novels[n.id] = n; return { id: n.id, imported: true };

@@ -11,9 +11,16 @@ export function registerPrompt(ctx, { store, resolveBinding } = {}) {
     if (!context.agent?.id) return result;
     context.signal?.throwIfAborted();
     const actor = { kind: 'agent', sessionId: String(context.agent.id) };
-    const binding = store && await (resolveBinding
+    let binding;
+    try {binding = store && await (resolveBinding
       ? resolveBinding(actor.sessionId)
-      : store.dispatch('binding.get', {}, actor));
+      : store.dispatch('binding.get', {}, actor));}
+    catch (error) {
+      if (error.code !== 'UPGRADE_REQUIRED') throw error;
+      // A broken project must not prevent the host agent from calling the
+      // unbound maintenance tool or the native plugin manager.
+      return {...result,sections:result.sections.filter(entry => !OWN_NAMES.has(entry.name)),contexts:result.contexts.filter(entry => !OWN_NAMES.has(entry.name))};
+    }
     const preset = binding ? await store.dispatch('preset.read', {}, actor) : null;
     context.signal?.throwIfAborted();
     return {

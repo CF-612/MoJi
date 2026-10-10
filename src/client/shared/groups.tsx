@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useDialog } from '../dialog.tsx';
 import type { Group } from '../../domain/memory/groups.ts';
 import {FilterControl} from './workspace.tsx';
@@ -31,9 +31,4 @@ export function Groups({ groups, value, onChange, prefix, novelId, busy, call, r
         <button className="danger" disabled={busy} onClick={async () => { if (await confirm(`删除分组“${selected.name}”？内容将保留在未分组中。`)) run(async () => { await mutate('delete', { groupId: selected.id, expectedRevision: selected.revision, confirm: true }); onChange('__ungrouped'); }); }}>删除分组</button></>}
     </div></details>}
   </div>;
-}
-export function MoveSelection({ count, groups, busy, onMove, clear }: { count: number; groups: GroupItem[]; busy: boolean; onMove: (id: string | null) => void; clear: () => void }) {
-  const [target, setTarget] = useState<string | null>(null);
-  if (!count) return null;
-  return <div className="batch-toolbar"><span>已选 {count} 项</span><GroupSelect groups={groups} value={target} onChange={setTarget}/><button disabled={busy} onClick={() => onMove(target)}>移动</button><button disabled={busy} onClick={clear}>取消选择</button></div>;
 }

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import manifest from '../../../package.json' with { type: 'json' };
+import aboutSticker from '../assets/haoye.png';
 
 export interface Preferences {
   fontSize: number; leading: number; directory: boolean;
@@ -30,17 +31,19 @@ export function PreferencesProvider({children}: {children: React.ReactNode}) {
   useEffect(() => {const sync = (e: StorageEvent) => {if(e.key === key) set(read());}; window.addEventListener('storage', sync); return () => window.removeEventListener('storage', sync);}, []);
   return <Context.Provider value={{preferences, update, error}}>{children}</Context.Provider>;
 }
-export function Modal({title, close, children}: {title: string; close: () => void; children: React.ReactNode}) {
+export function Modal({title, close, children, className = ''}: {title: string; close: () => void; children: React.ReactNode; className?: string}) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {const previous = document.activeElement as HTMLElement | null; ref.current?.showModal(); return () => {previous?.focus();};}, []);
-  return <dialog className="utility-modal" ref={ref} aria-label={title} onCancel={e => {e.preventDefault();close();}}>
+  return <dialog className={`utility-modal ${className}`} ref={ref} aria-label={title} onCancel={e => {e.preventDefault();close();}}>
     <header className="utility-head"><h2>{title}</h2><button type="button" aria-label={`关闭${title}`} onClick={close}>×</button></header>
     <div className="utility-content">{children}</div>
   </dialog>;
 }
-export function PreferencesDialog({close}: {close: () => void}) {
+export function PreferencesDialog({close, novelTitle, onPreset}: {close: () => void; novelTitle?: string; onPreset?: () => void}) {
   const {preferences:p, update, error} = useWorkbenchPreferences();
-  return <Modal title="设置" close={close}><section className="preference-section"><h3>正文阅读</h3><div className="split">
+  return <Modal title="设置" close={close}>
+    {onPreset && <section className="preference-section"><div className="preference-work-heading"><h3>当前作品</h3><small title={novelTitle}>{novelTitle}</small></div><button className="preference-action" onClick={onPreset} aria-label="写作预设"><span><strong>写作预设</strong><small>叙述风格、表达习惯，以及希望 AI 遵守的写作要求</small></span><span aria-hidden="true">›</span></button></section>}
+    <section className="preference-section"><h3>正文显示</h3><div className="split">
     <label>字号<select aria-label="默认正文字号" value={p.fontSize} onChange={e=>update({fontSize:Number(e.target.value)})}>{[16,18,20,22].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
     <label>行距<select aria-label="正文行距" value={p.leading} onChange={e=>update({leading:Number(e.target.value)})}><option value={1.7}>紧凑</option><option value={1.95}>适中</option><option value={2.2}>宽松</option></select></label></div>
     <div className="reading-preview"><small>阅读预览</small><p style={{fontSize:p.fontSize,lineHeight:p.leading}}>雨停以后，街道重新安静下来。窗边的灯仍亮着，故事还在继续。</p></div></section>
@@ -51,6 +54,51 @@ export function PreferencesDialog({close}: {close: () => void}) {
     <footer className="utility-footer"><button onClick={()=>update(defaults)}>恢复默认设置</button><small role="status">{error || '偏好自动保存在此浏览器'}</small></footer>
   </Modal>;
 }
+export function ProseDisplay() {
+  const {preferences:p, update} = useWorkbenchPreferences();
+  return <details className="menu prose-display"><summary aria-label="正文显示设置"><span aria-hidden="true">Aa</span>显示</summary><div className="menu-panel">
+    <label>字号<select aria-label="正文字号" value={p.fontSize} onChange={event=>update({fontSize:Number(event.target.value)})}>{[16,18,20,22].map(value=><option key={value} value={value}>{value}</option>)}</select></label>
+    <label>行距<select aria-label="当前正文行距" value={p.leading} onChange={event=>update({leading:Number(event.target.value)})}><option value={1.7}>紧凑</option><option value={1.95}>适中</option><option value={2.2}>宽松</option></select></label>
+  </div></details>;
+}
 export function AboutDialog({close}: {close: () => void}) {
-  return <Modal title="关于催更姬" close={close}><div className="about-identity"><h2>催更姬</h2><span className="muted">{manifest.version}</span></div><p className="about-intro">与你和写作助手一起，让故事继续。</p><dl className="about-capabilities"><dt>正文</dt><dd>专心写作，自动保存，随时回看版本。</dd><dt>规划</dt><dd>讨论下一步，把情节连成共同理解的路线。</dd><dt>设定</dt><dd>按分组查找角色与世界书，梳理彼此关系。</dd></dl><p className="muted">作品菜单中可管理写作预设与工作数据备份。阅读偏好仅保存在此浏览器；小说内容由工作数据目录独立保存。</p></Modal>;
+  const [copyStatus, setCopyStatus] = useState('');
+  const groupNumber = useRef<HTMLElement>(null);
+  const copyGroup = async () => {
+    try {
+      await navigator.clipboard.writeText('1026457465');
+      setCopyStatus('群号已复制');
+    } catch {
+      const selection = window.getSelection();
+      if (groupNumber.current && selection) {
+        const range = document.createRange();
+        range.selectNodeContents(groupNumber.current);
+        selection.removeAllRanges(); selection.addRange(range);
+      }
+      setCopyStatus('可选中群号，按 Ctrl+C 复制。');
+    }
+  };
+  return <Modal title="关于催更姬" close={close} className="about-modal">
+    <section className="about-overview">
+      <div>
+        <div className="about-identity"><h2>催更姬</h2><span className="about-version">v{manifest.version}</span></div>
+        <p className="about-tagline">让大肥鱼成为你的小说写作助手。</p>
+      </div>
+      <img className="about-sticker" src={aboutSticker} width={384} height={384} alt="好耶！紫发少女的欢呼贴纸"/>
+      <p className="about-description">为 DSH 打造的小说写作插件。把正文、情节规划、人物与世界设定放在同一个工作台，让你和 AI 一起讨论、整理并推进故事。</p>
+    </section>
+    <div className="about-contacts" aria-label="交流与支持">
+      <button type="button" className="about-contact" onClick={copyGroup} aria-label="复制交流群号 1026457465" title="复制群号">
+        <span className="about-contact-label">交流群</span><strong ref={groupNumber}>1026457465</strong><span className="about-contact-mark" aria-hidden="true">{copyStatus === '群号已复制' ? '✓' : '⧉'}</span>
+      </button>
+      <a className="about-contact" href="https://ifdian.net/a/cuigengji" target="_blank" rel="noopener noreferrer">
+        <span className="about-contact-label">爱发电</span><strong>支持催更姬</strong><span className="about-contact-mark" aria-hidden="true">↗</span>
+      </a>
+      <a className="about-contact" href="https://github.com/mistnest/dsh-cuigengji-plugin" target="_blank" rel="noopener noreferrer">
+        <span className="about-contact-label">GitHub</span><strong>查看开源项目</strong><span className="about-contact-mark" aria-hidden="true">↗</span>
+      </a>
+    </div>
+    <p className="about-copy-status" role="status">{copyStatus}</p>
+    <footer className="about-welcome"><p>欢迎交流、合作与投喂。</p><p>每一份支持都会化作开发所需的 Token，让催更姬更新得更快一点。</p></footer>
+  </Modal>;
 }

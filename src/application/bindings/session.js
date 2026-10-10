@@ -1,11 +1,14 @@
 import { isReadAction } from '../../contracts/actions.js';
 
-export function createSessionPolicy({ store, audit }) {
+export function createSessionPolicy({ store, audit, ready = async () => undefined }) {
   const active = new Set();
-  const resolveBinding = sessionId =>
-    store.dispatch('binding.get', {}, { kind: 'agent', sessionId });
+  const resolveBinding = async sessionId => {
+    await ready();
+    return store.dispatch('binding.get', {}, { kind: 'agent', sessionId });
+  };
 
   async function dispatch(action, args = {}, actor = { kind: 'agent' }) {
+    await ready();
     if (action === 'binding.set' && active.has(actor.sessionId)) throw new Error('会话正在运行，请停止后切换小说或章节');
     if (actor.kind === 'agent') {
       const binding = await resolveBinding(actor.sessionId);
@@ -31,7 +34,8 @@ export function createSessionPolicy({ store, audit }) {
     };
     ctx.on('agent/pre-step', async ({ agent }, next) => {
       const sessionId = String(agent.id);
-      await resolveBinding(sessionId);
+      try {await resolveBinding(sessionId);}
+      catch (error) {if (error.code !== 'UPGRADE_REQUIRED') throw error;}
       // pre-step is admitted only while the agent is running (DSH contract).
       active.add(sessionId);
       return next();

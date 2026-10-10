@@ -19,7 +19,8 @@ function failure(error) {
   };
 }
 
-export function registerRpcRoute(ctx, { dispatch, dataRoot, workData }) {
+export function registerRpcRoute(ctx, { dispatch, dataRoot, workData, transfer, maintenance }) {
+  const ensureReady = () => maintenance?.ensureReady();
   const dispatchRpc = async (payload, signal) => {
     try {
       signal.throwIfAborted();
@@ -29,18 +30,34 @@ export function registerRpcRoute(ctx, { dispatch, dataRoot, workData }) {
       if (sessionId !== undefined && (typeof sessionId !== 'string' || !sessionId.trim() || sessionId.length > 512)) {
         throw invalid('sessionId 必须是有效的会话标识');
       }
-      if (!['novel.list', 'novel.create', 'novel.import', 'legacy.preview', 'settings.get', 'workspace.status', 'workspace.export', 'workspace.preview', 'workspace.import'].includes(action) && !sessionId) {
+      if (!action.startsWith('transfer.') && !['novel.list', 'novel.create', 'novel.import', 'legacy.preview', 'settings.get', 'maintenance.status', 'maintenance.verify', 'workspace.status', 'workspace.export', 'workspace.preview', 'workspace.import'].includes(action) && !sessionId) {
         throw Object.assign(new Error('请选择一个 DSH 会话'), { code: 'SESSION_REQUIRED' });
       }
       if (action === 'settings.get') {
         return { ok: true, value: { dataRoot, pluginVersion: manifest.version, supportedDsh: manifest.peerDependencies['@deepseek-ai/dsh-tools'] } };
       }
       if (action === 'legacy.preview') return { ok: true, value: convertLegacyExport(args.input) };
+      if (action === 'maintenance.status') {
+        if (!maintenance) throw invalid('维护服务未初始化');
+        return { ok: true, value: await maintenance.status() };
+      }
+      if (action === 'maintenance.verify') {
+        if (!maintenance) throw invalid('维护服务未初始化');
+        return { ok: true, value: await maintenance.verify(args) };
+      }
+      if (action.startsWith('transfer.')) {
+        await ensureReady();
+        if (!transfer) throw invalid('导入 / 导出服务未初始化');
+        const method = {'transfer.catalog':'catalog','transfer.inspect':'inspect','transfer.preview':'preview','transfer.import':'import','transfer.exportPreview':'exportPreview','transfer.export':'export'}[action];
+        return {ok: true, value: await transfer[method](args, {sessionId})};
+      }
       if (action.startsWith('workspace.')) {
+        await ensureReady();
         if (!workData) throw invalid('工作数据服务未初始化');
         const method = { 'workspace.status':'status', 'workspace.export':'export', 'workspace.preview':'preview', 'workspace.import':'import' }[action];
         return { ok: true, value: await workData[method](args.backup) };
       }
+      await ensureReady();
       return { ok: true, value: await dispatch(action, args, { kind: 'human', sessionId }) };
     } catch (error) {
       return failure(error);

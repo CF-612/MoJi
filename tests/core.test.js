@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -194,13 +194,16 @@ test('cross-process writers serialize and preserve every chapter', async t => {
   assert.equal((await run('chapter.list')).length, 6);
 });
 
-test('durable pending snapshot is recovered on next operation', async t => {
+test('legacy pending snapshot is recovered before migration to project storage', async t => {
   const { root, novel, store } = await fixture(t);
-  const state = JSON.parse(await readFile(join(root, 'store.json'), 'utf8'));
+  const state = await store.load();
+  const legacyRoot = join(root, 'legacy-pending');
+  await mkdir(legacyRoot);
+  await writeFile(join(legacyRoot, 'store.json'), JSON.stringify(state));
   state.novels[novel.id].title = '已提交待恢复';
-  await writeFile(join(root, 'store.pending.json'), JSON.stringify(state));
-  assert.equal((await store.dispatch('novel.list'))[0].title, '已提交待恢复');
-  assert.equal(JSON.parse(await readFile(join(root, 'store.json'), 'utf8')).novels[novel.id].title, '已提交待恢复');
+  await writeFile(join(legacyRoot, 'store.pending.json'), JSON.stringify(state));
+  assert.equal((await new Store(legacyRoot).dispatch('novel.list'))[0].title, '已提交待恢复');
+  assert.equal(JSON.parse(await readFile(join(legacyRoot, 'store.json'), 'utf8')).novels[novel.id].title, '已提交待恢复');
 });
 
 test('nonempty volume deletion requires explicit policy and chapters remain recoverable', async t => {

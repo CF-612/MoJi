@@ -32,6 +32,13 @@ export interface PlanningNovel {
   planning?: Board; plan?: LegacyPlan | null;
   chapters: Record<string, {versions: {revision: number}[]}>; nodes: Record<string, unknown>;
 }
+export const PLANNING_OPERATIONS = [
+  'page.create','page.update','page.delete',
+  'decoration.create','decoration.update','decoration.delete',
+  'node.create','node.update','node.delete',
+  'edge.create','edge.update','edge.delete',
+  'group.create','group.update','group.delete',
+] as const;
 export type Operation =
   | {op:'page.create';ref?:string;value:Pick<PlanningPage,'name'> & Partial<PlanningPage>}
   | {op:'page.update';id:string;expectedRevision:number;value:Partial<PlanningPage>}

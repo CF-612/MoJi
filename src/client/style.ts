@@ -1,6 +1,11 @@
 import {visualStyles} from './visual.ts';
 import {selectStyles} from './shared/select-style.ts';
 import {graphStyles} from './shared/graph-style.ts';
+import {managementStyles} from './shared/management-style.ts';
+import {transferStyles} from './features/transfer/style.ts';
+import {welcomeStyles} from './features/welcome/style.ts';
+import {batchStyles} from './shared/batch-style.ts';
+import {navigationStyles} from './shared/navigation-style.ts';
 export const styles = `
 .cuigengji { color:var(--dsw-alias-label-primary,#252936); font-family:var(--dsw-font-family,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif); font-size:13px; padding:14px; height:100%; overflow:auto; box-sizing:border-box; }
 .cuigengji * { box-sizing:border-box; }
@@ -62,8 +67,8 @@ export const styles = `
 .cuigengji .menu-panel { position:absolute; right:0; top:100%; z-index:20; width:180px; padding:8px; border:1px solid var(--dsw-alias-border-l1,#ddd); border-radius:8px; background:var(--dsw-alias-bg-base,#fff); box-shadow:0 8px 24px #0002; max-height:65vh; overflow:auto; }
 .cuigengji .menu-panel button { display:block; width:100%; text-align:left; margin:2px 0; }
 .cuigengji .settings-panel { width:min(300px,76vw); }
-.cuigengji .chapter-workspace { flex:1; display:flex; min-height:0; }
-.cuigengji .chapter-directory { width:100%; padding:16px; overflow:auto; background:color-mix(in srgb,var(--dsw-alias-label-primary,#252936) 2%,var(--dsw-alias-bg-base,#fff)); }
+.cuigengji .chapter-workspace { flex:1; display:flex; min-width:0; min-height:0; overflow:hidden; }
+.cuigengji .chapter-directory { position:relative; width:100%; min-height:0; padding:16px; overflow:auto; overscroll-behavior:none; background:color-mix(in srgb,var(--dsw-alias-label-primary,#252936) 2%,var(--dsw-alias-bg-base,#fff)); }
 .cuigengji .chapter-directory h2 { font-size:16px; }
 .cuigengji .search { width:100%; }
 .cuigengji .directory-options { margin:8px 0; font-size:12px; color:var(--dsw-alias-label-secondary,#737780); }
@@ -198,14 +203,11 @@ export const styles = `
  .cuigengji .directory-collapsed.show-directory .chapter-directory { display:block; width:100%; }
 }
 
-.cuigengji .group-toolbar,.cuigengji .batch-toolbar {display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:8px 0;}
+.cuigengji .group-toolbar {display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:8px 0;}
 .cuigengji .group-description {flex-basis:100%;margin:0;}
 .cuigengji .group-toolbar label {max-width:240px;margin:0;}
 .cuigengji .selectable-entry {display:flex;align-items:center;gap:8px;}
 .cuigengji .selectable-entry > button {flex:1;min-width:0;text-align:left;}
-.cuigengji .selectable-entry > input,.cuigengji .selection-label input {width:auto;}
-.cuigengji .selection-label {font-size:12px;display:flex;align-items:center;gap:4px;float:right;}
-.cuigengji .batch-toolbar {padding:10px;background:color-mix(in srgb,#4d6bfe 8%,transparent);border-radius:10px;}
 .cuigengji .planning-group-frame {position:absolute;border:1px solid color-mix(in srgb,#4d6bfe 28%,transparent);border-radius:12px;background:color-mix(in srgb,#4d6bfe 3%,transparent);pointer-events:none;}
 .cuigengji .planning-group-frame > button {pointer-events:auto;position:relative;z-index:1;margin:2px 6px;padding:4px 8px;background:transparent;border:0;font-weight:600;}
 .cuigengji .planning-lines {pointer-events:none;}
@@ -271,4 +273,4 @@ export const styles = `
  .cuigengji .chapter-main .manuscript {padding-left:8px;padding-right:8px;}
  .cuigengji .chapter-toolbar {gap:8px;}
 }
-` + visualStyles + selectStyles + graphStyles;
+` + visualStyles + selectStyles + graphStyles + managementStyles + transferStyles + welcomeStyles + batchStyles + navigationStyles;

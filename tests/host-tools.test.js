@@ -4,6 +4,7 @@ import { mkdtemp, rm, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { apply } from '../src/index.js';
+import { storageSnapshot } from './helpers/storage-snapshot.js';
 
 test('registered DSH tools execute through session policy and real MCP', async t => {
   const root = await mkdtemp(join(tmpdir(), 'cuigengji-host-'));
@@ -32,14 +33,14 @@ test('registered DSH tools execute through session policy and real MCP', async t
   const savedPreset = await dispatch('preset.set', { expectedRevision: 0, preset: {
     name: '文风', enabled: true, blocks: [{ identifier: 'style', name: '表达', enabled: true, role: 'system', content: '短句与留白' }],
   } });
-  const beforeRead = await readFile(join(root, 'store.json'), 'utf8');
+  const beforeRead = await storageSnapshot(root);
   const handoff = await execute('cuigengji_project', 'novel.handoff');
   assert.equal(handoff.novel.id, novel.id);
   assert.equal(handoff.chapters[0].id, chapter.id);
   assert.doesNotMatch(JSON.stringify(handoff), /雨停了|短句与留白/);
   assert.equal((await execute('cuigengji_context', 'preset.read')).content, '短句与留白');
   assert.deepEqual((await execute('cuigengji_context', 'context.get')).items, []);
-  assert.equal(await readFile(join(root, 'store.json'), 'utf8'), beforeRead, 'read tools must not create request-cache entries or rewrite the store');
+  assert.equal(await storageSnapshot(root), beforeRead, 'read tools must not create request-cache entries or rewrite the store');
   await dispatch('preset.set', { expectedRevision: savedPreset.revision, preset: { ...savedPreset, enabled: false } });
   assert.equal((await execute('cuigengji_context', 'preset.read')).content, '');
   const node = await execute('cuigengji_memory', 'graph.create', { type: 'character_card', name: '来客', sources: [{ chapterId: chapter.id, revision: chapter.revision }] });
@@ -62,4 +63,16 @@ test('registered DSH tools execute through session policy and real MCP', async t
   const flow=await execute('cuigengji_plan','planning.get',{nodeId:seed.mapping.start});
   assert.equal(flow.flow.next[0].id,next.node.id);
   assert.equal(flow.flow.next[0].content,undefined);
+  const nested={requestId:'host-nested-controls',operations:[{op:'node.update',value:{id:seed.mapping.start,expectedRevision:1,summary:'原节点补充'}}]};
+  const normalized=await execute('cuigengji_plan','planning.apply',nested);
+  assert.deepEqual(await execute('cuigengji_plan','planning.apply',nested),normalized);
+  await execute('cuigengji_plan','planning.apply',{operations:[{action:'node.update',nodeId:seed.mapping.start,expectedRevision:2,value:{content:'继续讨论这个事件'}}]});
+  await execute('cuigengji_plan','planning.apply',{operations:[{op:'node.update',nodeId:seed.mapping.start,expectedRevision:3,value:{position:{x:-600,y:-120}}}]});
+  const updatedScene=await execute('cuigengji_plan','planning.get',{nodeId:seed.mapping.start});
+  assert.equal(updatedScene.node.revision,4);
+  assert.equal(updatedScene.node.content,'继续讨论这个事件');
+  assert.deepEqual(updatedScene.node.position,{x:-600,y:-120});
+  await assert.rejects(execute('cuigengji_plan','planning.apply',{operations:[{action:'node.update',nodeId:seed.mapping.start,expectedRevision:1,value:{title:'不能覆盖'}}]}),/版本已变化/);
+  await assert.rejects(execute('cuigengji_plan','planning.apply',{operations:[{op:'node.update',value:{summary:'缺少目标与版本'}}]}),/operations\[0\].*缺少 id/);
+  await assert.rejects(execute('cuigengji_plan','planning.apply',{operations:[{op:'node.update',id:seed.mapping.start,expectedRevision:'4',value:{title:'错误版本类型'}}]}),/operations\[0\].expectedRevision/);
 });

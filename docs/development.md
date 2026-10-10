@@ -1,12 +1,12 @@
 # 开发、测试与公开发布
 
-当前插件版本 0.3.12，Node.js 24+，DSH 兼容基线 0.2.0-rc.2。源码同时包含 TypeScript、JavaScript 和 JSX，尚未完成全部模块的 TypeScript 迁移。
+当前插件版本 0.4.0，Node.js 24+，DSH 兼容基线 0.2.0-rc.2。源码同时包含 TypeScript、JavaScript 和 JSX，尚未完成全部模块的 TypeScript 迁移。
 
 ## 模块与构建
 
-- `src/client/features`：正文、规划、设定、预设与工作数据界面。
+- `src/client/features`：正文、规划、设定、预设与统一导入导出界面。
 - `src/domain`：规划、分组、预设与正文规则。
-- `src/application`：作品操作、会话绑定、查询和备份。
+- `src/application`：作品操作、会话绑定、查询、备份和独立导入导出模块。
 - `src/infrastructure`：持久化及旧数据转换。
 - `src/adapters`：DSH 和 MCP 接入。
 - `src/contracts`：共享契约；`skills`：写作助手协作指南。
@@ -23,11 +23,41 @@ npm run test:ui
 npm pack
 ```
 
-`npm pack` 自动执行类型检查与构建。`test:ui` 使用真实 Workbench 和隔离临时 Store；图、目录、预设和页面交互还分别有 `test:graph`、`test:directory`、`test:presets` 和 `test:pages`。单独看前端可以运行 `npm run preview:workbench`。
+`npm pack` 自动执行类型检查与构建。界面脚本使用真实 Workbench 和隔离临时 Store。作者操作流程用 `test:author-workflow`；图、页面、目录关闭、章节排序、正文光标、管理页和预设分别有 `test:graph`、`test:pages`、`test:directory`、`test:chapter-order`、`test:manuscript`、`test:management`、`test:presets` 和 `test:transfer`。欢迎页与批量管理用 `test:welcome-batch`，覆盖作品入口、筛选后的选择范围、移动失败与跨页连线，以及宽窄屏和深色布局。顶部导航、刷新保留草稿/视野、正文底部间距和设置内预设入口用 `test:navigation` 验收。旧 `test:ui` 仍有待同步的界面名称，不代替这些专项验收。
 
-DSH 内的真实 RPC 验收用 `test:rpc` / `test:rpc-flow`，需要独立 DSH 实例及其认证 URL；后者会创建测试作品。不要在正式小说目录运行写入验收。`test:live` 只检查 desktop profile 的安装版本和文件，不代表浏览器与模型行为验证。
+单独看前端可以运行 `npm run preview:workbench`；添加 `-- --welcome` 查看未绑定会话的作品首页，添加 `-- --empty` 查看空库欢迎页。两种模式都使用隔离的临时数据，不加载日常小说。
+
+DSH 内的真实 RPC 验收用 `test:rpc` / `test:rpc-flow`，需要独立 DSH 实例及其认证 URL；后者会创建测试作品。不要在正式小说目录运行写入验收。`test:live` 检查 desktop profile 的安装版本，并逐一比对已安装 `package.json`、前端构建、全部服务端运行时和 Skill 文件的 SHA-256；同版本号的旧包也会报错。这个只读检查不代表浏览器与模型行为验证。
 
 Windows 桌面更新请参考[安装说明](getting-started.md)。桌面内置 Electron Node 与普通 Node 的子进程环境不同，涉及 MCP 的修改还应通过桌面运行时检查。
+
+## 存储迁移验证
+
+正常用户更新由插件加载阶段的 `UpgradeCoordinator` 自动备份、恢复、迁移和校验，安装 Agent 再调用维护工具验收。`tests/upgrade.test.js` 使用公开 0.3.13 实际代码生成的合成库及 v2/v3/v4 布局，验证完整历史、回收站、导入原件、页面/批注、绑定/请求、重复升级、中断恢复和失败闸门。生成旧库的脚本与来源提交记录见 `scripts/generate-upgrade-fixture.mjs`、`tests/fixtures/public-0.3.13/provenance.json`；不会使用真实小说。
+
+布局版本 4 使用可读文件名，稳定业务 ID 和单本/全库导出格式保持不变。`tests/project-file-names.test.js` 覆盖文件名冲突、改名与恢复、完整页面内容、迁移中断及引用/备份兼容；目录与按需读写分别由 `project-directories.test.js`、`project-storage.test.js` 验证。
+
+迁移真实数据前先运行隔离演练：
+
+```powershell
+node scripts/check-project-names-migration.mjs <数据目录> <报告目录>
+```
+
+脚本在锁内复制数据，不加载原目录；副本升级后逐条核对正文、设定、规划、历史、请求及额外文件的 SHA-256，另外核对索引除路径映射外完全相同、完整逻辑快照一致，以及工作数据导出/导入往返。支持布局 2、3、4，布局 4 再次运行不会重命名文件。单文件旧格式使用 `check-storage-migration.mjs <store.json> <报告目录>`。
+
+桌面宿主与托盘进程退出、新插件安装通过后，可添加 `--apply` 将同样的核对应用于正式目录。迁移快照保存在数据目录的 `backups`，演练与应用报告保存在指定的报告目录。
+
+## 发布包验收
+
+发布 `.tgz`、`SHA256SUMS` 和安装升级指南，并使用相同版本标签记录源码。打包前完成 `npm test`、类型检查、构建和文件清单检查。GitHub 源码 ZIP 不充当用户成品安装包。
+
+Windows 上 `scripts/check-release-install.mjs` 在临时 profile 中调用 DSH 原生 `runPluginCommand`，把 PATH 限制为桌面内置 Node shim 与 Windows 系统目录，检查找不到 Git，再验收本地或远程 `.tgz` 的新安装/旧包更新。它保留无关 profile 字段、启用组合包，随后用桌面 Node 加载 node_modules 中的编译包，验证维护工具、正文、规划、预设和真实 stdio MCP。不会读写用户 desktop profile。
+
+```powershell
+node scripts/check-release-install.mjs --desktop-exe "C:\你的DSH安装目录\DeepSeek Harness.exe" --package "C:\发布目录\dsh-cuigengji-0.4.0.tgz" --old-package "C:\旧包目录\dsh-cuigengji-0.3.13.tgz" --report "C:\验收目录\update.json"
+```
+
+省略 `--old-package` 验证全新安装；`--package` 也可使用真实 Release `.tgz` URL。用户安装使用[原生 Agent 指南](agent-installation.md)，不运行此开发者验收脚本。
 
 ## 小说数据与源码分离
 

@@ -61,10 +61,15 @@ test('each registered task skill includes the operational guide with one metadat
   for (const skill of skills) {
     assert.match(skill.content, new RegExp(`^---\\r?\\nname: ${skill.name}\\r?\\n`));
     assert.equal(skill.content.match(/^name: cuigengji-/gm).length, 1);
-    assert.match(skill.content, /cuigengji_project/);
-    assert.match(skill.content, /preset.read/);
-    assert.match(skill.content, /nextStart/);
-    assert.match(skill.content, /expectedRevision/);
-    assert.equal(skill.content.split(shared).length, 2, 'include the complete shared guide exactly once');
+    if (skill.name !== 'cuigengji-maintenance') {
+      assert.match(skill.content, /cuigengji_project/);
+      assert.match(skill.content, /preset.read/);
+      assert.match(skill.content, /nextStart/);
+      assert.match(skill.content, /expectedRevision/);
+      assert.equal(skill.content.split(shared).length, 2, 'include the complete shared guide exactly once');
+    } else {
+      assert.match(skill.content, /cuigengji_maintenance/);
+      assert.doesNotMatch(skill.content, /小说正文.*按需读取/);
+    }
   }
 });

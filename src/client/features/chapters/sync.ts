@@ -7,6 +7,10 @@ export interface Chapter {
 }
 const fields = ['content','title','volumeId','order'] as const;
 const same = (a: Chapter, b: Chapter) => fields.every(key => a[key] === b[key]);
+/** Autosave never re-sends untouched placement fields from an older draft. */
+export function chapterChanges(value: Chapter, base: Chapter): Partial<Chapter> {
+  return Object.fromEntries(fields.filter(key => value[key] !== base[key]).map(key => [key, value[key]]));
+}
 function edit(base: string, text: string) {
   let start=0,end=base.length,tail=text.length;
   while(start<end&&start<tail&&base[start]===text[start]) start++;
@@ -91,6 +95,9 @@ export class ChapterSync {
   };
   private reconcile(remote:Chapter){
     if(remote.revision<=this.state.base.revision)return;
+    // A write may fail after the next IME composition has already started.
+    // Keep that remote version pending until the final composed input is present.
+    if(this.composing){this.pendingRemote=remote;this.publish({phase:'waiting',error:''});return;}
     const value=mergeChapter(this.state.base,this.state.value,remote);
     if(!value){this.publish({remote,phase:'conflict',error:'',notice:''});return;}
     const dirty=!same(value,remote);
@@ -108,7 +115,24 @@ export class ChapterSync {
     }catch{/* The directory reports read failures; retain the complete local draft. */}
     finally{this.reading=false;}
   };
-  flush=async()=>{
+  private flight:Promise<void>|null=null;
+  flush=():Promise<void>=>{
+    if(this.flight)return this.flight;
+    this.flight=this.performFlush().finally(()=>{this.flight=null;});
+    return this.flight;
+  };
+  /** A destructive UI action must wait for the submitted snapshot and later typing. */
+  prepareRemoval=async()=>{
+    for(let attempt=0;attempt<4;attempt++){
+      if(this.composing)throw new Error('请先完成正在输入的文字。');
+      await this.flush();
+      if(this.state.remote)throw new Error('正文存在未解决的版本冲突，草稿已保留。请先合并。');
+      if(this.state.phase==='error')throw new Error(this.state.error||'正文尚未保存，草稿已保留。');
+      if(!this.dirty&&!this.pending)return this.state.base;
+    }
+    throw new Error('正文尚未保存完成，请稍后重试。');
+  };
+  private performFlush=async()=>{
     clearTimeout(this.timer);
     if(this.saving||this.composing||this.state.remote)return;
     if(this.pendingRemote){const remote=this.pendingRemote;this.pendingRemote=null;this.reconcile(remote);if(this.state.remote)return;}

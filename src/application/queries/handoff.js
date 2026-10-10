@@ -1,5 +1,6 @@
 // Pure project projection: no I/O, host prompts, migrations or content selection.
 // Explicit fields keep future prose/history fields out of the automatic handoff.
+import { chapterCounts } from '../../domain/chapters/metadata.ts';
 const live = values => Object.values(values || {}).filter(value => !value.deleted);
 const ordered = values => live(values).sort((a, b) => a.order - b.order);
 const excerpt = (value, limit) => typeof value === 'string' && value.length > limit
@@ -28,7 +29,7 @@ export function createHandoff(novel, sessionBinding, { chapterLimit = 20 } = {})
     chapterCount: chapters.length,
     chapters: indexed.map(chapter => ({
       id: chapter.id, title: excerpt(chapter.title, 120), revision: chapter.revision,
-      order: chapter.order, volumeId: chapter.volumeId, charCount: chapter.content.length,
+      order: chapter.order, volumeId: chapter.volumeId, charCount: chapterCounts(chapter).charCount,
     })),
     available: {
       preset: Boolean(novel.preset?.enabled),

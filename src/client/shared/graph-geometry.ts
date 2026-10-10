@@ -1,7 +1,7 @@
 import type {Point} from '../../contracts/planning.ts';
 export interface Camera extends Point {zoom:number}
 export interface Rect extends Point {width:number;height:number}
-export const CARD_WIDTH=224, CARD_HEIGHT=144, PORT_Y=55;
+export const CARD_WIDTH=248, CARD_HEIGHT=168, PORT_Y=36;
 export const clampZoom=(zoom:number)=>Math.max(.35,Math.min(1.8,zoom));
 export const toWorld=(point:Point,camera:Camera):Point=>({x:(point.x-camera.x)/camera.zoom,y:(point.y-camera.y)/camera.zoom});
 export const toScreen=(point:Point,camera:Camera):Point=>({x:point.x*camera.zoom+camera.x,y:point.y*camera.zoom+camera.y});

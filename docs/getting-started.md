@@ -14,9 +14,13 @@ npm run preview:workbench -- "C:\你的备份目录\作品.cuigengji.json"
 
 ## 安装到 DSH Windows 桌面版
 
-当前已验证 DSH 0.2.0-rc.2，其他版本请先在副本中试用。插件目前从源码构建，本仓库尚未发布 npm 包。
+当前已验证 DSH 0.2.0-rc.2，其他版本请先核对发布说明。本仓库提供 [0.4.0 成品安装包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/tag/v0.4.0)，尚未发布 npm 包。
 
-拿到维护者提供的预构建 `.tgz` 文件后，可从 DSH 原生插件安装入口填写文件的绝对路径安装，无需 Git。给 Agent 的安装步骤、发布状态和失败处理见[Windows Agent 安装指南](agent-installation.md)。下面的源码构建流程供开发者使用。
+从 DSH 原生插件页安装发布的 `.tgz` URL 或下载后的文件路径，无需 Git。也可以把[Windows Agent 安装指南](agent-installation.md)交给 DSH 的 Agent 完成安装、重启和校验。升级会自动备份并迁移已有数据，详见[更新说明](upgrade.md)。
+
+### 开发者本地安装
+
+下面的源码构建流程仅供开发维护使用。
 
 1. 安装并启动过 DSH 桌面版，让它创建 `desktop` profile。
 2. 克隆本仓库，进入项目目录，执行 `npm ci`。
@@ -44,7 +48,7 @@ powershell -ExecutionPolicy Bypass -File scripts\install-desktop.ps1 -DesktopExe
 
 > 按这条规划续写下一章，保持人物动机和世界规则一致。
 
-正文可直接编辑；规划支持多页、分组、拖拽连线和批注；设定支持角色卡、世界书、分组和关系图。写作预设在作品菜单里，启用后作为该作品的写作要求提供给绑定会话。
+正文可直接编辑；规划支持多页、分组、拖拽连线和批注；设定支持角色卡、世界书、分组和关系图。写作预设在设置里，启用后作为该作品的写作要求提供给绑定会话。
 
 ## 作品保存在哪里
 

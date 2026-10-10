@@ -1,4 +1,5 @@
 import type { Point } from '../../../contracts/planning.ts';
+import {CARD_WIDTH,CARD_HEIGHT} from '../../shared/graph-geometry.ts';
 interface Item { id: string; groupId?: string | null }
 interface Link { from: string; to: string; type: string }
 export function arrange(nodes: Item[], edges: Link[]): Record<string, Point> {
@@ -15,7 +16,7 @@ export function arrange(nodes: Item[], edges: Link[]): Record<string, Point> {
   const rows = new Map<number, number>();
   return Object.fromEntries(nodes.map(n => {
     const level = levels.get(n.id) ?? 0, row = rows.get(level) ?? 0; rows.set(level, row + 1);
-    return [n.id, { x: 32 + level * 280, y: 60 + row * 170 }];
+    return [n.id, { x: 32 + level * (CARD_WIDTH+72), y: 60 + row * (CARD_HEIGHT+40) }];
   }));
 }
 export function arrangeGroups(nodes: Item[], edges: Link[]): Record<string, Point> {

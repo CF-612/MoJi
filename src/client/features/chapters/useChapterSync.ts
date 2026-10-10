@@ -4,6 +4,17 @@ import {draftKey} from '../../shared/drafts.js';
 import {ChapterSync,type Chapter} from './sync.ts';
 
 const sessions=new Map<string,ChapterSync>();
+/** Also hydrate cached drafts for chapters no longer open in the editor. */
+export async function prepareChapterRemoval({scope,novelId,chapterId,read,write,onSaved}: {
+  scope:string;novelId:string;chapterId:string;read:()=>Promise<Chapter>;
+  write:(value:Chapter,base:Chapter,requestId:string)=>Promise<Partial<Chapter>>;onSaved:()=>void;
+}) {
+  const key=draftKey(scope,`${novelId}:chapter:${chapterId}`);
+  let controller=sessions.get(key);
+  if(!controller){controller=new ChapterSync({key,initial:await read(),storage:localStorage,read,write,onSaved});sessions.set(key,controller);}
+  controller.options={...controller.options,read,write,onSaved};
+  return {chapter:await controller.prepareRemoval(),accept:controller.accept};
+}
 export function useChapterSync({novelId,chapterId,initial,latest,read,write,onSaved}: {
   novelId:string;chapterId:string;initial:Chapter;latest?:{revision:number};
   read:()=>Promise<Chapter>;write:(value:Chapter,base:Chapter,requestId:string)=>Promise<Partial<Chapter>>;onSaved:()=>void;

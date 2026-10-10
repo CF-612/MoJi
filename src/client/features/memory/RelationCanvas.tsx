@@ -4,6 +4,8 @@ import type {GraphContext} from '../../shared/graph.tsx';
 import {CanvasMenu} from '../planning/CanvasMenu.tsx';
 import type {MenuItem} from '../planning/CanvasMenu.tsx';
 import type {Point,PlanningGroup} from '../../../contracts/planning.ts';
+import {CanvasSelectionTools} from '../../shared/CanvasSelectionTools.tsx';
+import {Icon} from '../../shared/icons.tsx';
 interface Node {id:string;revision:number;name:string;summary:string;type:string;groupId?:string|null;position?:Point|null}
 interface Edge {id:string;from:string;to:string;name?:string;content?:string;revision:number}
 interface Props {
@@ -50,10 +52,11 @@ export function RelationCanvas(props:Props){
         {graph.preview&&<path className="graph-preview" d={graph.preview}/>}
       </svg>
       {routes.filter(r=>r.edge.name||r.edge.content).map(({edge,x,y,width})=><EdgeLabel key={edge.id} {...{edge,x,y,width}} choose={()=>graph.setSelectedEdge(edge.id)} edit={()=>onEdit(edge)}/>)}
-      {nodes.map(n=><section key={n.id} data-node-id={n.id} aria-label={n.name} {...graph.cardProps(n.id,()=>onSelect(n.id))} className={`planning-card ${graph.selected.includes(n.id)?'selected':''}`} style={{left:points[n.id].x,top:points[n.id].y}}><button {...graph.portProps(n.id,'in',n.name)}/><button {...graph.portProps(n.id,'out',n.name)}/><small className="graph-card-kind">{n.type==='character_card'?'角色':'世界'}</small><button className="planning-title" title={n.name}>{n.name}</button><p title={n.summary}>{n.summary||'双击查看设定'}</p></section>)}
+      {nodes.map(n=><section key={n.id} data-node-id={n.id} aria-label={n.name} {...graph.cardProps(n.id,()=>onSelect(n.id))} className={`planning-card setting-card kind-${n.type==='character_card'?'character':'world'} ${graph.selected.includes(n.id)?'selected':''}`} style={{left:points[n.id].x,top:points[n.id].y}}><button {...graph.portProps(n.id,'in',n.name)}/><button {...graph.portProps(n.id,'out',n.name)}/><small className="graph-card-kind"><Icon name={n.type==='character_card'?'person':'world'}/>{n.type==='character_card'?'角色':'世界'}</small><button className="planning-title" title={n.name}>{n.name}</button><p title={n.summary}>{n.summary||'双击查看设定'}</p></section>)}
     </div>
     {!nodes.length&&<p className="canvas-empty">右键新建角色卡或世界书</p>}
     {graph.lasso&&<div className="graph-lasso" style={{left:graph.lasso.x,top:graph.lasso.y,width:graph.lasso.width,height:graph.lasso.height}}/>}
     <GraphControls graph={graph} busy={busy}/>
+    {!graph.selectedEdge&&!graph.wire&&<CanvasSelectionTools selected={graph.selected.filter(id=>ids.has(id))} nodeIds={graph.selected.filter(id=>ids.has(id))} groups={groups} busy={busy||graph.saving||graph.failed} clear={()=>graph.select([])} move={groupId=>props.onMove(graph.selected.filter(id=>ids.has(id)),groupId)} duplicate={()=>props.onDuplicate(graph.selected.filter(id=>ids.has(id)),points)} remove={()=>props.onRemove(graph.selected.filter(id=>ids.has(id)))}/>}
   </div>{menu&&<CanvasMenu {...menu} items={items} close={()=>{setMenu(null);graph.scroll.current?.focus({preventScroll:true});}}/>}</>;
 }

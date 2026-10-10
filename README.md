@@ -56,7 +56,7 @@ npm run preview:workbench
 
 打开终端返回的本地地址即可。预览会创建一份临时演示作品，可以自由操作；想留下试用内容，请从作品菜单导出。这个预览用来体验工作台，和 AI 协作需要安装到 DSH。
 
-当前主要适配 DSH Windows 桌面版，已验证的宿主版本是 **0.2.0-rc.2**。桌面安装步骤见[安装与开始使用](docs/getting-started.md)。
+当前主要适配 DSH Windows 桌面版，已验证的宿主版本是 **0.2.0-rc.2**。普通用户直接使用 [0.4.0 发布包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/tag/v0.4.0)，无需安装 Git；桌面安装步骤见[安装与开始使用](docs/getting-started.md)，更新和自动迁移见[更新与数据迁移](docs/upgrade.md)。
 
 安装后，从 DSH 左侧栏的 **催更姬** 进入。创建或选择一本作品，再在绑定这本作品的会话里讨论写作；空白会话也能打开工作台。
 
@@ -64,7 +64,7 @@ npm run preview:workbench
 
 这个公开仓库只提供插件源码、使用文档和测试用的合成样例，**不附带作者的小说、私人设定、聊天记录或工作数据备份**。
 
-自己的作品请通过工作台管理，实际保存位置可在“工作数据 · 导入/导出”中查看。单本作品备份和整个工作数据备份都可使用；DSH 的聊天记录、附件与账号配置由 DSH 管理，需要另行备份。
+自己的作品请通过工作台管理，实际保存位置可在“导入 / 导出”中查看。可以选择作品、章节、设定分组、规划页或预设，也能备份整个工作库，详见[导入与导出](docs/import-export.md)；DSH 的聊天记录、附件与账号配置由 DSH 管理，需要另行备份。
 
 ## 一位随时可以讨论的写作搭档
 
@@ -77,6 +77,8 @@ AI 的理解和写作能力仍取决于你在 DSH 中选择的模型以及作品
 ---
 
 - [安装与开始使用](docs/getting-started.md)
+- [交给 Agent 安装（Windows）](docs/agent-installation.md)
+- [更新与数据迁移](docs/upgrade.md)
 - [开发、测试与发布](docs/development.md)
 - [模块划分与数据存储](docs/architecture.md)
 - [更新记录](docs/CHANGELOG.md)

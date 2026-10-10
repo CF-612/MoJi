@@ -1,5 +1,6 @@
 import type { Board, Collection, Change, Decoration, PlanningEntity, PlanningNode, PlanningNovel, PlanningArgs, Operation } from '../../contracts/planning.ts';
 import { ensurePlanning, validatePlanning } from './model.ts';
+import { normalizePlanningOperations } from './operations.ts';
 export { ensurePlanning, validatePlanning } from './model.ts';
 import { randomUUID } from 'node:crypto';
 const fail=(code:string,message:string):never=>{throw Object.assign(new Error(message),{code});};
@@ -60,8 +61,7 @@ export function planningAction(novel:PlanningNovel,action:string,args:PlanningAr
     const transaction=board.transactions.find(t=>t.id===args.transactionId);if(!transaction)fail('NOT_FOUND','变更记录不存在');
     for(const change of transaction!.changes){const current=entity<PlanningEntity>(draft[change.collection],change.id);check(current,change.after.revision);update(change.collection,change.id,change.before||{...current,deleted:true});}
   }else{
-    if(!Array.isArray(args.operations)||!args.operations.length||args.operations.length>200)fail('INVALID_INPUT','请提供 1–200 个规划操作');
-    for(const op of args.operations!){
+    for(const op of normalizePlanningOperations(args.operations)){
       if(op.op==='page.create'){
         const id=randomUUID();if(op.ref){if(own(mapping,op.ref))fail('INVALID_INPUT','临时引用重复');Object.defineProperty(mapping,op.ref,{value:id,enumerable:true});}
         update('pages',id,{name:op.value?.name,summary:op.value?.summary??'',deleted:false});
