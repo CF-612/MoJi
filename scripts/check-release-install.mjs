@@ -1,5 +1,6 @@
 // Developer acceptance: use DSH's real native package operation in a disposable
-// profile with no Git/global Node in PATH. Never touches the user's profile.
+// profile. Default has no Git/global Node; --with-git covers repository HEAD
+// resolution in the official GitHub address flow. Never touches the user's profile.
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
@@ -11,6 +12,7 @@ import {runPluginCommand} from '@deepseek-ai/dsh-plugin-manager/operations';
 
 const args = process.argv.slice(2), arg = name => {const index=args.indexOf(name);return index < 0 ? undefined : args[index+1];};
 const desktopExe = arg('--desktop-exe'), packageSpec = arg('--package'), oldPackage = args.includes('--old-package') ? arg('--old-package') : undefined;
+const withGit = args.includes('--with-git');
 if (!desktopExe || !packageSpec || process.platform !== 'win32') throw new Error('Windows: --desktop-exe <exe> --package <local.tgz, URL or github: spec> [--old-package <tgz>] [--report <json>]');
 const currentManifest = JSON.parse(await readFile(new URL('../package.json',import.meta.url),'utf8'));
 const workspace = await mkdtemp(join(tmpdir(),'cuigengji-native-install-')), profile = join(workspace,'profile'), data = join(workspace,'novel-data');
@@ -18,13 +20,19 @@ const runtime = join(dirname(resolve(desktopExe)),'resources/runtime'), windows 
 const env = {...process.env,PATH:[join(runtime,'bin'),join(windows,'System32'),windows].join(';'),
   DSH_DESKTOP_NODE_EXECUTABLE:resolve(desktopExe),ELECTRON_RUN_AS_NODE:'1',CI:'true',PNPM_HOME:join(workspace,'pnpm')};
 delete env.NODE_OPTIONS;
-assert.notEqual(spawnSync(join(windows,'System32/where.exe'),['git'],{env,encoding:'utf8',windowsHide:true}).status,0,'Git must not be on PATH');
+if (withGit) {
+  const executable = spawnSync(join(windows,'System32/where.exe'),['git'],{encoding:'utf8',windowsHide:true});
+  assert.equal(executable.status,0,'--with-git requires an installed Git executable');
+  env.PATH += ';' + dirname(executable.stdout.trim().split(/\r?\n/)[0]);
+}
+const gitAvailable = spawnSync(join(windows,'System32/where.exe'),['git'],{env,encoding:'utf8',windowsHide:true}).status === 0;
+assert.equal(gitAvailable,withGit,'Git must only be on PATH in the --with-git case');
 const nodePaths = spawnSync(join(windows,'System32/where.exe'),['node'],{env,encoding:'utf8',windowsHide:true}).stdout.trim();
 assert.ok(nodePaths.includes('runtime\\bin\\node.cmd'),'only the desktop Node shim should be available');
 const options = {command:resolve(desktopExe),args:['--expose-internals',join(runtime,'pnpm/bin/pnpm.mjs')],env,
   execution:'service',outputBytes:4000,activateNewBundles:true,lockWaitMs:10000,idleTimeoutMs:120000,lookupTimeoutMs:20000};
 const context = {profile:'desktop',dir:profile,cwd:process.cwd(),installAnchor:fileURLToPath(import.meta.resolve('@deepseek-ai/dsh/package.json')),home:join(workspace,'home')};
-const report = {gitAvailable:false,globalNode:false,packageSpec,steps:[],ok:false};
+const report = {gitAvailable,globalNode:false,packageSpec,steps:[],ok:false};
 try {
   await mkdir(profile,{recursive:true}); await mkdir(data);
   await writeFile(join(profile,'package.json'),JSON.stringify({name:'isolated-release-test',private:true,customField:{keep:true},dsh:{profile:{bundles:[]}}},null,2));

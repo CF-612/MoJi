@@ -59,7 +59,7 @@ Windows 上 `scripts/check-release-install.mjs` 在临时 profile 中调用 DSH 
 node scripts/check-release-install.mjs --desktop-exe "C:\你的DSH安装目录\DeepSeek Harness.exe" --package "C:\发布目录\dsh-cuigengji-0.4.1.tgz" --old-package "C:\旧包目录\dsh-cuigengji-0.3.13.tgz" --report "C:\验收目录\update.json"
 ```
 
-省略 `--old-package` 验证全新安装；`--package` 也可使用真实 Release `.tgz` URL、完整 GitHub 仓库 URL 或固定提交的 `github:owner/repo#commit`。GitHub 路径同样检查安装后的编译文件、无构建授权和旧库内容。用户安装使用[原生 Agent 指南](agent-installation.md)，不运行此开发者验收脚本。
+省略 `--old-package` 验证全新安装；`--package` 也可使用真实 Release `.tgz` URL、完整 GitHub 仓库 URL 或固定提交的 `github:owner/repo#commit`。默认不提供 Git，固定提交使用完整 40 位 SHA；不固定提交的仓库地址加 `--with-git` 验收宿主的 Git 引用解析。GitHub 路径同样检查安装后的编译文件、无构建授权和旧库内容。用户安装使用[原生 Agent 指南](agent-installation.md)，不运行此开发者验收脚本。
 
 ## 小说数据与源码分离
 
