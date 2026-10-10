@@ -2,6 +2,8 @@
 
 催更姬的市场条目通过 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) 目录提交，由 dsh-market 使用该目录展示。提交成功不代表已经收录，需要目录维护者审核并合并；收录规则以其 [contributing.md](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/contributing.md) 为准。
 
+首次收录申请：[PR #7064](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/7064)。审核、合并与反馈以该页面的实际状态为准。
+
 ## 条目
 
 提交 `data/plugins/mistnest__dsh-cuigengji-plugin.yml`，仅改这一个条目，不手工修改目录仓库的 README：

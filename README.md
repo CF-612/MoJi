@@ -6,6 +6,8 @@
 
 想看它怎样用？[B 站演示：一个插件，让大肥鱼成为你的小说写作助手](https://www.bilibili.com/video/BV1e5HE6wErd/)。
 
+开始使用：[下载 0.4.0 成品包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/tag/v0.4.0) · [把安装/更新指南交给 Agent](docs/agent-installation.md)。
+
 它想解决的是长篇创作里的一个常见问题：**AI 能写出一段像样的文字，却未必知道你整本书想怎么写。** 人物为什么沉默、哪条伏笔还不能揭开、下一章要走向哪里，这些往往都在正文之外。
 
 ## 正文之外，也有故事
