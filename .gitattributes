@@ -1,3 +1,4 @@
 # Generated installation files stay available to DSH while GitHub folds their diffs.
+* text=auto eol=lf
 runtime/** text eol=lf linguist-generated=true
 lib/client.js text eol=lf linguist-generated=true
