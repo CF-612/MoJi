@@ -25,7 +25,7 @@ description: 安装或更新催更姬后，查询自动迁移、备份和完整�
 返回当前插件版本、实际数据根、来源/目标存储版本、迁移阶段、完整备份路径、作品和正文数量，以及失败原因。它不要求会话绑定小说，迁移失败时仍可调用。
 
 ```json
-{"action":"verify","args":{"expectedVersion":"0.4.0","expectedDataRoot":"C:\\Users\\用户名\\AppData\\Local\\cuigengji"}}
+{"action":"verify","args":{"expectedVersion":"0.4.1","expectedDataRoot":"C:\\Users\\用户名\\AppData\\Local\\cuigengji"}}
 ```
 
 它在锁内重新读取并校验工作库，返回计数、摘要哈希和每项检查结果。不要把摘要哈希当作正文内容，也不要把数据根替换成维护者电脑上的路径。
@@ -38,4 +38,4 @@ description: 安装或更新催更姬后，查询自动迁移、备份和完整�
 - 回滚时先停止 DSH，保留升级后新写入的文件，再使用对应升级前快照和旧插件版本恢复；回滚前先取得用户明确授权，并报告会影响哪些新写入内容。
 - DSH 的聊天、附件、API 密钥和宿主偏好由 DSH 自己管理，不属于催更姬工作数据迁移；不要声称它们包含在催更姬备份中。
 
-详细步骤见[Windows Agent 安装指南](https://github.com/mistnest/dsh-cuigengji-plugin/blob/v0.4.0/docs/agent-installation.md)和[升级恢复说明](https://github.com/mistnest/dsh-cuigengji-plugin/blob/v0.4.0/docs/upgrade.md)。
+详细步骤见[Windows Agent 安装指南](https://github.com/mistnest/dsh-cuigengji-plugin/blob/v0.4.1/docs/agent-installation.md)和[升级恢复说明](https://github.com/mistnest/dsh-cuigengji-plugin/blob/v0.4.1/docs/upgrade.md)。

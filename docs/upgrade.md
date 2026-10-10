@@ -1,6 +1,8 @@
-# 0.4.0 更新与数据迁移
+# 更新与数据迁移
 
 0.4.0 是第一次把“可维护升级”作为正式能力发布的版本。用户仍然通过 DSH 桌面版的原生插件管理安装，插件加载后会自动处理已有催更姬数据。用户不需要 Git、Node.js、pnpm，也不需要手工移动文件。
+
+0.4.1 修复 GitHub 地址直接安装：在 DSH“添加插件”的“包名或地址”中填仓库地址即可。成品包安装继续可用；数据布局与 0.4.0 相同，插件启动会为新版本建立升级前快照并核对已有工作库。
 
 ## 更新时发生什么
 
@@ -24,7 +26,7 @@
 然后使用真实加载版本和数据根进行校验：
 
 ```json
-{"action":"verify","args":{"expectedVersion":"0.4.0","expectedDataRoot":"C:\\Users\\用户\\AppData\\Local\\cuigengji"}}
+{"action":"verify","args":{"expectedVersion":"0.4.1","expectedDataRoot":"C:\\Users\\用户\\AppData\\Local\\cuigengji"}}
 ```
 
 只有 `status.status` 为 `ready` 且 `verify.verified` 为 `true`，才能向用户报告更新完成。校验结果包含作品、章节、历史、设定、规划和绑定数量，不返回正文内容。

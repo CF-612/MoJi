@@ -1,6 +1,6 @@
 # 开发、测试与公开发布
 
-当前插件版本 0.4.0，Node.js 24+，DSH 兼容基线 0.2.0-rc.2。源码同时包含 TypeScript、JavaScript 和 JSX，尚未完成全部模块的 TypeScript 迁移。
+当前插件版本 0.4.1，Node.js 24+，DSH 兼容基线 0.2.0-rc.2。源码同时包含 TypeScript、JavaScript 和 JSX，尚未完成全部模块的 TypeScript 迁移。
 
 ## 模块与构建
 
@@ -12,18 +12,20 @@
 - `src/contracts`：共享契约；`skills`：写作助手协作指南。
 - 旧 `core`、`mcp`、`assistant` 入口保留兼容转发。
 
-`npm run build` 生成 `lib/client.js` 和服务端 `runtime/`。Node 不直接运行安装包中的 TypeScript，因此发布前必须重新构建。完整模块关系见[架构说明](architecture.md)。
+`src/` 是维护入口。`npm run build` 生成 `lib/client.js` 和服务端 `runtime/`；这两处生成文件随源码提交，供 DSH 直接安装。GitHub 默认折叠它们的差异，不在生成文件上手工改功能。Node 不直接运行安装包中的 TypeScript，因此发布前必须重新构建。完整模块关系见[架构说明](architecture.md)。
+
+根 `package.json` 不声明 `prepare`、`prepack` 或安装脚本；DSH 从 GitHub 安装时只读取预构建文件，不需要运行构建或放宽 pnpm 保护。开发者通过显式命令构建、打包；CI 用 `check:build` 重新编译并逐字节检查生成文件，发现源码和产物不同或残留旧模块就拒绝提交。
 
 ```powershell
 npm ci
 npm test
 npm run typecheck
-npm run build
+npm run check:build
 npm run test:ui
-npm pack
+npm run pack:release
 ```
 
-`npm pack` 自动执行类型检查与构建。界面脚本使用真实 Workbench 和隔离临时 Store。作者操作流程用 `test:author-workflow`；图、页面、目录关闭、章节排序、正文光标、管理页和预设分别有 `test:graph`、`test:pages`、`test:directory`、`test:chapter-order`、`test:manuscript`、`test:management`、`test:presets` 和 `test:transfer`。欢迎页与批量管理用 `test:welcome-batch`，覆盖作品入口、筛选后的选择范围、移动失败与跨页连线，以及宽窄屏和深色布局。顶部导航、刷新保留草稿/视野、正文底部间距和设置内预设入口用 `test:navigation` 验收。旧 `test:ui` 仍有待同步的界面名称，不代替这些专项验收。
+`npm run pack:release` 显式执行类型检查、构建、产物核对和打包；直接 `npm pack` 只打包已存在的文件，不再自动构建。界面脚本使用真实 Workbench 和隔离临时 Store。作者操作流程用 `test:author-workflow`；图、页面、目录关闭、章节排序、正文光标、管理页和预设分别有 `test:graph`、`test:pages`、`test:directory`、`test:chapter-order`、`test:manuscript`、`test:management`、`test:presets` 和 `test:transfer`。欢迎页与批量管理用 `test:welcome-batch`，覆盖作品入口、筛选后的选择范围、移动失败与跨页连线，以及宽窄屏和深色布局。顶部导航、刷新保留草稿/视野、正文底部间距和设置内预设入口用 `test:navigation` 验收。旧 `test:ui` 仍有待同步的界面名称，不代替这些专项验收。
 
 单独看前端可以运行 `npm run preview:workbench`；添加 `-- --welcome` 查看未绑定会话的作品首页，添加 `-- --empty` 查看空库欢迎页。两种模式都使用隔离的临时数据，不加载日常小说。
 
@@ -54,10 +56,10 @@ node scripts/check-project-names-migration.mjs <数据目录> <报告目录>
 Windows 上 `scripts/check-release-install.mjs` 在临时 profile 中调用 DSH 原生 `runPluginCommand`，把 PATH 限制为桌面内置 Node shim 与 Windows 系统目录，检查找不到 Git，再验收本地或远程 `.tgz` 的新安装/旧包更新。它保留无关 profile 字段、启用组合包，随后用桌面 Node 加载 node_modules 中的编译包，验证维护工具、正文、规划、预设和真实 stdio MCP。不会读写用户 desktop profile。
 
 ```powershell
-node scripts/check-release-install.mjs --desktop-exe "C:\你的DSH安装目录\DeepSeek Harness.exe" --package "C:\发布目录\dsh-cuigengji-0.4.0.tgz" --old-package "C:\旧包目录\dsh-cuigengji-0.3.13.tgz" --report "C:\验收目录\update.json"
+node scripts/check-release-install.mjs --desktop-exe "C:\你的DSH安装目录\DeepSeek Harness.exe" --package "C:\发布目录\dsh-cuigengji-0.4.1.tgz" --old-package "C:\旧包目录\dsh-cuigengji-0.3.13.tgz" --report "C:\验收目录\update.json"
 ```
 
-省略 `--old-package` 验证全新安装；`--package` 也可使用真实 Release `.tgz` URL。用户安装使用[原生 Agent 指南](agent-installation.md)，不运行此开发者验收脚本。
+省略 `--old-package` 验证全新安装；`--package` 也可使用真实 Release `.tgz` URL、完整 GitHub 仓库 URL 或固定提交的 `github:owner/repo#commit`。GitHub 路径同样检查安装后的编译文件、无构建授权和旧库内容。用户安装使用[原生 Agent 指南](agent-installation.md)，不运行此开发者验收脚本。
 
 ## 小说数据与源码分离
 

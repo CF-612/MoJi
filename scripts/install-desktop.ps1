@@ -24,7 +24,11 @@ $null = New-Item -ItemType Directory -Path $ReleaseDirectory -Force
 $previousNode = $env:DSH_DESKTOP_NODE_EXECUTABLE
 Push-Location $projectDirectory
 try {
-  & npm.cmd pack --silent --pack-destination $ReleaseDirectory
+  & npm.cmd run typecheck
+  if ($LASTEXITCODE -ne 0) { throw 'Plugin typecheck failed.' }
+  & npm.cmd run build
+  if ($LASTEXITCODE -ne 0) { throw 'Plugin build failed.' }
+  & npm.cmd pack --ignore-scripts --silent --pack-destination $ReleaseDirectory
   if ($LASTEXITCODE -ne 0) { throw 'Plugin build or pack failed.' }
   $manifest = Get-Content -LiteralPath 'package.json' -Encoding UTF8 -Raw | ConvertFrom-Json
   $archive = Join-Path $ReleaseDirectory "dsh-cuigengji-$($manifest.version).tgz"

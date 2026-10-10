@@ -6,7 +6,7 @@
 
 想看它怎样用？[B 站演示：一个插件，让大肥鱼成为你的小说写作助手](https://www.bilibili.com/video/BV1e5HE6wErd/)。
 
-开始使用：[下载 0.4.0 成品包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/tag/v0.4.0) · [把安装/更新指南交给 Agent](docs/agent-installation.md)。
+开始使用：在 DSH 的“添加插件”中填入本仓库地址，或[下载成品包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/latest) · [把安装/更新指南交给 Agent](docs/agent-installation.md)。
 
 它想解决的是长篇创作里的一个常见问题：**AI 能写出一段像样的文字，却未必知道你整本书想怎么写。** 人物为什么沉默、哪条伏笔还不能揭开、下一章要走向哪里，这些往往都在正文之外。
 
@@ -68,7 +68,13 @@ npm run preview:workbench
 
 打开终端返回的本地地址即可。预览会创建一份临时演示作品，可以自由操作；想留下试用内容，请从作品菜单导出。这个预览用来体验工作台，和 AI 协作需要安装到 DSH。
 
-当前主要适配 DSH Windows 桌面版，已验证的宿主版本是 **0.2.0-rc.2**。普通用户直接使用 [0.4.0 发布包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/tag/v0.4.0)，无需安装 Git；桌面安装步骤见[安装与开始使用](docs/getting-started.md)，更新和自动迁移见[更新与数据迁移](docs/upgrade.md)。
+当前主要适配 DSH Windows 桌面版，已验证的宿主版本是 **0.2.0-rc.2**。进入 DSH 左侧“插件”，点击“添加插件”，在 **“包名或地址”** 输入框填入：
+
+```text
+https://github.com/mistnest/dsh-cuigengji-plugin
+```
+
+“安装源”选择默认源、npm 官方源或中国大陆镜像源，这里用于下载依赖。插件已经编译，用户安装时无需构建源码或批准构建脚本。也可使用[成品安装包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/latest)；桌面安装步骤见[安装与开始使用](docs/getting-started.md)，更新和自动迁移见[更新与数据迁移](docs/upgrade.md)。
 
 安装后，从 DSH 左侧栏的 **催更姬** 进入。创建或选择一本作品，再在绑定这本作品的会话里讨论写作；空白会话也能打开工作台。
 

@@ -4,16 +4,18 @@
 
 ## 下载入口
 
-- 当前发布：[0.4.0](https://github.com/mistnest/dsh-cuigengji-plugin/releases/tag/v0.4.0)
-- 成品安装包：[dsh-cuigengji-0.4.0.tgz](https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.0/dsh-cuigengji-0.4.0.tgz)
-- 哈希校验：[SHA256SUMS](https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.0/SHA256SUMS)
+- 当前发布：[0.4.1](https://github.com/mistnest/dsh-cuigengji-plugin/releases/tag/v0.4.1)
+- 成品安装包：[dsh-cuigengji-0.4.1.tgz](https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.1/dsh-cuigengji-0.4.1.tgz)
+- 哈希校验：[SHA256SUMS](https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.1/SHA256SUMS)
 - 已验证宿主：DSH Windows 桌面版 **0.2.0-rc.2**。后续宿主版本以对应发布说明为准。
 
-安装源用上面的 `.tgz` URL，或下载后的 Windows 绝对路径。GitHub 的源码 ZIP 是源码，仓库地址会让宿主调用 Git，二者都不作为免 Git 安装源。本项目尚未发布 npm 包，不把 `dsh-cuigengji@0.4.0` 当成可用 registry 安装命令。
+普通用户可在 DSH“添加插件”的“包名或地址”中填 `https://github.com/mistnest/dsh-cuigengji-plugin`；0.4.1 起仓库包含完整编译文件，不需要构建授权。固定版本安装和无 Git 环境优先使用上面的 `.tgz` URL，或下载后的 Windows 绝对路径。GitHub 的源码 ZIP 不替代 `.tgz` 包。本项目尚未发布 npm 包，不把 `dsh-cuigengji@0.4.1` 当成可用 registry 安装命令。
+
+“安装源”字段控制 npm 依赖从哪里下载，选择默认、官方源或中国大陆镜像源，不填写 GitHub 仓库地址。用户的包源、供应链保护和构建白名单不因安装催更姬而修改。
 
 ## 用户可直接交给 Agent 的话
 
-> 请按催更姬的 Windows Agent 安装指南帮我安装或更新到 0.4.0。使用 DSH 原生插件管理和 GitHub Release 成品包，保留已有配置和小说数据，完整重启后用维护工具确认实际加载版本、正确的数据目录和迁移校验结果。用户重新进入插件时应能直接继续写作。
+> 请按催更姬的 Windows Agent 安装指南帮我安装或更新到 0.4.1。使用 DSH 原生插件管理和 GitHub Release 成品包，保留已有配置和小说数据，完整重启后用维护工具确认实际加载版本、正确的数据目录和迁移校验结果。用户重新进入插件时应能直接继续写作。
 
 ## 1. 查明当前环境
 
@@ -38,7 +40,7 @@ Windows 外部 Agent 可以用 PowerShell 的 `Get-FileHash -Algorithm SHA256` �
 通过 DSH 原生工具安装 URL：
 
 ```json
-{"action":"install_bundle","target":"https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.0/dsh-cuigengji-0.4.0.tgz","enabled":true}
+{"action":"install_bundle","target":"https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.1/dsh-cuigengji-0.4.1.tgz","enabled":true}
 ```
 
 或把 `target` 换成已经核对过的本地 `.tgz` 绝对路径。没有原生工具访问能力的外部 Agent，可以先准备好包，交由 DSH 的原生插件页安装，并继续接手后面的验证。
@@ -64,12 +66,12 @@ desktop profile 由桌面应用管理。普通 DSH CLI 会拒绝对它直接操�
 再核对版本、原数据根和原作品 ID；下面的数据目录是示例，请换成之前查明的目录：
 
 ```json
-{"action":"verify","args":{"expectedVersion":"0.4.0","expectedDataRoot":"C:\\Users\\用户名\\AppData\\Local\\cuigengji","expectedNovelIds":[]}}
+{"action":"verify","args":{"expectedVersion":"0.4.1","expectedDataRoot":"C:\\Users\\用户名\\AppData\\Local\\cuigengji","expectedNovelIds":[]}}
 ```
 
 `expectedNovelIds` 可填升级前作品的真实 ID，不用新 ID 替代。确认：
 
-- `status.status=ready`，实际加载版本为 0.4.0，数据根与更新前一致。
+- `status.status=ready`，实际加载版本为 0.4.1，数据根与更新前一致。
 - `verify.verified=true`，各作品、正文版本、回收站、设定、规划页和绑定数量符合原数据。
 - 原有作品仍能通过只读工具访问。初次安装应是可用空库，不会附带作者小说。
 

@@ -14,9 +14,14 @@ npm run preview:workbench -- "C:\你的备份目录\作品.cuigengji.json"
 
 ## 安装到 DSH Windows 桌面版
 
-当前已验证 DSH 0.2.0-rc.2，其他版本请先核对发布说明。本仓库提供 [0.4.0 成品安装包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/tag/v0.4.0)，尚未发布 npm 包。
+当前已验证 DSH 0.2.0-rc.2，其他版本请先核对发布说明。0.4.1 起，仓库随源码提供编译后的安装文件，支持 DSH 官方 GitHub 地址安装；同时继续提供[成品安装包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/latest)。
 
-从 DSH 原生插件页安装发布的 `.tgz` URL 或下载后的文件路径，无需 Git。也可以把[Windows Agent 安装指南](agent-installation.md)交给 DSH 的 Agent 完成安装、重启和校验。升级会自动备份并迁移已有数据，详见[更新说明](upgrade.md)。
+1. 从 DSH 左侧进入“插件”，点击“添加插件”。
+2. 在“包名或地址”输入 `https://github.com/mistnest/dsh-cuigengji-plugin`。
+3. “安装源”保持默认，或选择 npm 官方源 / 中国大陆镜像源；它用于下载依赖，不填写 GitHub 仓库地址。
+4. 点击“安装”，完成后按 DSH 提示完整重启，从左侧“催更姬”进入。
+
+使用固定发布版本时，也可将成品 `.tgz` URL 或下载后的 Windows 绝对路径填入同一个“包名或地址”输入框。也可以把[Windows Agent 安装指南](agent-installation.md)交给 DSH 的 Agent 完成安装、重启和校验。升级会自动备份并迁移已有数据，详见[更新说明](upgrade.md)。本项目尚未发布 npm 包，不直接填 `dsh-cuigengji` 作为安装目标。
 
 ### 开发者本地安装
 

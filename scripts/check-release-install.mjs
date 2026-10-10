@@ -11,7 +11,8 @@ import {runPluginCommand} from '@deepseek-ai/dsh-plugin-manager/operations';
 
 const args = process.argv.slice(2), arg = name => {const index=args.indexOf(name);return index < 0 ? undefined : args[index+1];};
 const desktopExe = arg('--desktop-exe'), packageSpec = arg('--package'), oldPackage = args.includes('--old-package') ? arg('--old-package') : undefined;
-if (!desktopExe || !packageSpec || process.platform !== 'win32') throw new Error('Windows: --desktop-exe <exe> --package <local.tgz or URL> [--old-package <tgz>] [--report <json>]');
+if (!desktopExe || !packageSpec || process.platform !== 'win32') throw new Error('Windows: --desktop-exe <exe> --package <local.tgz, URL or github: spec> [--old-package <tgz>] [--report <json>]');
+const currentManifest = JSON.parse(await readFile(new URL('../package.json',import.meta.url),'utf8'));
 const workspace = await mkdtemp(join(tmpdir(),'cuigengji-native-install-')), profile = join(workspace,'profile'), data = join(workspace,'novel-data');
 const runtime = join(dirname(resolve(desktopExe)),'resources/runtime'), windows = process.env.SystemRoot || 'C:\\Windows';
 const env = {...process.env,PATH:[join(runtime,'bin'),join(windows,'System32'),windows].join(';'),
@@ -41,12 +42,15 @@ try {
     await copyFile(new URL('../tests/fixtures/public-0.3.13/store.json',import.meta.url),join(data,'store.json'));
     report.steps.push({operation:'install-old',version:'0.3.13'});
   }
-  assert.equal(await install(/^https?:/.test(packageSpec) ? packageSpec : resolve(packageSpec)),'0.4.0');
+  const target = /^(?:https?:|github:|git\+https?:)/.test(packageSpec) ? packageSpec : resolve(packageSpec);
+  assert.equal(await install(target),currentManifest.version);
   for (const path of ['runtime/index.js','runtime/application/maintenance/upgrade.js','runtime/infrastructure/persistence/upgrade-backup.js','lib/client.js','skills/cuigengji-maintenance/SKILL.md']) {
     const hash = bytes => createHash('sha256').update(bytes).digest('hex');
     assert.equal(hash(await readFile(join(profile,'node_modules/dsh-cuigengji',path))),hash(await readFile(new URL('../'+path,import.meta.url))),`installed ${path} must match this build`);
   }
-  report.steps.push({operation:oldPackage?'update':'fresh-install',version:'0.4.0'});
+  report.steps.push({operation:oldPackage?'update':'fresh-install',version:currentManifest.version});
+  const policy = await readFile(join(profile,'pnpm-workspace.yaml'),'utf8').catch(error=>{if(error.code==='ENOENT') return ''; throw error;});
+  assert.ok(!/dsh-cuigengji[^\r\n]*:\s*(?:true|set this to true or false)/.test(policy),'install must not grant or request plugin build-script permissions');
   const smoke = spawnSync(resolve(desktopExe),['--expose-internals',fileURLToPath(new URL('./installed-release-smoke.mjs',import.meta.url)),join(profile,'node_modules/dsh-cuigengji'),data],
     {env,encoding:'utf8',windowsHide:true,timeout:120000});
   assert.equal(smoke.status,0,smoke.stderr || smoke.stdout);

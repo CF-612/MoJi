@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 const input = JSON.parse((await readFile(process.argv[2] || '.test-runtime/pack-files.json','utf8')).replace(/^\uFEFF/,''));
-assert.equal(input.length,1); const entry = input[0]; assert.equal(entry.name,'dsh-cuigengji'); assert.equal(entry.version,'0.4.0');
+const manifest = JSON.parse(await readFile(new URL('../package.json',import.meta.url),'utf8'));
+assert.equal(input.length,1); const entry = input[0]; assert.equal(entry.name,manifest.name); assert.equal(entry.version,manifest.version);
 const allowed = /^(?:src\/|runtime\/|lib\/|skills\/|docs\/|README\.md$|LICENSE$|package\.json$|cordis\.patch\.yml$)/;
 const blocked = /(?:^|\/)(?:\.env(?:\..*)?|node_modules|\.git|\.dsh|novel-data|test-data|backups|releases|migration|\.cuigengji-upgrade-backups)(?:\/|$)|(?:^|\/)store(?:\.pending)?\.json$|\.cuigengji\.json$/;
 const files = new Set(entry.files.map(file => file.path));

@@ -9,6 +9,7 @@ import {UpgradeCoordinator} from '../src/application/maintenance/upgrade.ts';
 import {backupParent, verifyUpgradeBackup} from '../src/infrastructure/persistence/upgrade-backup.ts';
 import {splitWorkspace, fileId} from '../src/infrastructure/persistence/project-layout.ts';
 import {apply} from '../src/index.js';
+const currentVersion = JSON.parse(await readFile(new URL('../package.json',import.meta.url),'utf8')).version;
 
 async function temporary(t) {
   const parent = await mkdtemp(join(tmpdir(), 'cuigengji-upgrade-')), root = join(parent,'data');
@@ -36,7 +37,7 @@ test('startup upgrade backs up current data, verifies the logical state, and is 
   assert.equal(result.beforeStateDigest, result.afterStateDigest);
   assert.ok(result.backupPath);
   assert.equal(await readFile(join(result.backupPath, 'data', 'author-extra.txt'), 'utf8'), '作者额外文件');
-  const verified = await coordinator.verify({expectedVersion:'0.4.0', expectedDataRoot:root, expectedNovelIds:[novel.id]});
+  const verified = await coordinator.verify({expectedVersion:currentVersion, expectedDataRoot:root, expectedNovelIds:[novel.id]});
   assert.equal(verified.verified, true);
   const backupPath = result.backupPath;
   const second = new UpgradeCoordinator(new Store(root));
@@ -90,7 +91,7 @@ for (const version of [1,2,3,4]) test(`public 0.3.13 data and physical v${versio
   const store = new Store(root), upgrade = new UpgradeCoordinator(store), result = await upgrade.start();
   assert.equal(result.status,'ready',JSON.stringify(result.error)); assert.equal(result.fromStorageVersion,version);
   assert.deepEqual(await store.readStoredWorkspace(),state);
-  assert.equal((await upgrade.verify({expectedVersion:'0.4.0',expectedDataRoot:root,expectedNovelIds:Object.keys(state.novels)})).verified,true);
+  assert.equal((await upgrade.verify({expectedVersion:currentVersion,expectedDataRoot:root,expectedNovelIds:Object.keys(state.novels)})).verified,true);
   const backup = await verifyUpgradeBackup(root,result.backupPath);
   assert.ok(backup.entries.some(e => e.path === 'extra-empty-directory' && e.kind === 'directory'));
   assert.equal(await readFile(join(result.backupPath,'data/extra-file.txt'),'utf8'),'作者额外记录');
@@ -168,7 +169,7 @@ test('actual host maintenance tool and RPC work unbound after failure while proj
   await assert.rejects(execute('cuigengji_project','novel.get'),{code:'UPGRADE_REQUIRED'});
   let admitted = false; await hooks.get('agent/pre-step')({agent:{id:'unbound'}},() => {admitted = true;}); assert.equal(admitted,true);
   const result = await hooks.get('system-prompt/assemble')({}, {agent:{id:'unbound'}}, () => ({sections:[],contexts:[]})); assert.deepEqual(result,{sections:[],contexts:[]});
-  assert.equal(ctx.cuigengji.maintenance.pluginVersion,'0.4.0');
+  assert.equal(ctx.cuigengji.maintenance.pluginVersion,currentVersion);
 });
 
 test('invalid upgrade records are preserved and do not reset an existing checkpoint',async t => {
