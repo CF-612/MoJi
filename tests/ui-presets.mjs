@@ -18,7 +18,8 @@ try {
   await enter();
   const upload=async(raw)=>{if(!await page.getByLabel('导入文件',{exact:true}).isVisible())await page.getByRole('button',{name:'导入预设',exact:true}).click();await page.getByLabel('导入文件',{exact:true}).setInputFiles({name:'preset.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(raw))});await expect(page.getByRole('button',{name:'确认导入',exact:true})).toBeEnabled();if(await page.getByLabel('现有预设',{exact:true}).count())await page.getByLabel('现有预设',{exact:true}).selectOption('replace');};
   const parse=async()=>{await expect(page.getByRole('button',{name:'确认导入',exact:true})).toBeEnabled();await page.getByRole('button',{name:'确认导入',exact:true}).click();await expect(page.getByRole('heading',{name:'导入完成',exact:true})).toBeVisible();await page.getByRole('button',{name:'‹ 返回写作预设',exact:true}).click();await expect(page.getByRole('heading',{name:'写作预设',exact:true})).toBeVisible();};
-  const save=async()=>{await page.getByLabel('启用',{exact:true}).check();await page.getByRole('button',{name:'保存预设',exact:true}).click();await expect(page.getByRole('button',{name:'保存预设',exact:true})).toBeDisabled();};
+  const newerNotice=page.getByText('已保存的预设有更新，当前草稿仍保留。可保存后核对，或在预设设置里读取最新版本。',{exact:true});
+  const save=async()=>{await page.getByLabel('启用',{exact:true}).check();await page.getByRole('button',{name:'保存预设',exact:true}).click();await expect(page.getByRole('button',{name:'保存预设',exact:true})).toBeDisabled();await expect(newerNotice).toHaveCount(0);};
   const input={name:'规则忽略校验',prompts:[{identifier:'a',name:'宏与角色',role:'assistant',content:'请保持 {{char}} 的叙述视角。',injection_position:1,injection_trigger:['continue']},{identifier:'b',name:'停用条目',content:'不启用'},{identifier:'history',marker:true}],prompt_order:[{character_id:7,order:[{identifier:'b',enabled:true}]},{character_id:100001,order:[{identifier:'a',enabled:true},{identifier:'b',enabled:false},{identifier:'history',enabled:true}]}]};
   await upload(input);await expect(page.getByLabel('提示词排列')).toHaveValue('100001');await parse();await save();
   expect((await call('preset.read',{novelId})).content).toBe('请保持 {{char}} 的叙述视角。');
@@ -43,5 +44,12 @@ try {
     await page.screenshot({path:join(shots,'official-preset.png')});
     console.log(JSON.stringify({officialPresetCharacters:effective.content.length}));
   }
-  expect(errors).toEqual([]);console.log(JSON.stringify({ok:true,checks:['actual JSON uploads: full preset, Prompt Manager, standalone system prompt','ordering, disabled items, ignored role/placement/trigger rules','literal macros, original download, persistence and zero-content notice']}));
+  await page.setViewportSize({width:1100,height:900});
+  await page.getByLabel('提示词内容',{exact:true}).fill('作者尚未保存的草稿。');
+  const latest=await call('preset.get',{novelId});
+  await call('preset.set',{novelId,expectedRevision:latest.revision,preset:{...latest,blocks:latest.blocks.map((block,i)=>i===0?{...block,content:'另一位作者的新要求。'}:block)}});
+  await page.getByRole('button',{name:'刷新当前页面',exact:true}).click();
+  await expect(newerNotice).toBeVisible();
+  await expect(page.getByLabel('提示词内容',{exact:true})).toHaveValue('作者尚未保存的草稿。');
+  expect(errors).toEqual([]);console.log(JSON.stringify({ok:true,checks:['actual JSON uploads: full preset, Prompt Manager, standalone system prompt','ordering, disabled items, ignored role/placement/trigger rules','literal macros, original download, persistence and zero-content notice','own save does not report a stale resource as newer; real concurrent updates keep the local draft']}));
 } finally {await browser?.close();preview.kill();}

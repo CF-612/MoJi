@@ -46,7 +46,7 @@ function PresetEditor({call, novelId, run, busy, initial, onTransfer, onBack, ba
     actions={<><label className="switch-control"><input type="checkbox" aria-label="启用" disabled={busy} checked={value.enabled} onChange={event => change({...value, enabled: event.target.checked})}/>启用预设</label><button disabled={busy} onClick={() => onTransfer({mode: 'import', selection: {kind: 'preset', novelId}})}>导入预设</button><button disabled={busy || dirty || !value.blocks.length} title={dirty ? '先保存当前预设后导出' : undefined} onClick={() => onTransfer({mode: 'export', selection: {kind: 'preset', novelId}})}>导出预设</button></>}
     footer={<SaveBar {...{dirty, busy}} error={cacheError} invalid={invalid || (!value.name.trim() ? '请填写预设名称' : '')} onSave={save} label="保存预设" children={null}/>}
   >
-    {initial.revision !== base.revision && <p className="notice">已保存的预设有更新，当前草稿仍保留。可保存后核对，或在预设设置里读取最新版本。</p>}
+    {initial.revision > base.revision && <p className="notice">已保存的预设有更新，当前草稿仍保留。可保存后核对，或在预设设置里读取最新版本。</p>}
     <div className="preset-workspace">
       <aside className={'preset-list ' + (index !== null ? 'is-selected' : '')} aria-label="提示词条目列表">
         <div className="preset-list-heading"><h3>提示词条目</h3><button disabled={busy} aria-label="新增提示词" title="新增提示词" onClick={add}>＋</button></div>
