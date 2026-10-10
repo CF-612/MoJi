@@ -10,7 +10,7 @@
 
 ```yaml
 url: https://github.com/mistnest/dsh-cuigengji-plugin
-name: mistnest/dsh-cuigengji-plugin
+name: dsh-cuigengji-plugin
 category: ui
 description:
   en: A fiction-writing workbench for DSH with chapter editing, shared plot canvases, grouped character and world settings, writing presets, and scoped import/export for author-agent collaboration.
@@ -18,7 +18,17 @@ description:
 tarball: https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.1/dsh-cuigengji-0.4.1.tgz
 ```
 
+市场显示名统一为 `dsh-cuigengji-plugin`，中文介绍保留“催更姬”，便于按英文名称或中文名称查找。条目文件名和仓库地址仍用于识别作者与项目，不随显示名修改。
+
 仓库保留 `dsh-plugin`、`deepseek-harness` 等主题标签，供市场与 Agent 检索。实际宿主兼容范围以 `package.json` 和 Release 为准，不扩大声明。本项目尚未发布 npm 包，条目使用已经验证的 GitHub Release 成品包，不让用户从源码构建。
+
+## 收录验收
+
+1. 确认收录 PR 已合并，再核对公开 `https://awesome-dsh-plugin.com/plugins.json` 中的名称、仓库地址与 `tarball`。PR 检查通过不等于已经上架。
+2. 在 dsh-market 内分别搜索 `dsh-cuigengji-plugin`、`cuigengji` 和 `催更姬`，确认结果指向同一仓库。
+3. 从该条目完成安装，确认使用公开 Release 成品包，随后重启并打开催更姬核对版本和作品数据。成品包的直接安装验收不能替代市场入口验收。
+
+如果 PR 尚未合并或公开目录尚未更新，记录“待收录”，不能宣称用户已经能通过市场搜索和安装。此时可以使用 Release 成品包经 DSH 的“添加插件”入口安装，步骤见 `agent-installation.md`。
 
 ## 展示图与介绍
 
