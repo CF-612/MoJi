@@ -12,7 +12,7 @@
 
 ## 自己在桌面版安装
 
-0.4.2 起统一名称为 `dsh-cuigengji-plugin`。新安装与已使用统一名称的用户可按下面步骤安装[成品包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/tag/v0.4.2)。旧安装名为 `dsh-cuigengji` 的用户，把[名称迁移指南](package-name-migration.md)交给 Agent，由它保留配置与小说完成转换。
+0.4.2 起统一名称为 `dsh-cuigengji-plugin`。新安装与已使用统一名称的用户可按下面步骤安装[成品包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/tag/v0.4.3)。旧安装名为 `dsh-cuigengji` 的用户，把[名称迁移指南](package-name-migration.md)交给 Agent，由它保留配置与小说完成转换。
 
 1. 从 DSH 左侧进入“插件”，点击“添加插件”。
 2. 在“包名或地址”中粘贴下面的成品包地址。
@@ -20,12 +20,12 @@
 4. 点击“安装”，完成后按 DSH 提示完整重启，从左侧“催更姬”进入。
 
 ```text
-https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.2/dsh-cuigengji-plugin-0.4.2.tgz
+https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.3/dsh-cuigengji-plugin-0.4.3.tgz
 ```
 
-也可以先[下载成品包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/tag/v0.4.2)，将下载后的 Windows 绝对路径填入同一输入框。需要核对下载文件时，可使用 Release 中的 `SHA256SUMS`，或交给 Agent 检查。GitHub 的“Download ZIP”是源码下载，不是这里的成品包。
+也可以先[下载成品包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/tag/v0.4.3)，将下载后的 Windows 绝对路径填入同一输入框。需要核对下载文件时，可使用 Release 中的 `SHA256SUMS`，或交给 Agent 检查。GitHub 的“Download ZIP”是源码下载，不是这里的成品包。
 
-npm 安装使用相同名称 `dsh-cuigengji-plugin`，固定版本填写 `dsh-cuigengji-plugin@0.4.2`。包名入口以 npm 实际发布结果为准；尚未发布或镜像未同步时使用上面的成品包，不填写旧包名。
+npm 安装使用相同名称 `dsh-cuigengji-plugin`，固定版本填写 `dsh-cuigengji-plugin@0.4.3`。包名入口以 npm 实际发布结果为准；尚未发布或镜像未同步时使用上面的成品包，不填写旧包名。
 
 ### GitHub 地址安装
 

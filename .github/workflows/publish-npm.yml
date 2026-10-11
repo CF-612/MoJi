@@ -6,9 +6,14 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing GitHub Release tag, for example v0.4.2
+        description: Existing GitHub Release tag, for example v0.4.3
         required: true
         type: string
+      verify_only:
+        description: Verify an accepted upload without uploading it again
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -44,7 +49,7 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
       - name: Use a pinned CLI with trusted-publishing support
-        run: npm install --global npm@11.15.0 --ignore-scripts --registry=https://registry.npmjs.org
+        run: npm install --global npm@12.2.0 --ignore-scripts --registry=https://registry.npmjs.org
       - name: Check the release identity
         run: |
           node --input-type=module <<'NODE'
@@ -110,20 +115,36 @@ jobs:
           }
           NODE
       - name: Publish using npm trusted publishing
-        if: steps.registry.outputs.exists != 'true'
+        if: steps.registry.outputs.exists != 'true' && inputs.verify_only != true
         run: npm publish "$PACKAGE_FILE" --access public --ignore-scripts --registry=https://registry.npmjs.org --tag "$NPM_DIST_TAG"
-      - name: Verify the public npm package
+      - name: Wait for the public npm archive
+        id: public
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {appendFileSync} from 'node:fs';
+          import {waitForRegistry,responseJSON} from './.release-tools/scripts/release-support.mjs';
+          const result = await waitForRegistry({
+            version:process.env.PACKAGE_VERSION, expectedHash:process.env.PACKAGE_SHA256, checkTag:false,
+            onPending:({elapsedMs}) => console.log(`npm version is not public after ${Math.round(elapsedMs/1000)}s; waiting for registry processing.`),
+          });
+          if (!result.published) {
+            appendFileSync(process.env.GITHUB_STEP_SUMMARY, 'npm upload and public availability are separate steps. The exact version is still unavailable after 30 minutes. Check npm processing/notifications and staged packages; resume with verify_only=true. Do not upload the same version again merely because verification timed out.\n');
+          }
+          assert.equal(result.published,true,'Exact npm version is still unavailable; resume verification without another upload');
+          const meta=await responseJSON(`https://registry.npmjs.org/${process.env.PACKAGE_NAME}`);
+          appendFileSync(process.env.GITHUB_OUTPUT, `promote=${meta['dist-tags']?.[process.env.NPM_DIST_TAG]!==process.env.PACKAGE_VERSION}\n`);
+          console.log(`Verified public archive ${process.env.PACKAGE_NAME}@${result.version}`);
+          NODE
+      - name: Point the release tag at the verified public archive
+        if: steps.public.outputs.promote == 'true'
+        run: npm dist-tag add "$PACKAGE_NAME@$PACKAGE_VERSION" "$NPM_DIST_TAG" --registry=https://registry.npmjs.org
+      - name: Verify the public npm package and distribution tag
         run: |
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
           import {verifyRegistry} from './.release-tools/scripts/release-support.mjs';
-          let result;
-          for (let attempt=0; attempt<8; attempt++) {
-            result = await verifyRegistry({version:process.env.PACKAGE_VERSION, expectedHash:process.env.PACKAGE_SHA256});
-            if (result.published) break;
-            console.log('Exact npm version is not public yet; a placeholder is not a successful publication.');
-            if (attempt<7) await new Promise(done=>setTimeout(done,5000));
-          }
-          assert.equal(result.published,true,'npm version is not publicly installable');
-          console.log(`Verified public package ${process.env.PACKAGE_NAME}@${result.version}, archive and dist-tag`);
+          const result=await verifyRegistry({version:process.env.PACKAGE_VERSION,expectedHash:process.env.PACKAGE_SHA256});
+          assert.equal(result.published,true,'The verified archive must remain public');
+          console.log(`Verified ${process.env.PACKAGE_NAME}@${result.version}, archive, integrity and ${result.tag}`);
           NODE

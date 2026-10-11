@@ -69,6 +69,8 @@ GitHub 仓库、npm 包和市场显示名统一为 **`dsh-cuigengji-plugin`**，
 
 npm 首次发布和无 Git 安装验收通过后，再把普通用户安装首选改成包名。已经验收的 Release `.tgz` 保留为备用入口。
 
+上传与公开之间要留出 npm 扫描时间；工作流会等待最多 30 分钟，再核对正式归档和版本标签。已经接受的上传超时后使用 `verify_only=true` 的工作流与 `release verify` 补验收，不重传。可信发布还需要在 npm 包设置中为同一工作流开启独立的 `Allow npm dist-tag` 权限，才能自动维护 `latest` / `next`。
+
 ## 每次发布的顺序
 
 ### 1. 确定版本和范围

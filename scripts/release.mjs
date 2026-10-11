@@ -88,11 +88,17 @@ async function acquireLock() {
 }
 async function waitWorkflow(name,allowDispatch=false) {
   const started=Date.now(); let dispatched=false;
-  while (Date.now()-started<12*60*1000) {
+  while (Date.now()-started<45*60*1000) {
     const rows=await jsonGH('run','list','--workflow',name,'--limit','30','--json','databaseId,headSha,status,conclusion,url,createdAt');
     const current=rows.find(row=>row.headSha===state.sourceCommit);
     if (current) {
       if (current.status==='completed') {
+        if (name===WORKFLOW) {
+          const jobs=await api(`repos/${REPOSITORY}/actions/runs/${current.databaseId}/jobs`);
+          if (jobs.jobs.some(job=>job.steps.some(step=>step.name==='Publish using npm trusted publishing' && step.conclusion==='success'))) {
+            state.npm={...state.npm,uploadAccepted:true,workflow:current}; await save();
+          }
+        }
         assert.equal(current.conclusion,'success',`Workflow failed or was skipped: ${current.url}`); return current;
       }
       console.log(`${name} ${current.databaseId}: ${current.status}`);
@@ -101,7 +107,7 @@ async function waitWorkflow(name,allowDispatch=false) {
     }
     await new Promise(done=>setTimeout(done,15000));
   }
-  throw new Error(`${name} did not finish in 12 minutes. Resume this command; do not repack`);
+  throw new Error(`${name} did not finish in 45 minutes. Inspect the existing run and resume verification; do not repack or repeat an accepted upload`);
 }
 async function native(spec,label,oldPackage) {
   const report=join(dir,`${label}.json`);
@@ -212,7 +218,7 @@ async function publish() {
   await ensureAssets(await remoteRelease());
   if (remote.isDraft) await gh('release','edit',release.tag,'--draft=false',...(distTag(release.version)==='latest'?['--latest']:[]));
   state.github={published:true,url:`https://github.com/${REPOSITORY}/releases/tag/${release.tag}`}; await save();
-  if (!githubOnly) {
+  if (!githubOnly && !state.npm.uploadAccepted) {
     state.npm.workflow=await waitWorkflow(WORKFLOW,true); await save();
   }
   await verify(githubOnly);
@@ -256,7 +262,7 @@ async function verify(githubOnly=has('--github-only')) {
 
 async function trust() {
   // Uses npm's official 2FA flow once; never copies keys or recovery codes.
-  const prefix=['exec','--yes','--package=npm@11.15.0',`--registry=${REGISTRY}`,'--','npm'];
+  const prefix=['exec','--yes','--package=npm@12.2.0',`--registry=${REGISTRY}`,'--','npm'];
   const list=async()=>trustEntries(await run('npm',[...prefix,'trust','list',PACKAGE,'--json',`--registry=${REGISTRY}`],{quiet:true}));
   if (!matchingTrust(await list())) await run('npm',[...prefix,'trust','github',PACKAGE,'--file',WORKFLOW,'--repository',REPOSITORY,
     '--allow-publish','--yes',`--registry=${REGISTRY}`],{inherit:true});
@@ -271,10 +277,19 @@ async function status() {
   const exact=await responseJSON(`${REGISTRY}/${PACKAGE}/${release.version}`);
   const local=await exists(stateFile)?JSON.parse(await readFile(stateFile,'utf8')):null;
   const pr=JSON.parse(await run('gh',['pr','view',String(MARKET.pr),'--repo',MARKET.upstream,'--json','state,url'],{quiet:true}));
+  const exactVersionExists=exact?.version===release.version;
+  const next=local?.complete && exactVersionExists ? (pr.state==='OPEN'?'Core channels verified; marketplace submission is waiting for upstream review':'Check market availability; increment the version before the next release')
+    : !local?.checks?.prepared ? (src.clean?'prepare the committed version with a desktop executable':'commit version, changelog and generated outputs before prepare')
+    : src.commit!==local.sourceCommit ? 'Resume this release from its original prepared checkout; published archives cannot be reset'
+    : !remote || remote.isDraft ? 'publish the prepared archive'
+    : !exactVersionExists ? 'Check the npm upload run. If accepted, wait for registry processing and resume verify; workflow retries must use verify_only=true'
+    : !local.checks.npmNoGit?.ok ? 'verify the public npm package and native no-Git upgrade'
+    : pr.state==='OPEN' ? 'Core channels verified; marketplace submission is waiting for upstream review'
+    : 'Check public market search and installation for this version';
   console.log(JSON.stringify({...release,source:src,localState:local?{path:stateFile,prepared:local.checks?.prepared===true,complete:local.complete===true,lastError:local.lastError}:null,
-    github:remote?{published:!remote.isDraft,url:remote.url}:null,npm:{exactVersionExists:exact?.version===release.version,distTags:meta?.['dist-tags']||{},
+    github:remote?{published:!remote.isDraft,url:remote.url}:null,npm:{exactVersionExists,distTags:meta?.['dist-tags']||{},
       placeholderOnly:meta?.['dist-tags']?.latest==='0.0.0-stage',trustedWorkflowEnabled:await enabled()},market:pr,
-    next:src.clean?'prepare requires a new version and a desktop executable':'commit version, changelog and generated outputs before prepare'},null,2));
+    next},null,2));
 }
 
 try {

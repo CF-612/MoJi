@@ -30,7 +30,7 @@
 然后使用真实加载版本和数据根进行校验：
 
 ```json
-{"action":"verify","args":{"expectedVersion":"0.4.2","expectedDataRoot":"C:\\Users\\用户\\AppData\\Local\\cuigengji"}}
+{"action":"verify","args":{"expectedVersion":"0.4.3","expectedDataRoot":"C:\\Users\\用户\\AppData\\Local\\cuigengji"}}
 ```
 
 只有 `status.status` 为 `ready` 且 `verify.verified` 为 `true`，才能向用户报告更新完成。校验结果包含作品、章节、历史、设定、规划和绑定数量，不返回正文内容。

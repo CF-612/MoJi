@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {createHash} from 'node:crypto';
-import {identity,sha256,checksumFor,assertPrepared,assetAction,releaseNotes,verifyRegistry,REPOSITORY,PACKAGE,REGISTRY,
+import {identity,sha256,checksumFor,assertPrepared,assetAction,releaseNotes,verifyRegistry,waitForRegistry,REPOSITORY,PACKAGE,REGISTRY,
   assetName,distTag,safeError,trustEntries,matchingTrust,marketUpdate} from '../scripts/release-support.mjs';
 
 const version='0.4.3';
@@ -72,6 +72,26 @@ test('registry tampering, wrong archive origin and stale tags cannot pass public
   await assert.rejects(verifyRegistry(registryFixture({host:'example.invalid'})),/host/);
   await assert.rejects(verifyRegistry(registryFixture({badIntegrity:true})),/integrity/);
   await assert.rejects(verifyRegistry(registryFixture({tag:'0.4.2'})),/tag/);
+});
+
+test('registry processing can finish after the old 35-second verification window',async()=>{
+  let elapsed=0, checks=0;
+  const pending=[], ready=registryFixture();
+  const result=await waitForRegistry({...ready, timeoutMs:300000, intervalMs:30000,
+    now:()=>elapsed, wait:async ms=>{elapsed+=ms;}, onPending:row=>pending.push(row),
+    fetcher:async url=>url===`${REGISTRY}/${PACKAGE}/${version}` && ++checks<4
+      ? new Response('',{status:404}) : ready.fetcher(url)});
+  assert.equal(result.published,true); assert.equal(elapsed,90000); assert.equal(pending.length,3);
+});
+
+test('registry timeout stays pending and never publishes or relaxes hash validation',async()=>{
+  let elapsed=0;
+  const result=await waitForRegistry({...registryFixture({missing:true}), timeoutMs:35000, intervalMs:30000,
+    now:()=>elapsed, wait:async ms=>{elapsed+=ms;}});
+  assert.deepEqual(result,{published:false,reason:'EXACT_VERSION_NOT_PUBLIC'});
+  assert.equal(elapsed,35000);
+  await assert.rejects(waitForRegistry({...registryFixture({bytes:Buffer.from('changed')}),
+    wait:()=>{throw new Error('must not retry a mismatched package');}}),/archives differ/);
 });
 
 test('trust must target the exact repo/workflow and allow direct publication',()=>{

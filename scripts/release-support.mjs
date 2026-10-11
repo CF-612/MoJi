@@ -99,6 +99,24 @@ export async function verifyRegistry({version, expectedHash, checkTag = true, fe
   return result;
 }
 
+// npm scans new uploads before exposing them. Retry only an absent version;
+// mismatched bytes, integrity, tags and network errors still fail immediately.
+export async function waitForRegistry({timeoutMs = 30 * 60 * 1000, intervalMs = 30000,
+  now = Date.now, wait = ms => new Promise(done => setTimeout(done, ms)), onPending = () => {}, ...options}) {
+  assert.ok(Number.isFinite(timeoutMs) && timeoutMs >= 0, 'Invalid registry wait timeout');
+  assert.ok(Number.isFinite(intervalMs) && intervalMs > 0 && intervalMs <= 60000, 'Registry checks must be spaced by at most one minute');
+  const started = now();
+  for (let attempt = 1; ; attempt++) {
+    const result = await verifyRegistry(options);
+    if (result.published) return result;
+    const elapsedMs = now() - started;
+    const remainingMs = timeoutMs - elapsedMs;
+    if (remainingMs <= 0) return result;
+    onPending({attempt, elapsedMs, remainingMs});
+    await wait(Math.min(intervalMs, remainingMs));
+  }
+}
+
 // npm trust --json emits separate JSON objects, rather than one array.
 export function trustEntries(text) {
   const entries=[];
