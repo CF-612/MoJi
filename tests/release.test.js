@@ -2,10 +2,19 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {createHash} from 'node:crypto';
 import {identity,sha256,checksumFor,assertPrepared,assetAction,releaseNotes,verifyRegistry,waitForRegistry,REPOSITORY,PACKAGE,REGISTRY,
-  assetName,distTag,safeError,trustEntries,matchingTrust,marketUpdate} from '../scripts/release-support.mjs';
+  assetName,distTag,safeError,trustEntries,matchingTrust,marketUpdate,packEntry} from '../scripts/release-support.mjs';
 
 const version='0.4.3';
 const pkg={name:PACKAGE,version,repository:{url:`git+https://github.com/${REPOSITORY}.git`}};
+
+test('package audit accepts npm 11 and npm 12 lists but rejects errors and multiple archives',()=>{
+  const entry={name:PACKAGE,version,files:[{path:'runtime/index.js'}]};
+  assert.deepEqual(packEntry([entry]),entry);
+  assert.deepEqual(packEntry({[PACKAGE]:entry}),entry);
+  for (const input of [[],[entry,entry],{error:{code:'EPACK'}},{wrongName:entry},{a:entry,b:entry},null,{[PACKAGE]:{name:PACKAGE,version}}]) {
+    assert.throws(()=>packEntry(input));
+  }
+});
 
 test('release identity rejects placeholder, renamed package and install hooks',()=>{
   assert.equal(identity(pkg).tag,'v0.4.3');

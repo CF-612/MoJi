@@ -14,6 +14,25 @@ export const assetName = version => `${PACKAGE}-${version}.tgz`;
 export const assetURL = version => `https://github.com/${REPOSITORY}/releases/download/v${version}/${assetName(version)}`;
 export const distTag = version => version.includes('-') ? 'next' : 'latest';
 
+// npm 11 reports pack results as an array; npm 12 keys them by package name.
+export function packEntry(input) {
+  let entry;
+  if (Array.isArray(input)) {
+    assert.equal(input.length, 1, 'Audit exactly one archive');
+    entry = input[0];
+  } else {
+    assert.ok(input && typeof input === 'object', 'Invalid npm pack result');
+    const rows = Object.entries(input);
+    assert.equal(rows.length, 1, 'Audit exactly one archive');
+    const [name, value] = rows[0];
+    assert.ok(value && typeof value === 'object', 'Invalid package metadata');
+    assert.equal(name, value.name, 'npm pack result key must match the package name');
+    entry = value;
+  }
+  assert.ok(entry && typeof entry.name === 'string' && typeof entry.version === 'string' && Array.isArray(entry.files), 'Package metadata and file list are required');
+  return entry;
+}
+
 export function identity(pkg) {
   assert.equal(pkg.name, PACKAGE, 'Public package name must remain stable');
   assert.match(pkg.version, /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$/, 'Invalid release version');

@@ -42,7 +42,9 @@ jobs:
           # Keep verification tooling available when retrying an older Release.
           ref: ${{ github.workflow_sha }}
           path: .release-tools
-          sparse-checkout: scripts/release-support.mjs
+          sparse-checkout: |
+            scripts/release-support.mjs
+            scripts/audit-release.mjs
           sparse-checkout-cone-mode: false
       - uses: actions/setup-node@v4
         with:
@@ -91,7 +93,7 @@ jobs:
           console.log(`Verified ${process.env.PACKAGE_ASSET}`);
           NODE
           npm pack "$PACKAGE_FILE" --ignore-scripts --dry-run --json > "$RUNNER_TEMP/cuigengji-pack.json"
-          node scripts/audit-release.mjs "$RUNNER_TEMP/cuigengji-pack.json"
+          node .release-tools/scripts/audit-release.mjs "$RUNNER_TEMP/cuigengji-pack.json" package.json
       - name: Check whether this exact version is already published
         id: registry
         run: |
