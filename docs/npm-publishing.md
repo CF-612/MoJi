@@ -44,6 +44,10 @@ npm view dsh-cuigengji-plugin@0.4.2 version repository.url dist.integrity --regi
 
 确认 npm 配置完成后，在公开仓库 Settings → Secrets and variables → Actions → Variables 新建仓库变量 `NPM_TRUSTED_PUBLISHING_ENABLED=true`，启用自动发布。未启用时工作流跳过，不将首次账号验证尚未完成误报成插件安装失败。
 
+首次建立可信发布授权后，必须在两天内通过该授权真实发布一个新版本，完成 npm 对仓库身份的绑定；超时未验证的授权会失效。重跑已发布版本时，本工作流只核对原归档并跳过上传，不能代替首次可信发布验收。按 [npm 官方说明](https://docs.npmjs.com/trusted-publishers/#trusted-publisher-configuration-expiry)准备下一次补丁发布，确认 GitHub Actions 的上传步骤实际成功后，才将自动发布标为已验收。
+
+后续维护 Agent 负责构建、检查、发布和渠道同步，账号持有人保管安全密钥与恢复码。维护流程、仓库和工作流名称可以写入交接文档；密码、一次性验证码、恢复码和访问 token 不作为项目交接资料。首次身份验证或账号授权变更需要持有人操作时，明确说明具体页面和步骤，不使用恢复码代替日常发布验证。
+
 之后照常完成测试，提交编译产物，建立与 `package.json` 版本一致的 `v<版本>` 标签，并发布带 `.tgz` 和 `SHA256SUMS` 的 GitHub Release。`.github/workflows/publish-npm.yml` 会自动：
 
 1. 检出版本标签，验证包名、版本与公开仓库身份，运行测试、类型检查及编译产物核对。
