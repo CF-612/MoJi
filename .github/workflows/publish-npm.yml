@@ -1,0 +1,120 @@
+name: Publish npm package
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing GitHub Release tag, for example v0.4.1
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'mistnest/dsh-cuigengji-plugin'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      RELEASE_PRERELEASE: ${{ github.event.release.prerelease || false }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - name: Check the release identity
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {readFileSync, appendFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+          assert.equal(pkg.name, 'dsh-cuigengji');
+          assert.match(pkg.version, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
+          assert.equal(process.env.RELEASE_TAG, `v${pkg.version}`);
+          assert.equal(pkg.repository.url, 'git+https://github.com/mistnest/dsh-cuigengji-plugin.git');
+          const asset = `${pkg.name}-${pkg.version}.tgz`;
+          const dir = join(process.env.RUNNER_TEMP, 'cuigengji-release');
+          const tag = pkg.version.includes('-') || process.env.RELEASE_PRERELEASE === 'true' ? 'next' : 'latest';
+          appendFileSync(process.env.GITHUB_ENV, `PACKAGE_NAME=${pkg.name}\nPACKAGE_VERSION=${pkg.version}\nPACKAGE_ASSET=${asset}\nPACKAGE_DIR=${dir}\nPACKAGE_FILE=${join(dir, asset)}\nNPM_DIST_TAG=${tag}\n`);
+          NODE
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run check:build
+      - name: Download and audit the same package shipped on GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$PACKAGE_DIR"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir "$PACKAGE_DIR" --pattern "$PACKAGE_ASSET" --pattern SHA256SUMS
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createHash} from 'node:crypto';
+          import {readFileSync, appendFileSync} from 'node:fs';
+          import {join} from 'node:path';
+          const rows = readFileSync(join(process.env.PACKAGE_DIR, 'SHA256SUMS'), 'utf8').trim().split(/\r?\n/);
+          const row = rows.find(line => line.trim().split(/\s+/).at(-1).replace(/^\*/, '') === process.env.PACKAGE_ASSET);
+          assert.ok(row, 'Release checksum must include the package');
+          const expected = row.trim().split(/\s+/)[0].toLowerCase();
+          assert.match(expected, /^[a-f0-9]{64}$/);
+          assert.equal(createHash('sha256').update(readFileSync(process.env.PACKAGE_FILE)).digest('hex'), expected);
+          appendFileSync(process.env.GITHUB_ENV, `PACKAGE_SHA256=${expected}\n`);
+          console.log(`Verified ${process.env.PACKAGE_ASSET}`);
+          NODE
+          npm pack "$PACKAGE_FILE" --ignore-scripts --dry-run --json > "$RUNNER_TEMP/cuigengji-pack.json"
+          node scripts/audit-release.mjs "$RUNNER_TEMP/cuigengji-pack.json"
+      - name: Check whether this exact version is already published
+        id: registry
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createHash} from 'node:crypto';
+          import {appendFileSync} from 'node:fs';
+          const response = await fetch(`https://registry.npmjs.org/${process.env.PACKAGE_NAME}/${process.env.PACKAGE_VERSION}`);
+          if (response.status === 404) {
+            appendFileSync(process.env.GITHUB_OUTPUT, 'exists=false\n');
+          } else {
+            assert.ok(response.ok, `Registry returned ${response.status}`);
+            const pkg = await response.json();
+            assert.equal(pkg.name, process.env.PACKAGE_NAME);
+            assert.equal(pkg.version, process.env.PACKAGE_VERSION);
+            const archive = await fetch(pkg.dist.tarball);
+            assert.ok(archive.ok, `Package download returned ${archive.status}`);
+            assert.equal(createHash('sha256').update(Buffer.from(await archive.arrayBuffer())).digest('hex'), process.env.PACKAGE_SHA256, 'Existing npm version must match the GitHub release');
+            appendFileSync(process.env.GITHUB_OUTPUT, 'exists=true\n');
+            console.log('This exact package is already published; no upload is necessary.');
+          }
+          NODE
+      - name: Publish using npm trusted publishing
+        if: steps.registry.outputs.exists != 'true'
+        run: npm publish "$PACKAGE_FILE" --access public --ignore-scripts --registry=https://registry.npmjs.org --tag "$NPM_DIST_TAG"
+      - name: Verify the public npm package
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {createHash} from 'node:crypto';
+          const response = await fetch(`https://registry.npmjs.org/${process.env.PACKAGE_NAME}/${process.env.PACKAGE_VERSION}`);
+          assert.ok(response.ok, `Registry returned ${response.status}`);
+          const pkg = await response.json();
+          assert.equal(pkg.name, process.env.PACKAGE_NAME);
+          assert.equal(pkg.version, process.env.PACKAGE_VERSION);
+          assert.equal(pkg.repository.url, 'git+https://github.com/mistnest/dsh-cuigengji-plugin.git');
+          const archive = await fetch(pkg.dist.tarball);
+          assert.ok(archive.ok, `Package download returned ${archive.status}`);
+          assert.equal(createHash('sha256').update(Buffer.from(await archive.arrayBuffer())).digest('hex'), process.env.PACKAGE_SHA256);
+          console.log(`Verified public package ${pkg.name}@${pkg.version}`);
+          NODE

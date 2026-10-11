@@ -61,6 +61,8 @@ node scripts/check-release-install.mjs --desktop-exe "C:\你的DSH安装目录\D
 
 省略 `--old-package` 验证全新安装；`--package` 也可使用真实 Release `.tgz` URL、完整 GitHub 仓库 URL 或固定提交的 `github:owner/repo#commit`。默认不提供 Git，固定提交使用完整 40 位 SHA；不固定提交的仓库地址加 `--with-git` 验收宿主的 Git 引用解析。GitHub 路径同样检查安装后的编译文件、无构建授权和旧库内容。用户安装使用[原生 Agent 指南](agent-installation.md)，不运行此开发者验收脚本。
 
+npm 首次发布与后续可信发布流程见 [npm 发布](npm-publishing.md)。首次发布成功后，同一验收脚本可用 `--npm-package dsh-cuigengji@0.4.1` 检查按包名安装；它与 `--package` 二选一，继续使用没有 Git 的隔离 profile。
+
 ## 小说数据与源码分离
 
 公开仓库是 `https://github.com/mistnest/dsh-cuigengji-plugin`，只发布代码、公共文档与合成测试样例。真实小说、设定、导出包、操作日志、聊天记录和个人环境备份保存在仓库之外。

@@ -11,9 +11,11 @@ import {fileURLToPath} from 'node:url';
 import {runPluginCommand} from '@deepseek-ai/dsh-plugin-manager/operations';
 
 const args = process.argv.slice(2), arg = name => {const index=args.indexOf(name);return index < 0 ? undefined : args[index+1];};
-const desktopExe = arg('--desktop-exe'), packageSpec = arg('--package'), oldPackage = args.includes('--old-package') ? arg('--old-package') : undefined;
+const desktopExe = arg('--desktop-exe'), archiveSpec = arg('--package'), npmSpec = arg('--npm-package'), packageSpec = archiveSpec || npmSpec;
+const oldPackage = args.includes('--old-package') ? arg('--old-package') : undefined;
 const withGit = args.includes('--with-git');
-if (!desktopExe || !packageSpec || process.platform !== 'win32') throw new Error('Windows: --desktop-exe <exe> --package <local.tgz, URL or github: spec> [--old-package <tgz>] [--report <json>]');
+if (!desktopExe || !packageSpec || (archiveSpec && npmSpec) || process.platform !== 'win32') throw new Error('Windows: --desktop-exe <exe> (--package <local.tgz, URL or github: spec> | --npm-package <dsh-cuigengji[@version]>) [--old-package <tgz>] [--report <json>]');
+if (npmSpec) assert.match(npmSpec,/^dsh-cuigengji(?:@[a-zA-Z0-9][a-zA-Z0-9.+~-]*)?$/,'--npm-package must name the published cuigengji package');
 const currentManifest = JSON.parse(await readFile(new URL('../package.json',import.meta.url),'utf8'));
 const workspace = await mkdtemp(join(tmpdir(),'cuigengji-native-install-')), profile = join(workspace,'profile'), data = join(workspace,'novel-data');
 const runtime = join(dirname(resolve(desktopExe)),'resources/runtime'), windows = process.env.SystemRoot || 'C:\\Windows';
@@ -32,7 +34,7 @@ assert.ok(nodePaths.includes('runtime\\bin\\node.cmd'),'only the desktop Node sh
 const options = {command:resolve(desktopExe),args:['--expose-internals',join(runtime,'pnpm/bin/pnpm.mjs')],env,
   execution:'service',outputBytes:4000,activateNewBundles:true,lockWaitMs:10000,idleTimeoutMs:120000,lookupTimeoutMs:20000};
 const context = {profile:'desktop',dir:profile,cwd:process.cwd(),installAnchor:fileURLToPath(import.meta.resolve('@deepseek-ai/dsh/package.json')),home:join(workspace,'home')};
-const report = {gitAvailable,globalNode:false,packageSpec,steps:[],ok:false};
+const report = {gitAvailable,globalNode:false,packageSpec,packageSource:npmSpec?'npm':'archive-or-github',steps:[],ok:false};
 try {
   await mkdir(profile,{recursive:true}); await mkdir(data);
   await writeFile(join(profile,'package.json'),JSON.stringify({name:'isolated-release-test',private:true,customField:{keep:true},dsh:{profile:{bundles:[]}}},null,2));
@@ -50,7 +52,7 @@ try {
     await copyFile(new URL('../tests/fixtures/public-0.3.13/store.json',import.meta.url),join(data,'store.json'));
     report.steps.push({operation:'install-old',version:'0.3.13'});
   }
-  const target = /^(?:https?:|github:|git\+https?:)/.test(packageSpec) ? packageSpec : resolve(packageSpec);
+  const target = npmSpec || (/^(?:https?:|github:|git\+https?:)/.test(packageSpec) ? packageSpec : resolve(packageSpec));
   assert.equal(await install(target),currentManifest.version);
   for (const path of ['runtime/index.js','runtime/application/maintenance/upgrade.js','runtime/infrastructure/persistence/upgrade-backup.js','lib/client.js','skills/cuigengji-maintenance/SKILL.md']) {
     const hash = bytes => createHash('sha256').update(bytes).digest('hex');
