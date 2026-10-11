@@ -37,7 +37,7 @@ async function run(bin,args,{inherit=false,timeout=900000,quiet=false,input}={})
     if (!inherit) child.stdin.end(input);
     const timer=setTimeout(()=>child.kill(),timeout);
     child.once('error',error=>{clearTimeout(timer); reject(error);});
-    child.once('exit',(code,signal)=>{clearTimeout(timer);
+    child.once('close',(code,signal)=>{clearTimeout(timer);
       if (code===0) done(out);
       else reject(new Error(`${bin} failed (${signal||code}): ${safeError((err||out).slice(-7000))}`));
     });
@@ -119,12 +119,21 @@ async function prepare() {
   assert.ok(!publicRelease || publicRelease.isDraft,'This version is already public. Increment the version; never repack it');
   const npm=await responseJSON(`${REGISTRY}/${PACKAGE}/${release.version}`);
   assert.ok(!npm,'This version is already on npm. Increment the version');
+  if (has('--reset')) {
+    assert.ok(!publicRelease,'Reset is only allowed before any GitHub release exists');
+    assert.equal(await git('ls-remote','--tags','origin',`refs/tags/${release.tag}`),'','Cannot reset an already pushed tag');
+    assert.equal(await git('tag','--list',release.tag),'','Cannot reset a tagged release');
+    const history=join(dir,'preparation-history',`${Date.now()}`); await mkdir(history,{recursive:true});
+    for (const file of [stateFile,archive,sums,notesFile,join(dir,'pack-files.json')]) {
+      if (await exists(file)) await rename(file,join(history,file.slice(dir.length+1)));
+    }
+  }
   if (await exists(stateFile)) {
     state=JSON.parse(await readFile(stateFile,'utf8'));
     assert.equal(state.sourceCommit,src.commit,'A prepared version belongs to another commit; use a new version');
     if (state.checks?.prepared) {await prepared(); console.log('Prepared package is unchanged; resuming without repacking.'); return;}
     if (state.sha256) assert.equal(sha256(await readFile(archive)),state.sha256,'Interrupted preparation archive changed');
-  }
+  } else assert.equal(await exists(archive),false,'Untracked archive has no preparation state; use --reset before publication');
   state={schemaVersion:1,...release,sourceCommit:src.commit,sha256:null,checks:{},
     desktopExe:resolve(desktopExe),dshBaseline:pkg.engines.dsh,startedAt:new Date().toISOString(),github:{published:false},npm:{published:false},market:{}};
   await save();

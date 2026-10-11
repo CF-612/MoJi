@@ -36,6 +36,7 @@ const options = {command:resolve(desktopExe),args:['--expose-internals',join(run
   execution:'service',outputBytes:4000,activateNewBundles:true,lockWaitMs:10000,idleTimeoutMs:120000,lookupTimeoutMs:20000};
 const context = {profile:'desktop',dir:profile,cwd:process.cwd(),installAnchor:fileURLToPath(import.meta.resolve('@deepseek-ai/dsh/package.json')),home:join(workspace,'home')};
 const report = {gitAvailable,globalNode:false,packageSpec,packageSource:npmSpec?'npm':'archive-or-github',steps:[],ok:false};
+let oldPackageName;
 try {
   await mkdir(profile,{recursive:true}); await mkdir(data);
   await writeFile(join(profile,'package.json'),JSON.stringify({name:'isolated-release-test',private:true,customField:{keep:true},dsh:{profile:{bundles:[]}}},null,2));
@@ -52,9 +53,12 @@ try {
   };
   if (oldPackage) {
     const oldVersion = await install(resolve(oldPackage),true);
+    const oldProfile = JSON.parse(await readFile(join(profile,'package.json'),'utf8'));
+    oldPackageName = Object.keys(oldProfile.dependencies).find(name=>name==='dsh-cuigengji'||name===currentManifest.name);
+    assert.ok(oldPackageName);
     await copyFile(new URL('../tests/fixtures/public-0.3.13/store.json',import.meta.url),join(data,'store.json'));
-    await writeFile(join(profile,'cordis.patch.yml'),`# unrelated host config remains untouched\n- id: cuigengji\n  name: dsh-cuigengji\n  config:\n    dataRoot: ${JSON.stringify(data)}\n`);
-    report.steps.push({operation:'install-old',version:oldVersion});
+    await writeFile(join(profile,'cordis.patch.yml'),`# unrelated host config remains untouched\n- id: cuigengji\n  name: ${oldPackageName}\n  config:\n    dataRoot: ${JSON.stringify(data)}\n`);
+    report.steps.push({operation:'install-old',packageName:oldPackageName,version:oldVersion});
   }
   const target = npmSpec || (/^(?:https?:|github:|git\+https?:)/.test(packageSpec) ? packageSpec : resolve(packageSpec));
   assert.equal(await install(target),currentManifest.version);
@@ -88,7 +92,7 @@ try {
     {env,encoding:'utf8',windowsHide:true,timeout:120000});
   assert.equal(smoke.status,0,smoke.stderr || smoke.stdout);
   report.smoke = JSON.parse(smoke.stdout.trim().split(/\r?\n/).at(-1));
-  if (oldPackage) {
+  if (oldPackageName === 'dsh-cuigengji') {
     const cleanup = await runPluginCommand(context,['remove','dsh-cuigengji'],options);
     assert.equal(cleanup.exitCode,0,cleanup.output);
     const final=JSON.parse(await readFile(join(profile,'package.json'),'utf8'));
