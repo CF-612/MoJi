@@ -1,0 +1,13 @@
+# 催更姬 · ChatGPT/Codex 小说工作台
+
+基于 mistnest 的 MIT 催更姬，保留聊天侧栏协作、正文、设定与规划。
+
+## 本地运行
+
+需要 Node.js 24。执行 `npm ci`、`npm run build`、`npm run build:cloud`、`npm test`。`npm start` 打开仅监听本机的演示服务，数据保存在忽略的 `.data/`。
+
+## 私有云端
+
+复制 `cloud/wrangler.jsonc` 为忽略的 `cloud/wrangler.local.jsonc`，填写自己的 Workers、D1、Auth0 issuer 和 MCP resource。通过 Wrangler secret 设置 `OWNER_SUB`；不要写入源码。先应用 `cloud/migrations/0001_workspace.sql`，再构建并手动部署。绑定只允许指定作者，保留 OAuth 与读写 scope 校验。
+
+源码源于仓库根目录 `src/`；适配界面位于 `vendor/cuigengji/`。个人作品、租户配置、日志、构建与备份不在 Git 中。

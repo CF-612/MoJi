@@ -1,0 +1,33 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "cuigengji-workbench",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-10",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "workers_dev": true,
+  "vars": {
+    "AUTH0_ISSUER": "https://YOUR-TENANT.auth0.com/",
+    "MCP_RESOURCE": "https://YOUR-WORKER.workers.dev/mcp"
+  },
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cuigengji-workbench",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "./migrations"
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "traces": {
+      "enabled": true
+    }
+  }
+}

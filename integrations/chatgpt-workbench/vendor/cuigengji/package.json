@@ -1,0 +1,108 @@
+{
+  "name": "dsh-cuigengji",
+  "version": "0.4.0",
+  "description": "催更姬：给大肥鱼一个小说工作台，一起写正文、讨论情节、整理人物与世界设定。",
+  "type": "module",
+  "main": "runtime/index.js",
+  "exports": {
+    ".": "./runtime/index.js",
+    "./client": "./lib/client.js",
+    "./core": "./runtime/core/store.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "lib",
+    "skills",
+    "cordis.patch.yml",
+    "README.md",
+    "docs",
+    "runtime"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-sidebar-right",
+        "@deepseek-ai/dsh-client-ui-session",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-workspace"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.js",
+    "test:upgrade": "node --test tests/upgrade.test.js",
+    "test:release": "node scripts/check-release-install.mjs",
+    "test:rpc": "node scripts/rpc-smoke.mjs",
+    "test:rpc-flow": "node scripts/rpc-flow.mjs",
+    "test:live": "node scripts/live-smoke.mjs",
+    "prepack": "npm run typecheck && npm run build",
+    "typecheck": "tsc --noEmit",
+    "test:ui": "node tests/ui-smoke.mjs",
+    "preview:workbench": "node scripts/preview-workbench.mjs",
+    "test:layout": "node tests/ui-layout.mjs",
+    "test:controls": "node tests/ui-controls.mjs",
+    "test:graph": "node tests/ui-graph.mjs",
+    "test:pages": "node tests/ui-pages.mjs",
+    "test:directory": "node tests/ui-directory.mjs",
+    "test:presets": "node tests/ui-presets.mjs",
+    "test:management": "node tests/ui-management.mjs",
+    "test:transfer": "node tests/ui-transfer.mjs",
+    "test:welcome-batch": "node tests/ui-welcome-batch.mjs",
+    "test:navigation": "node tests/ui-navigation.mjs",
+    "test:manuscript": "node tests/ui-manuscript.mjs",
+    "test:chapter-order": "node tests/ui-chapter-order.mjs",
+    "test:author-workflow": "node tests/ui-author-workflow.mjs"
+  },
+  "engines": {
+    "node": ">=24",
+    "dsh": "0.2.0-rc.2"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "zod": "4.4.3"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.4",
+    "@deepseek-ai/dsh-tools": "0.2.0-rc.2",
+    "@deepseek-ai/schemastery": "~3.18.4"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-connection": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-client-ui-sidebar-right": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-mcp-client": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-skill": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-system-prompt": "0.2.0-rc.2",
+    "@playwright/test": "^1.55.0",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "esbuild": "^0.25.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^7.0.2",
+    "@types/node": "^24.0.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mistnest/dsh-cuigengji-plugin.git"
+  },
+  "homepage": "https://github.com/mistnest/dsh-cuigengji-plugin#readme",
+  "bugs": {
+    "url": "https://github.com/mistnest/dsh-cuigengji-plugin/issues"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "novel-writing",
+    "writing-assistant"
+  ]
+}

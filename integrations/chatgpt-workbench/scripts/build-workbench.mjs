@@ -1,0 +1,14 @@
+import {build} from 'esbuild';
+import {mkdir,readFile,writeFile} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import {Script} from 'node:vm';
+import {buildNativePaused} from './build-native-paused.mjs';
+const root=new URL('../',import.meta.url);
+const output=await build({entryPoints:[fileURLToPath(new URL('client/workbench.tsx',root))],bundle:true,write:false,format:'iife',loader:{'.png':'dataurl'},nodePaths:[fileURLToPath(new URL('node_modules/',root))],define:{'process.env.NODE_ENV':'"production"'},minify:true,metafile:true});
+const code=output.outputFiles[0].text.replaceAll('</script','<\\/script');new Script(code);
+const template=await readFile(new URL('client/workbench.html',root),'utf8');
+await mkdir(new URL('dist/',root),{recursive:true});
+await writeFile(new URL('dist/workbench-dev.html',root),template.replace('<!-- SCRIPT -->',()=>`<script>${code}</script>`));
+await buildNativePaused();
+await writeFile(new URL('dist/workbench-build.json',root),JSON.stringify({builtAt:new Date().toISOString(),inputs:Object.keys(output.metafile.inputs)},null,2));
+console.log('已构建完整工作台；原生入口保留已验证的启用状态，未启用时保持隔离');
