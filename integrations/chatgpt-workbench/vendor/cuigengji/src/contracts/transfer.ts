@@ -47,10 +47,11 @@ export interface CatalogBook {
 export interface Catalog {books: CatalogBook[]; dataRoot?: string; bindings?: number}
 export interface PackagePayload {kind: ContentKind; projects: Novel[]; warnings: string[]}
 export interface DataPackage {format: 'cuigengji-package'; version: 1; exportedAt: string; sha256: string; payload: PackagePayload}
-export interface TransferFile {name: string; text?: string; json?: unknown; pngBase64?: string}
+export interface TransferFile {name: string; text?: string; json?: unknown; pngBase64?: string; gzipBase64?: string}
 export interface ImportOptions {
   selection?: Selection; mode?: 'copy' | 'restore'; targetId?: string | null; title?: string;
   orderId?: string; presetPolicy?: 'append' | 'replace';
+  replaceExisting?: boolean;
 }
 export interface Inspection {
   fingerprint: string; label: string; kind: ExportKind; restorable: boolean; catalog: Catalog; warnings: string[];
@@ -60,7 +61,8 @@ export interface TransferPreview {
   fingerprint: string; proof: string; label: string; counts: Counts; dependencies: {kind: string; title: string}[];
   warnings: string[]; conflicts: string[]; skipped: string[]; valid: boolean; target: string;
   samples?: {title: string; content: string}[];
+  added?: string[]; replaced?: string[]; capacity?: {rawBytes: number; storedBytes: number};
 }
 export interface ImportResult {novelIds: string[]; counts: Counts; skipped: string[]; backupDir?: string; repeated?: boolean}
 export interface TransferShortcut {mode: 'import' | 'export'; selection?: Selection}
-export interface DownloadFile {filename: string; mime: string; content: string}
+export interface DownloadFile {filename: string; mime: string; content: string; gzipBase64?: string}

@@ -22,7 +22,7 @@ export function createReliableRpc(invoke,{sleep=ms=>new Promise(resolve=>setTime
     }finally{release();}
   }
   return (action,args={})=>{
-    if(!isReadAction(action))return invoke(action,args);
+    if(!isReadAction(action)&&!['transfer.catalog','transfer.inspect','transfer.preview','transfer.exportPreview','transfer.export','transfer.snapshots'].includes(action))return invoke(action,args);
     const key=JSON.stringify([action,args]);
     if(pending.has(key))return pending.get(key);
     const request=read(action,args).finally(()=>pending.delete(key));

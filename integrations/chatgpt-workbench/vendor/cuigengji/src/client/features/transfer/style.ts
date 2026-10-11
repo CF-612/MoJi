@@ -1,5 +1,9 @@
 export const transferStyles = `
 .cuigengji .transfer-document {max-width:1100px;}
+.cuigengji .transfer-batch-list {padding-left:22px;}
+.cuigengji .transfer-batch-list li {padding:12px 0;border-bottom:1px solid var(--cg-line);overflow-wrap:anywhere;}
+.cuigengji .transfer-batch-controls {display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.cuigengji .transfer-mode {flex-wrap:wrap;}
 .cuigengji .transfer-mode {display:flex;gap:4px;padding:4px;background:var(--cg-wash);border-radius:10px;}
 .cuigengji .transfer-mode button {border:0;background:none;color:var(--cg-muted);padding:7px 22px;min-height:34px;}
 .cuigengji .transfer-mode button[aria-pressed=true] {color:var(--cg-accent);background:var(--cg-paper);box-shadow:0 1px 5px #0001;}
@@ -96,5 +100,12 @@ export const transferStyles = `
  .cuigengji .transfer-footer {gap:12px;padding:12px 20px;}
  .cuigengji .transfer-footer>button {padding:9px 16px;}
  .cuigengji .transfer-counts {grid-template-columns:repeat(3,minmax(0,1fr));}
+}
+@media(max-width:440px){
+ .cuigengji .management-page:has(.transfer-document) .management-header {grid-template-columns:minmax(0,1fr);}
+ .cuigengji .management-page:has(.transfer-document) .management-head-actions {justify-self:stretch;}
+ .cuigengji .transfer-mode {width:100%;}
+ .cuigengji .transfer-mode button {flex:1;padding:10px 8px;}
+ .cuigengji .transfer-batch-controls button,.cuigengji .transfer-batch-controls select {min-height:40px;}
 }
 `;

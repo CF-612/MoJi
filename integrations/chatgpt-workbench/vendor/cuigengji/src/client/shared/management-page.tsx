@@ -23,13 +23,13 @@ export function ManagementSection({title, description, children}: {title: string
   return <section className="management-section"><div className="management-section-heading"><h3>{title}</h3>{description && <p>{description}</p>}</div>{children}</section>;
 }
 
-export function FilePicker({label, name, hint = 'JSON 文件', accept = '.json,application/json', disabled, onChange}: {
-  label: string; name: string; hint?: string; accept?: string; disabled?: boolean; onChange: React.ChangeEventHandler<HTMLInputElement>;
+export function FilePicker({label, name, hint = 'JSON 文件', accept = '.json,application/json', disabled, multiple, onChange}: {
+  label: string; name: string; hint?: string; accept?: string; disabled?: boolean; multiple?: boolean; onChange: React.ChangeEventHandler<HTMLInputElement>;
 }) {
   const id = useId();
   return <label className="management-file-picker" htmlFor={id}>
     <span className="file-picker-label">{label}<small>{hint}</small><span aria-hidden="true">↑</span></span>
-    <input id={id} type="file" accept={accept} aria-label={name} disabled={disabled} onChange={onChange}/>
+    <input id={id} type="file" accept={accept} aria-label={name} disabled={disabled} multiple={multiple} onChange={onChange}/>
   </label>;
 }
 

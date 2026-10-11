@@ -12,7 +12,7 @@ test('真实本地 D1：双端保存、冲突、人物、规划、预设、历�
   const mf=new Miniflare(convertV4MiniflareOptions({resourcePersistencePath:persist,resourceTmpPath:persist+'/tmp',modules:true,script:'export default {fetch(){return new Response("test")}}',compatibilityDate:'2026-10-10',d1Databases:{DB:'demo'}}));
   try{
     const db=await mf.getD1Database('DB');
-    const sql=await readFile(new URL('../migrations/0001_workspace.sql',import.meta.url),'utf8');
+    const sql=await Promise.all(['../migrations/0001_workspace.sql','../migrations/0002_workspace_blobs.sql'].map(p=>readFile(new URL(p,import.meta.url),'utf8'))).then(v=>v.join('\n'));
     for(const statement of sql.match(/CREATE TABLE[\s\S]*?;|CREATE TRIGGER[\s\S]*?END;/g))await db.prepare(statement).run();
     const ui=createCloudService(db,'author'),ai=createCloudService(db,'author');
     const bootstrap=await ui.bootstrap('mobile'),novelId=bootstrap.books[0].id;

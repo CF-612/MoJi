@@ -14,5 +14,6 @@ cloud/public/
 cloud/wrangler.local.jsonc
 cloud/plugin/*.local.json
 *.sql
+!cloud/migrations/*.sql
 *.bundle
 *.zip

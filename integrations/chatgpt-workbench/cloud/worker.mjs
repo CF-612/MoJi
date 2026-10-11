@@ -1,13 +1,14 @@
 import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import {WebStandardStreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import {z} from 'zod';
-import {createCloudService,QUERY_ACTIONS,EDIT_ACTIONS} from './service.mjs';
+import {QUERY_ACTIONS,EDIT_ACTIONS} from './service.mjs';
 import {authorize,authConfig,requireScope} from './auth.mjs';
-const uri='ui://cuigengji/cloud-v032';
+import {runtimeService} from './runtime-client.mjs';
+const uri='ui://cuigengji/cloud-v040';
 function createServer(service,auth,env){
-  const server=new McpServer({name:'cuigengji-private-cloud',version:'0.3.2-stability'});
+  const server=new McpServer({name:'cuigengji-private-cloud',version:'0.4.0-import'});
   // Keep previously opened conversations readable while new calls use a fresh UI cache key.
-  for(const resourceUri of [uri,'ui://cuigengji/cloud-v031','ui://cuigengji/cloud-v030'])server.registerResource('novel-workbench-'+resourceUri.slice(-4),resourceUri,{mimeType:'text/html;profile=mcp-app'},async()=>({contents:[{uri:resourceUri,mimeType:'text/html;profile=mcp-app',text:(await (await env.ASSETS.fetch('https://assets.invalid/index.html')).text()).replace('<html ','<html data-mcp-app="true" '),_meta:{'openai/ui':{preferredDisplayMode:'inline',availableDisplayModes:['inline','fullscreen']}}}]}));
+  for(const resourceUri of [uri,'ui://cuigengji/cloud-v032','ui://cuigengji/cloud-v031','ui://cuigengji/cloud-v030'])server.registerResource('novel-workbench-'+resourceUri.slice(-4),resourceUri,{mimeType:'text/html;profile=mcp-app'},async()=>({contents:[{uri:resourceUri,mimeType:'text/html;profile=mcp-app',text:(await (await env.ASSETS.fetch('https://assets.invalid/index.html')).text()).replace('<html ','<html data-mcp-app="true" '),_meta:{'openai/ui':{preferredDisplayMode:'inline',availableDisplayModes:['inline','fullscreen']}}}]}));
   const argsSchema=z.record(z.string(),z.unknown()).optional();
   const define=(name,description,inputSchema,read,fn,ui)=>server.registerTool(name,{description,inputSchema,annotations:{readOnlyHint:read,destructiveHint:!read,openWorldHint:false},_meta:{securitySchemes:[{type:'oauth2',scopes:['novel:read',...(read?[]:['novel:write'])]}],...(ui?{ui,'openai/widgetAccessible':true,...(ui.visibility?.includes('app')?{'openai/visibility':'private'}:{}),...(ui.resourceUri?{'openai/outputTemplate':ui.resourceUri}:{})}:{}),...(name==='workbench_open'?{'openai/ui':{entrypoints:[{type:'thread'}]}}:{})}},async args=>{
     try{requireScope(auth,read?'novel:read':'novel:write');const result=await fn(args);return {content:[{type:'text',text:JSON.stringify(result)}],structuredContent:{result}};}
@@ -24,7 +25,7 @@ function createServer(service,auth,env){
 async function handleRequest(request,env){
   const url=new URL(request.url);
   try{
-    if(url.pathname==='/health')return Response.json({service:'cuigengji-private-cloud',version:'0.3.2-stability'});
+    if(url.pathname==='/health')return Response.json({service:'cuigengji-private-cloud',version:'0.4.0-import'});
     if(['/.well-known/oauth-protected-resource','/.well-known/oauth-protected-resource/mcp'].includes(url.pathname)){
       const config=authConfig(env);return Response.json({resource:config.resource,authorization_servers:[config.issuer],scopes_supported:['novel:read','novel:write'],bearer_methods_supported:['header']});
     }
@@ -32,8 +33,8 @@ async function handleRequest(request,env){
     const origin=request.headers.get('Origin');
     if(origin&&origin!==url.origin&&!['https://chatgpt.com','https://chat.openai.com'].includes(origin))return new Response('Origin denied',{status:403});
     const auth=await authorize(request,env);requireScope(auth,'novel:read');
-    const server=createServer(createCloudService(env.DB,auth.owner),auth,env);
-    const transport=new WebStandardStreamableHTTPServerTransport({sessionIdGenerator:undefined,enableJsonResponse:true,maxRequestBodySize:1_000_000});
+    const server=createServer(runtimeService(env,auth.owner),auth,env);
+    const transport=new WebStandardStreamableHTTPServerTransport({sessionIdGenerator:undefined,enableJsonResponse:true,maxRequestBodySize:8_000_000});
     await server.connect(transport);
     try{return await transport.handleRequest(request);}finally{await server.close();}
   }catch(error){

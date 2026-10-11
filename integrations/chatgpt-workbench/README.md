@@ -8,6 +8,8 @@
 
 ## 私有云端
 
-复制 `cloud/wrangler.jsonc` 为忽略的 `cloud/wrangler.local.jsonc`，填写自己的 Workers、D1、Auth0 issuer 和 MCP resource。通过 Wrangler secret 设置 `OWNER_SUB`；不要写入源码。先应用 `cloud/migrations/0001_workspace.sql`，再构建并手动部署。绑定只允许指定作者，保留 OAuth 与读写 scope 校验。
+复制 `cloud/wrangler.jsonc` 为忽略的 `cloud/wrangler.local.jsonc`，填写自己的 Workers、D1、Auth0 issuer 和 MCP resource。通过 Wrangler secret 设置 `OWNER_SUB`；不要写入源码。先用 `wrangler d1 migrations apply` 应用 `cloud/migrations/` 下全部迁移，再构建并手动部署。绑定只允许指定作者，保留 OAuth 与读写 scope 校验。
+
+批量导入、恢复预览、自动快照及兼容回退见 [导入与恢复说明](IMPORT_RECOVERY.md)。
 
 源码源于仓库根目录 `src/`；适配界面位于 `vendor/cuigengji/`。个人作品、租户配置、日志、构建与备份不在 Git 中。

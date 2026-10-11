@@ -1,0 +1,16 @@
+import {build} from 'esbuild';
+import {execFileSync} from 'node:child_process';
+import {mkdir,readFile,writeFile,copyFile} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import {relative,sep} from 'node:path';
+const root=new URL('../',import.meta.url),repo=new URL('../../',root),output=new URL('.data/rollback-compatible/cloud/',root);
+const nodeRoot=fileURLToPath(root),repoRoot=fileURLToPath(repo),ref='workbench-stable-2026-10-11';
+const old=path=>execFileSync('git',['show',`${ref}:${relative(repoRoot,path).split(sep).join('/')}`],{cwd:repoRoot,encoding:'utf8',maxBuffer:8*1024*1024});
+const bundle=await build({entryPoints:[fileURLToPath(new URL('client/workbench.tsx',root))],bundle:true,write:false,format:'iife',loader:{'.png':'dataurl'},nodePaths:[nodeRoot+'/node_modules'],define:{'process.env.NODE_ENV':'"production"'},minify:true,plugins:[{name:'stable-ui',setup(b){b.onLoad({filter:/\.(tsx?|jsx?|mjs)$/},args=>{if(!args.path.startsWith(nodeRoot)||args.path.includes('node_modules'))return null;if(!/[/\\](client|vendor)[/\\]/.test(args.path))return null;return {contents:old(args.path),loader:args.path.endsWith('tsx')?'tsx':args.path.endsWith('ts')?'ts':args.path.endsWith('jsx')?'jsx':'js'};});}}]});
+await mkdir(new URL('public/',output),{recursive:true});await mkdir(new URL('generated/',output),{recursive:true});await mkdir(new URL('migrations/',output),{recursive:true});
+for(const path of ['entry.mjs','service.mjs','runtime.mjs','runtime-client.mjs','auth.mjs','state-codec.mjs','workspace-storage.mjs','generated/engine.mjs','generated/transfer.mjs','migrations/0001_workspace.sql','migrations/0002_workspace_blobs.sql'])await copyFile(new URL('cloud/'+path,root),new URL(path,output));
+const worker=(await readFile(new URL('cloud/worker.mjs',root),'utf8')).replaceAll('0.4.0-import','0.3.3-storage-compatible').replaceAll('cloud-v040','cloud-v033');await writeFile(new URL('worker.mjs',output),worker);
+const code=bundle.outputFiles[0].text.replaceAll('</script','<\\/script');
+await writeFile(new URL('public/index.html',output),(await readFile(new URL('client/workbench.html',root),'utf8')).replace('<!-- SCRIPT -->',()=>`<script>${code}</script>`));
+const config=JSON.parse(await readFile(new URL('cloud/wrangler.local.jsonc',root),'utf8'));config.vars={...config.vars,TRANSFER_DISABLED:'1'};await writeFile(new URL('wrangler.local.jsonc',output),JSON.stringify(config,null,2));
+console.log('兼容回退构建已保存于 .data/rollback-compatible：稳定界面 + 新存储读取；未部署。');

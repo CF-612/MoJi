@@ -18,6 +18,8 @@ const pure=(source.slice(0,constructorStart)+source.slice(constructorEnd,dispatc
 const result=await build({stdin:{contents:pure+"\nexport {HUMAN_ACTIONS,TOOL_ACTIONS,isReadAction} from '../contracts/actions.js';",resolveDir:fileURLToPath(new URL('../../src/application/',root)),sourcefile:'cloud-engine.js'},bundle:true,write:false,format:'esm',platform:'node',target:'node24'});
 await mkdir(new URL('cloud/generated/',root),{recursive:true});
 await writeFile(new URL('cloud/generated/engine.mjs',root),'// Generated from MIT upstream; see UPSTREAM.md and LICENSE. Do not edit.\n'+result.outputFiles[0].text);
+const transfer=await build({entryPoints:[fileURLToPath(new URL('server/transfer-service.mjs',root))],bundle:true,write:false,format:'esm',platform:'node',target:'node24'});
+await writeFile(new URL('cloud/generated/transfer.mjs',root),transfer.outputFiles[0].text);
 await mkdir(new URL('cloud/public/',root),{recursive:true});
 await writeFile(new URL('cloud/public/index.html',root),await readFile(new URL('dist/workbench-dev.html',root),'utf8'));
 console.log('Cloud engine and native UI built; no deployment performed.');

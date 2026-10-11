@@ -2,7 +2,7 @@ import {randomUUID,createHash} from 'node:crypto';
 import {mkdir,readFile,writeFile,rename,readdir} from 'node:fs/promises';
 import {join} from 'node:path';
 import {WorkData} from '../../../src/data/workspace.js';
-import {TransferService} from '../../../src/application/transfer/service.ts';
+import {createTransfer} from './transfer-service.mjs';
 import {convertLegacyExport} from '../../../src/infrastructure/migrations/legacy.js';
 import {HUMAN_ACTIONS,TOOL_ACTIONS,isReadAction} from '../../../src/contracts/actions.js';
 
@@ -11,11 +11,11 @@ export const QUERY_ACTIONS=[...actions.filter(isReadAction),'novel.list','preset
 export const EDIT_ACTIONS=[...actions.filter(action=>!isReadAction(action)),'preset.set'];
 const fail=(code,message)=>{throw Object.assign(new Error(message),{code});};
 const object=value=>value && typeof value==='object' && !Array.isArray(value);
-const transferMethods={catalog:'catalog',inspect:'inspect',preview:'preview',import:'import',exportPreview:'exportPreview',export:'export'};
+const transferMethods={catalog:'catalog',inspect:'inspect',preview:'preview',import:'import',exportPreview:'exportPreview',export:'export',snapshots:'snapshots','snapshot.get':'snapshotGet'};
 
 export function attachWorkbench(service) {
   const {store}=service;
-  const workData=new WorkData(store),transfer=new TransferService(store,workData);
+  const workData=new WorkData(store),transfer=createTransfer(store,{workData});
   const historyRoot=join(store.root,'audit');
   const writeEvent=async event=>{
     await mkdir(historyRoot,{recursive:true});
@@ -43,7 +43,7 @@ export function attachWorkbench(service) {
   service.rpc=async(action,args={},sessionId='desktop',kind='human')=>{
     if(!object(args))fail('INVALID_INPUT','参数必须是对象');
     if(typeof sessionId!=='string'||!sessionId.trim()||sessionId.length>512)fail('INVALID_INPUT','工作台标识无效');
-    const allowed=kind==='human'?HUMAN_ACTIONS:[...QUERY_ACTIONS,...EDIT_ACTIONS];
+    const allowed=kind==='human'?[...HUMAN_ACTIONS,'transfer.snapshots','transfer.snapshot.get']:[...QUERY_ACTIONS,...EDIT_ACTIONS];
     if(!allowed.includes(action))fail('NOT_ALLOWED','不允许此操作');
     // Model tools always identify the work explicitly, independent of a panel's binding.
     if(kind==='agent' && action!=='novel.list' && !args.novelId)fail('NOVEL_REQUIRED','请明确提供作品 ID，不从其他聊天继承选择');

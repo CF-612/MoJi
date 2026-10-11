@@ -4,6 +4,7 @@ import type {Catalog, Selection, ExportFormat, TransferFile, Inspection, ImportO
 import {ScopePicker, KindPicker, defaultSelection} from './ScopePicker.tsx';
 import {readTransferFile, downloadFile} from './file.ts';
 import {useWorkbenchRefresh} from '../../shared/refresh.tsx';
+import {BatchImport} from './BatchImport.tsx';
 
 type Report = Pick<TransferPreview, 'counts' | 'dependencies' | 'warnings'>;
 type Props = BackProps & {call: Call; run: Run; busy: boolean; novelId?: string; initial?: TransferShortcut; onOpen?: (id: string) => unknown};
@@ -13,7 +14,7 @@ const caption: Record<ExportKind, string> = {chapters: '整本、某卷或几章
 export function TransferPage({call, run, busy, novelId, initial, onOpen, onBack, backLabel}: Props) {
   const {revision: refreshRevision} = useWorkbenchRefresh();
   const initialized = useRef(false);
-  const [mode, setMode] = useState(initial?.mode || 'import');
+  const [mode, setMode] = useState<'import'|'export'|'batch'>(initial?.mode || 'import');
   const [library, setLibrary] = useState<Catalog | null>(null), [loadError, setLoadError] = useState('');
   const [selection, setSelection] = useState<Selection>(initial?.selection || {kind: 'chapters', novelId}), [format, setFormat] = useState<ExportFormat>('package');
   const [exportReport, setExportReport] = useState<Report | null>(null), [exportError, setExportError] = useState('');
@@ -34,40 +35,40 @@ export function TransferPage({call, run, busy, novelId, initial, onOpen, onBack,
     return () => {live = false; clearTimeout(timer);};
   }, [call, library, mode, exportKey]);
   useEffect(() => {
-    if (!file || !identified || result) return;
+    if (mode!=='import'||!file || !identified || result) return;
     let live = true; setPreview(null); setPreviewError(''); setPreviewPending(true);
     const timer = setTimeout(() => {call<TransferPreview>('transfer.preview', {file, options}).then(value => {if (live) setPreview(value);}).catch(e => {if (live) setPreviewError(errorMessage(e));}).finally(() => {if (live) setPreviewPending(false);});}, 250);
     return () => {live = false; clearTimeout(timer);};
-  }, [call, file, identified, importKey, result, previewVersion, refreshRevision]);
+  }, [call, file, identified, importKey, result, previewVersion, refreshRevision,mode]);
   const editOptions = (value: ImportOptions) => {setOptions(value); setPreview(null); setResult(null); setNotice(''); requestId.current = crypto.randomUUID();};
   const editExport = (value: Selection) => {setSelection(value); setExportReport(null); setNotice(''); if (value.kind !== 'chapters') setFormat('package');};
-  const selectFile = (chosen: File) => {
+  const loadFile = async (value:TransferFile) => {
     setFile(null); setIdentified(null); setPreview(null); setPreviewError(''); setResult(null); setNotice('');
-    void run(async () => {
-      const value = await readTransferFile(chosen), info = await call<Inspection>('transfer.inspect', {file: value});
+      const info = await call<Inspection>('transfer.inspect', {file: value});
       setIdentified(info); setFile(value);
       editOptions({mode: info.restorable ? 'restore' : 'copy', selection: defaultSelection(info.kind, info.catalog, info.catalog.books[0]?.id, true),
         targetId: info.restorable ? null : novelId || null, title: info.catalog.books[0]?.title, presetPolicy: 'append', ...(info.orderId ? {orderId: info.orderId} : {})});
-    });
   };
+  const selectFile=(chosen:File)=>{void run(async()=>loadFile(await readTransferFile(chosen)));};
   const choose = (event: React.ChangeEvent<HTMLInputElement>) => {const chosen = event.target.files?.[0]; event.target.value = ''; if (chosen) selectFile(chosen);};
   const refresh = async () => setLibrary(await call<Catalog>('transfer.catalog'));
   const confirmImport = () => {if (!preview?.valid || !file || previewPending) return; void run(async () => {
     const done = await call<ImportResult>('transfer.import', {file, options, proof: preview.proof, requestId: requestId.current});
     setResult(done); await refresh();
   });};
-  const exportFile = () => run(async () => {downloadFile(await call('transfer.export', {selection, format})); setNotice('已开始下载，请在下载列表确认文件已保存。');});
+  const exportFile = () => run(async () => {await downloadFile(await call('transfer.export', {selection, format})); setNotice('已开始下载，请在下载列表确认文件已保存。');});
   const importSelection = options.selection;
   const canExtract = identified?.kind === 'works' || identified?.kind === 'workspace';
   const allowedKinds: ExportKind[] = options.mode === 'restore' ? identified?.kind === 'workspace' ? ['works', 'workspace'] : ['works'] : canExtract ? ['chapters', 'memory', 'planning', 'preset', 'works'] : identified ? [identified.kind] : [];
   const importTarget = library?.books.find(b => b.id === options.targetId);
   const changeImportKind = (kind: ExportKind) => editOptions({...options, selection: defaultSelection(kind, identified!.catalog, importSelection?.novelId, true), ...(kind === 'works' || kind === 'workspace' ? {targetId: null} : {})});
   const footer = mode === 'export' ? <div className="transfer-footer"><span>{exportReport ? countLabel(exportReport.counts, selection.kind) : exportError || '选择要导出的内容'}<small>{format === 'package' ? '催更姬数据包 · JSON' : format === 'md' ? 'Markdown · UTF-8' : 'TXT · UTF-8'}</small></span><button className="primary" disabled={busy || !exportReport} onClick={exportFile}>下载文件</button></div>
-    : identified && !result ? <div className="transfer-footer"><span>{preview ? countLabel(preview.counts, importSelection?.kind || 'works') : previewPending ? '正在核对内容…' : '选择范围与目标'}<small>{preview ? preview.target : '导入前自动备份当前工作库'}</small></span><button className="primary" disabled={busy || !preview?.valid || previewPending} onClick={confirmImport}>确认导入</button></div> : null;
+    : mode==='import'&&identified && !result ? <div className="transfer-footer"><span>{preview ? countLabel(preview.counts, importSelection?.kind || 'works') : previewPending ? '正在核对内容…' : '选择范围与目标'}<small>{preview ? preview.target : '导入前自动备份当前工作库'}</small></span><button className="primary" disabled={busy || !preview?.valid || previewPending} onClick={confirmImport}>{options.replaceExisting?'确认替换恢复':'确认导入'}</button></div> : null;
   return <ManagementPage title="导入 / 导出" description="带走作品，也把需要的写作内容带进来。" {...{onBack, backLabel}} documentClass="transfer-document" footer={footer}
-    actions={<div className="transfer-mode" role="group" aria-label="导入导出切换"><button disabled={busy} aria-pressed={mode === 'import'} onClick={() => {setMode('import'); setNotice('');}}>导入</button><button disabled={busy} aria-pressed={mode === 'export'} onClick={() => {setMode('export'); setNotice('');}}>导出</button></div>}>
+    actions={<div className="transfer-mode" role="group" aria-label="导入导出切换"><button disabled={busy} aria-pressed={mode === 'import'} onClick={() => {setMode('import'); setNotice('');}}>导入 / 恢复</button><button disabled={busy} aria-pressed={mode === 'batch'} onClick={()=>setMode('batch')}>批量导入</button><button disabled={busy} aria-pressed={mode === 'export'} onClick={() => {setMode('export'); setNotice('');}}>导出</button></div>}>
     {loadError && <p role="alert">{loadError}</p>}
     {!library && !loadError && <p role="status">正在读取作品库…</p>}
+    {mode==='batch'&&library&&<BatchImport {...{call,run,busy,library,novelId,onOpen}} onDone={refresh}/>}
     {mode === 'export' && library && <>
       <KindPicker value={selection.kind} disabled={busy} change={kind => editExport(defaultSelection(kind, library, selection.novelId || novelId))}/>
       <p className="transfer-caption">{caption[selection.kind]}</p>
@@ -78,6 +79,7 @@ export function TransferPage({call, run, busy, novelId, initial, onOpen, onBack,
       </section><aside className="transfer-summary" aria-label="导出预览"><h3>这次带走</h3>{exportReport ? <ReportSummary report={exportReport} kind={selection.kind}/> : <p className="management-hint" role={exportError ? 'alert' : 'status'}>{exportError || '正在读取所选范围…'}</p>}</aside></div>
     </>}
     {mode === 'import' && <>
+      <Snapshots {...{call,run,busy}} revision={String(refreshRevision)+':'+(result?.backupDir||'')} choose={loadFile}/>
       <ImportSteps preview={!!identified} done={!!result}/>
       {!result && <div className={'transfer-upload ' + (dragging ? 'is-dragging' : '')} onDragOver={e => {e.preventDefault(); if (!busy) setDragging(true);}} onDragLeave={e => {if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false);}} onDrop={e => {e.preventDefault(); setDragging(false); if (!busy && e.dataTransfer.files[0]) selectFile(e.dataTransfer.files[0]);}}>
         <div className="transfer-upload-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M8 26H5V17M27 17v9h-3M16 23V5M9 12l7-7 7 7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></div>
@@ -86,8 +88,10 @@ export function TransferPage({call, run, busy, novelId, initial, onOpen, onBack,
       </div>}
       {identified && importSelection && !result && <>
         <div className="transfer-import-options">{identified.restorable && <label className="management-field">导入方式<select aria-label="导入方式" disabled={busy} value={options.mode} onChange={e => {const value = e.target.value as 'copy' | 'restore'; editOptions({...options, mode: value, targetId: null,
+          replaceExisting:false,
           selection: defaultSelection(identified.kind === 'workspace' && value === 'restore' ? 'workspace' : 'works', identified.catalog, identified.catalog.books[0]?.id, true)});}}><option value="restore">恢复备份 · 保留原作品和版本</option><option value="copy">复用内容 · 使用新的 ID</option></select></label>}
           {identified.orders.length > 1 && <label className="management-field">提示词排列<select aria-label="提示词排列" disabled={busy} value={options.orderId} onChange={e => editOptions({...options, orderId: e.target.value})}>{identified.orders.map(order => <option key={order.id} value={order.id}>{order.name}</option>)}</select></label>}</div>
+        {identified.restorable&&options.mode==='restore'&&<label className="transfer-checkbox transfer-dependency-choice"><input type="checkbox" aria-label="替换同 ID 作品" checked={!!options.replaceExisting} disabled={busy} onChange={e=>editOptions({...options,replaceExisting:e.target.checked})}/><span>替换备份内的同 ID 作品<small>默认只补入缺失作品。勾选后恢复所选作品，恢复前自动备份；未选作品保留。</small></span></label>}
         {allowedKinds.length > 1 && <KindPicker kinds={allowedKinds} value={importSelection.kind} change={changeImportKind} disabled={busy}/>}
         <div className="transfer-grid"><section className="transfer-form" aria-label="导入范围"><ScopePicker key={`${identified.fingerprint}:${importSelection.kind}:${importSelection.novelId}`} catalog={identified.catalog} selection={importSelection} change={selection => editOptions({...options, selection})} disabled={busy}/>
           {options.mode === 'copy' && <div className="transfer-destination"><h3>放到哪里</h3>{importSelection.kind !== 'works' && <label className="management-field">目标作品<select aria-label="目标作品" disabled={busy} value={options.targetId || ''} onChange={e => editOptions({...options, targetId: e.target.value || null})}><option value="">新建一部作品</option>{library?.books.map(b => <option key={b.id} value={b.id}>{b.title}{b.archived ? ' · 已归档' : ''}</option>)}</select></label>}
@@ -98,6 +102,8 @@ export function TransferPage({call, run, busy, novelId, initial, onOpen, onBack,
         </section><aside className="transfer-summary" aria-label="导入预览"><h3>准备导入</h3>{preview ? <>
           <ReportSummary report={preview} kind={importSelection.kind}/>
           {!!preview.skipped.length && <p className="management-hint">相同内容跳过：{preview.skipped.join('、')}</p>}
+          {!!preview.replaced?.length&&<p role="alert">将替换：{preview.replaced.join('、')}。请确认已保存其他页面的草稿。</p>}
+          {preview.capacity&&<p className="management-hint">云端容量检查通过：保存约 {(preview.capacity.storedBytes/1024).toFixed(0)} KB</p>}
           {!!preview.conflicts.length && <div className="transfer-conflicts" role="alert"><strong>这些内容有冲突，暂不能导入</strong><ul>{preview.conflicts.map((conflict, i) => <li key={i}>{conflict}</li>)}</ul><p>可选择“复用内容”，作为另一部作品保存。</p></div>}
           {!!preview.samples?.length && <details className="transfer-samples"><summary>看一下内容</summary>{preview.samples.map((sample, i) => <div key={i}><h4>{sample.title}</h4><pre>{sample.content || '暂时没有正文'}</pre></div>)}</details>}
         </> : <p className="management-hint" role={previewError ? 'alert' : 'status'}>{previewError || '正在核对范围与目标…'}</p>}<button className="quiet transfer-refresh" disabled={busy || previewPending} onClick={() => {setPreview(null); setPreviewVersion(v => v + 1);}}>刷新预览</button></aside></div>
@@ -107,6 +113,12 @@ export function TransferPage({call, run, busy, novelId, initial, onOpen, onBack,
     {notice && <p className="transfer-notice" role="status">{notice}</p>}
     {library?.dataRoot && <details className="management-disclosure transfer-storage"><summary>存储位置与备份范围</summary><code className="work-data-path">{library.dataRoot}</code><p>{library.books.length} 部作品 · {library.bindings || 0} 个绑定会话。导出使用已保存内容，请先保存正在编辑的草稿。</p><p>催更姬管理小说工作数据；聊天记录和附件由聊天客户端保存，不包含在作品备份中。</p></details>}
   </ManagementPage>;
+}
+function Snapshots({call,run,busy,revision,choose}:{call:Call;run:Run;busy:boolean;revision:string;choose:(file:TransferFile)=>Promise<unknown>}){
+  const [items,setItems]=useState<{id:string;title:string;timestamp:string}[]>([]),[error,setError]=useState('');
+  const refresh=()=>call<typeof items>('transfer.snapshots').then(v=>{setItems(v);setError('');}).catch(e=>setError(errorMessage(e)));
+  useEffect(()=>{void refresh();},[call,revision]);
+  return <details className="management-disclosure"><summary>恢复导入前的快照（{items.length}）</summary><p className="management-hint">选择后先查看预览。需要撤回导入时，勾选“替换同 ID 作品”；未选作品保留。若整批新建了作品，快照不会删除它，可到作品管理归档。</p>{error&&<p role="alert">{error}</p>}<button disabled={busy} onClick={()=>void refresh()}>刷新快照列表</button>{items.map(item=><div className="transfer-batch-controls" key={item.id}><span>{new Date(item.timestamp).toLocaleString()} · {item.title}</span><button disabled={busy} onClick={()=>void run(async()=>choose(await call<TransferFile>('transfer.snapshot.get',{id:item.id})))}>预览恢复</button></div>)}</details>;
 }
 function countLabel(value: Counts, kind: ExportKind) {
   if (kind === 'works' || kind === 'workspace') return `${value.works} 部作品 · ${value.chapters} 章 · ${value.memory} 条设定`;
