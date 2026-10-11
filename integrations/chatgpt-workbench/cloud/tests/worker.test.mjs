@@ -10,7 +10,7 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
   const {privateKey,publicKey}=await generateKeyPair('RS256');const jwks={keys:[{...await exportJWK(publicKey),kid:'test',alg:'RS256'}]};
   const env={AUTH0_ISSUER:'https://tenant.auth0.com/',MCP_RESOURCE:'https://novel.example/mcp',OWNER_SUB:'auth0|author'};
   const token=await new SignJWT({scope:'novel:read novel:write'}).setProtectedHeader({alg:'RS256',kid:'test'}).setSubject(env.OWNER_SUB).setIssuer(env.AUTH0_ISSUER).setAudience(env.MCP_RESOURCE).setIssuedAt().setExpirationTime('5m').sign(privateKey);
-  const bundle=await build({entryPoints:[fileURLToPath(new URL('../worker.mjs',import.meta.url))],bundle:true,write:false,format:'esm',platform:'neutral',conditions:['workerd','worker','browser'],external:['node:crypto','node:util'],mainFields:['module','main']});
+  const bundle=await build({entryPoints:[fileURLToPath(new URL('../worker.mjs',import.meta.url))],bundle:true,write:false,format:'esm',platform:'neutral',conditions:['workerd','worker','browser'],external:['node:*'],mainFields:['module','main']});
   const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
   const mf=new Miniflare(convertV4MiniflareOptions({resourcePersistencePath:persist,resourceTmpPath:persist+'/tmp',modules:true,script:bundle.outputFiles[0].text,compatibilityDate:'2026-10-10',compatibilityFlags:['nodejs_compat'],d1Databases:{DB:'worker-demo'},bindings:env,serviceBindings:{ASSETS:()=>new Response(html)},outboundService:request=>request.url==='https://tenant.auth0.com/.well-known/jwks.json'?Response.json(jwks):new Response('Blocked in test',{status:403})}));
   try{

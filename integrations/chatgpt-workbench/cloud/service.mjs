@@ -1,15 +1,12 @@
 import {createHash,randomUUID} from 'node:crypto';
 import {Store,HUMAN_ACTIONS,TOOL_ACTIONS,isReadAction} from './generated/engine.mjs';
+import {encodeState,decodeState} from './state-codec.mjs';
 export const QUERY_ACTIONS=[...new Set(Object.values(TOOL_ACTIONS).flat().filter(isReadAction)), 'novel.list','preset.get'];
 export const EDIT_ACTIONS=[...new Set(Object.values(TOOL_ACTIONS).flat().filter(a=>!isReadAction(a))), 'preset.set'];
 const engine=new Store();
 const hash=s=>createHash('sha256').update(s).digest('hex');
 const fail=(code,message)=>{throw Object.assign(new Error(message),{code});};
 const empty=()=>({schemaVersion:1,novels:{},bindings:{},requests:{}});
-const bytes=s=>new TextEncoder().encode(s).length;
-// First cloud acceptance fixture is intentionally bounded. Whole-workspace CAS
-// protects commands spanning chapters, settings and graph transactions together.
-const MAX_STATE_BYTES=1_500_000;
 export function createCloudService(db,owner){
   const database=db.withSession?db.withSession('first-primary'):db;
   const read=async()=>{
@@ -21,11 +18,10 @@ export function createCloudService(db,owner){
       await database.prepare('INSERT OR IGNORE INTO workspaces(owner,state,event,updated_at) VALUES(?,?,?,?)').bind(owner,JSON.stringify(state),'{}',new Date().toISOString()).run();
       row=await database.prepare('SELECT * FROM workspaces WHERE owner=?').bind(owner).first();
     }
-    return {...row,state:JSON.parse(row.state)};
+    return {...row,state:decodeState(row.state)};
   };
   const commit=async(row,state,event)=>{
-    const json=JSON.stringify(state);
-    if(bytes(json)>MAX_STATE_BYTES)fail('DEMO_LIMIT','云端演示库达到容量上限，请先导出备份；未覆盖保存。');
+    const {stored:json}=encodeState(state);
     // D1 changes includes trigger writes; RETURNING identifies the matched row.
     const result=await database.prepare('UPDATE workspaces SET state=?,revision=revision+1,event=?,updated_at=? WHERE owner=? AND revision=? RETURNING revision')
       .bind(json,JSON.stringify(event),new Date().toISOString(),owner,row.revision).first();
@@ -63,7 +59,7 @@ export function createCloudService(db,owner){
     const records=await database.prepare("SELECT revision,state,event FROM workspace_history WHERE owner=? AND json_extract(event,'$.novelId')=? ORDER BY revision DESC LIMIT ?")
       .bind(owner,novelId,Math.max(1,Math.min(limit,100))).all();
     return records.results.map(r=>{
-      const event=JSON.parse(r.event),state=JSON.parse(r.state),novel=state.novels[novelId];
+      const event=JSON.parse(r.event),state=decodeState(r.state),novel=state.novels[novelId];
       const before=novel?.chapters[event.entityId]??novel?.nodes[event.entityId]??novel?.edges[event.entityId]??(event.action==='preset.set'?novel?.preset:null);
       return {...event,workspaceRevision:r.revision,state:'committed',before};
     }).filter(e=>!entityId||e.entityId===entityId);
