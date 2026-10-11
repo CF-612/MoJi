@@ -20,13 +20,13 @@ export interface MemoryEdge extends MemoryFields {from: string; to: string}
 export interface PresetBlock {identifier: string; name: string; content: string; enabled: boolean; [key: string]: unknown}
 export interface PresetData {id?: string; revision?: number; name: string; enabled: boolean; blocks: PresetBlock[]; raw?: unknown; importFormat?: string; warnings?: string[]; [key: string]: unknown}
 export interface Novel extends Entity {
-  title: string; description: string; archived: boolean; volumes: Record<string, Volume>; chapters: Record<string, Chapter>;
+  title: string; description: string; archived: boolean; archivedAt?: string; volumes: Record<string, Volume>; chapters: Record<string, Chapter>;
   nodes: Record<string, MemoryNode>; edges: Record<string, MemoryEdge>; memoryGroups?: Record<string, Group>;
   planning?: Board; plan?: Board['legacy'] | null; preset?: PresetData;
   tavernSources?: Record<string, {format: string; raw: unknown}>;
   transferScope?: {mainPage: boolean};
 }
-export interface Workspace {schemaVersion: number; novels: Record<string, Novel>; bindings: Record<string, Record<string, unknown>>; requests: Record<string, {signature: string; result?: unknown; timestamp?: string}>}
+export interface Workspace {schemaVersion: number; novels: Record<string, Novel>; bindings: Record<string, Record<string, unknown>>; requests: Record<string, {signature: string; result?: unknown; timestamp?: string; novelId?: string}>}
 
 /** Omitted IDs select all active content; [] explicitly selects nothing. */
 export interface Selection {

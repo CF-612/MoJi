@@ -31,11 +31,11 @@ try {
   & npm.cmd pack --ignore-scripts --silent --pack-destination $ReleaseDirectory
   if ($LASTEXITCODE -ne 0) { throw 'Plugin build or pack failed.' }
   $manifest = Get-Content -LiteralPath 'package.json' -Encoding UTF8 -Raw | ConvertFrom-Json
-  $archive = Join-Path $ReleaseDirectory "dsh-cuigengji-$($manifest.version).tgz"
+  $archive = Join-Path $ReleaseDirectory "$($manifest.name)-$($manifest.version).tgz"
   # pnpm can keep an older local tgz when only its contents change.
   # Give every distinct build a stable, content-addressed installation path.
   $digest = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.Substring(0, 16).ToLowerInvariant()
-  $installArchive = Join-Path $ReleaseDirectory "dsh-cuigengji-$($manifest.version)-$digest.tgz"
+  $installArchive = Join-Path $ReleaseDirectory "$($manifest.name)-$($manifest.version)-$digest.tgz"
   if (-not (Test-Path -LiteralPath $installArchive)) {
     Copy-Item -LiteralPath $archive -Destination $installArchive
   }
@@ -43,7 +43,7 @@ try {
   Set-Location -LiteralPath $profile
   & $nodeShim $pnpm add $installArchive
   if ($LASTEXITCODE -ne 0) { throw 'Desktop profile installation failed.' }
-  $installedRoot = Join-Path $profile 'node_modules\dsh-cuigengji'
+  $installedRoot = Join-Path (Join-Path $profile 'node_modules') $manifest.name
   $installed = Get-Content -LiteralPath (Join-Path $installedRoot 'package.json') -Encoding UTF8 -Raw | ConvertFrom-Json
   if ($installed.version -ne $manifest.version) { throw 'Installed plugin version differs.' }
   foreach ($relative in @('runtime\adapters\mcp\client.js', 'lib\client.js', 'README.md', 'package.json')) {
@@ -51,7 +51,9 @@ try {
     $installedHash = (Get-FileHash -LiteralPath (Join-Path $installedRoot $relative)).Hash
     if ($sourceHash -ne $installedHash) { throw "Installed file differs: $relative. Bump the plugin version and retry." }
   }
-  Write-Output "Installed cuigengji $($installed.version) into $profile. Restart DeepSeek Harness."
+  & $nodeShim (Join-Path $installedRoot 'runtime\adapters\dsh\rename-installation.js') --profile $profile --home $DshHome --apply --desktop-exe $DesktopExe
+  if ($LASTEXITCODE -ne 0) { throw 'Installation identity migration failed; keep DSH closed and retain its configuration backup.' }
+  Write-Output "Installed $($installed.name) $($installed.version) into $profile. Restart DeepSeek Harness."
 } finally {
   $env:DSH_DESKTOP_NODE_EXECUTABLE = $previousNode
   Pop-Location

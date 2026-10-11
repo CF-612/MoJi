@@ -20,6 +20,23 @@ export const managementStyles = `
 .cuigengji .management-page .quiet {border-color:transparent;background:transparent;color:var(--cg-muted);}
 .cuigengji .management-current-work {padding-bottom:18px;}
 .cuigengji .management-current-work>button {flex:none;white-space:nowrap;}
+.cuigengji .management-view-switch {display:flex;gap:4px;padding:3px;border:1px solid var(--cg-line);border-radius:9px;background:var(--cg-paper);}
+.cuigengji .management-view-switch button {border:0;background:transparent;font-size:12px;white-space:nowrap;padding:6px 12px;min-height:32px;color:var(--cg-muted);}
+.cuigengji .management-view-switch button[aria-pressed=true] {background:var(--cg-wash);color:var(--cg-accent);}
+.cuigengji .management-trash-list {list-style:none;margin:0;padding:0;}
+.cuigengji .management-trash-row {display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px 0;border-bottom:1px solid var(--cg-line);}
+.cuigengji .management-trash-row:first-child {padding-top:0;}
+.cuigengji .management-trash-copy {min-width:0;flex:1;}
+.cuigengji .management-trash-copy h3 {font-size:16px;font-weight:500;margin:0;overflow-wrap:anywhere;line-height:1.6;}
+.cuigengji .management-trash-copy p {font-size:11px;color:var(--cg-muted);margin:5px 0 0;}
+.cuigengji .management-trash-actions {display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:none;}
+.cuigengji .management-trash-actions button {display:inline-flex;align-items:center;gap:7px;white-space:nowrap;font-size:12px;}
+.cuigengji .management-page .management-trash-actions .danger {color:var(--dsw-alias-state-error-primary,#bf443a);}
+.cuigengji .management-trash-actions svg {width:16px;height:16px;border:0;border-radius:0;}
+.cuigengji .management-trash-empty {display:flex;flex-direction:column;align-items:center;text-align:center;padding:52px 12px 64px;color:var(--cg-muted);}
+.cuigengji .management-trash-empty svg {width:32px;height:32px;padding:0;border:0;border-radius:0;opacity:.65;}
+.cuigengji .management-trash-empty p {font-size:14px;color:var(--cg-ink);margin:16px 0 8px;}
+.cuigengji .management-trash-empty small {font-size:12px;line-height:1.8;max-width:280px;}
 .cuigengji .management-action-link {display:flex;align-items:center;gap:20px;text-align:left;width:100%;padding:18px 0;border:0;border-top:1px solid var(--cg-line);border-radius:0;background:none;}
 .cuigengji .management-action-link:first-child {border-top:0;}
 .cuigengji .management-action-link>span:first-child {flex:1;min-width:0;}
@@ -96,6 +113,8 @@ export const managementStyles = `
 .cuigengji .work-data-path {display:block;overflow-wrap:anywhere;white-space:normal;font-size:12px;line-height:1.8;user-select:text;margin:8px 0 16px;}
 .cuigengji .work-data-conflicts {margin-top:18px;color:var(--cg-ink);font-size:12px;line-height:1.8;}
 @container(max-width:599px) {
+ .cuigengji .management-trash-row {flex-wrap:wrap;gap:12px;}
+ .cuigengji .management-trash-copy {flex-basis:100%;}
  .cuigengji .management-header {padding:12px 20px 16px;grid-template-columns:1fr;gap:10px;}
  .cuigengji .management-heading h2 {font-size:19px;}
  .cuigengji .management-head-actions {justify-content:space-between;}

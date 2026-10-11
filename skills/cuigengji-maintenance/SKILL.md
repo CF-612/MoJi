@@ -9,7 +9,7 @@ description: 安装或更新催更姬后，查询自动迁移、备份和完整�
 
 ## 更新流程
 
-1. 先确认 DSH 桌面版和当前插件实际加载版本；不要把仓库源码版本或聊天中猜到的版本当成已加载版本。
+1. 公开安装名统一为 `dsh-cuigengji-plugin`。先确认 DSH 桌面版、实际加载版本及启用包；发现旧名 `dsh-cuigengji` 时先按[名称迁移指南](https://github.com/mistnest/dsh-cuigengji-plugin/blob/main/docs/package-name-migration.md)关闭状态安装新版，正常退出后由工具转接配置与启用项，禁止同时启用两个包。内部条目 ID、工具名、草稿和数据目录保留。
 2. 从公开仓库的 Releases 取得与宿主兼容的预构建包，核对资产文件名和 `SHA256SUMS`。没有成品包时，明确报告缺少发布资源，不临时让用户从源码构建。
 3. 通过 DSH 原生插件管理安装本地路径或下载 URL。已有插件更新可能需要一次宿主重启，遵循宿主返回的 restart-required 状态。
 4. 让 DSH 完整退出并重新加载插件。催更姬在加载阶段会自动处理配置的数据根：建立升级前的完整原始备份、恢复挂起事务、迁移物理布局、校验正文历史、规划页面、设定关系、预设、回收站、绑定和请求记录。
@@ -25,7 +25,7 @@ description: 安装或更新催更姬后，查询自动迁移、备份和完整�
 返回当前插件版本、实际数据根、来源/目标存储版本、迁移阶段、完整备份路径、作品和正文数量，以及失败原因。它不要求会话绑定小说，迁移失败时仍可调用。
 
 ```json
-{"action":"verify","args":{"expectedVersion":"0.4.1","expectedDataRoot":"C:\\Users\\用户名\\AppData\\Local\\cuigengji"}}
+{"action":"verify","args":{"expectedVersion":"0.4.2","expectedDataRoot":"C:\\Users\\用户名\\AppData\\Local\\cuigengji"}}
 ```
 
 它在锁内重新读取并校验工作库，返回计数、摘要哈希和每项检查结果。不要把摘要哈希当作正文内容，也不要把数据根替换成维护者电脑上的路径。
@@ -38,4 +38,4 @@ description: 安装或更新催更姬后，查询自动迁移、备份和完整�
 - 回滚时先停止 DSH，保留升级后新写入的文件，再使用对应升级前快照和旧插件版本恢复；回滚前先取得用户明确授权，并报告会影响哪些新写入内容。
 - DSH 的聊天、附件、API 密钥和宿主偏好由 DSH 自己管理，不属于催更姬工作数据迁移；不要声称它们包含在催更姬备份中。
 
-详细步骤见[Windows Agent 安装指南](https://github.com/mistnest/dsh-cuigengji-plugin/blob/v0.4.1/docs/agent-installation.md)和[升级恢复说明](https://github.com/mistnest/dsh-cuigengji-plugin/blob/v0.4.1/docs/upgrade.md)。
+先核对用户请求的目标版本及公开 Release，不把本 Skill 的示例号当成最新版本。详细步骤见[Windows Agent 安装指南](https://github.com/mistnest/dsh-cuigengji-plugin/blob/main/docs/agent-installation.md)、[名称迁移](https://github.com/mistnest/dsh-cuigengji-plugin/blob/main/docs/package-name-migration.md)和[升级恢复说明](https://github.com/mistnest/dsh-cuigengji-plugin/blob/main/docs/upgrade.md)。

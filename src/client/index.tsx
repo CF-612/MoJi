@@ -18,8 +18,9 @@ import { ResourceState } from './shared/ui.jsx';
 import { Launcher } from './launcher.tsx';
 import {WorkbenchHeader} from './shared/WorkbenchHeader.tsx';
 import {RefreshProvider, useWorkbenchRefresh} from './shared/refresh.tsx';
+import {notifyLibraryChanged, subscribeLibraryChanges} from './shared/library-events.ts';
 
-const ID = 'dsh-cuigengji';
+const ID = 'dsh-cuigengji-plugin';
 const RPC_ENDPOINT = 'cuigengji/dispatch';
 const message = error => error?.message || String(error);
 export const inject = ['connection', 'slots', 'sidebarRight', 'sidebarRightTabs', 'locale', 'layout', 'uiWorkspace', 'workspaces'];
@@ -72,11 +73,14 @@ function WorkbenchContent({ sessionId, rpc }) {
   const [returnTarget,setReturnTarget]=useState(null);
   const [transferInitial,setTransferInitial]=useState(null);
   const [transferVisit,setTransferVisit]=useState(0);
+  const [manageInitial,setManageInitial]=useState('overview');
   const [error, setError] = useState(''), [busy, setBusy] = useState(false), [tick, setTick] = useState(0);
-  const { ask } = useDialog();
+  const { ask, confirm } = useDialog();
   const call = useCallback((action, args = {}) => rpc(action, args, sessionId), [rpc, sessionId]);
-  const resource = useResource(() => Promise.all([call('novel.list'), call('binding.get')]), [call, tick]);
-  const [books = [], binding = null] = resource.value || [];
+  const resource = useResource(() => Promise.all([call('novel.list', {includeArchived:true}), call('binding.get')]), [call, tick]);
+  const [library = [], binding = null] = resource.value || [];
+  const books=library.filter(book=>!book.archived), recycledCount=library.length-books.length;
+  useEffect(()=>subscribeLibraryChanges(()=>setTick(value=>value+1)),[]);
   const novelId = binding?.novelId, novel = books.find(n => n.id === novelId);
   const showHome=homeOpen||(!novelId&&!['data','manage'].includes(tab));
   useEffect(()=>{
@@ -97,10 +101,16 @@ function WorkbenchContent({ sessionId, rpc }) {
   };
   const create = async () => { const title = await ask('作品名称'); if (title?.trim()) run(async () => { const n = await call('novel.create', { title }); await call('binding.set', { novelId: n.id }); setHomeOpen(false);setTab('chapters'); }); };
   const openNovel=id=>run(async()=>{await call('binding.set',{novelId:id});setHomeOpen(false);setTab('chapters');setReturnTarget(null);});
-  const openManagement=page=>{if(homeOpen||!novelId)setManagementReturn('welcome');else if(['chapters','plan','memory'].includes(tab))setManagementReturn(tab);setHomeOpen(false);setReturnTarget(null);setTab(page);};
+  const openManagement=(page,initial='overview')=>{if(homeOpen||!novelId)setManagementReturn('welcome');else if(['chapters','plan','memory'].includes(tab))setManagementReturn(tab);setHomeOpen(false);setReturnTarget(null);setManageInitial(initial);setTab(page);};
+  const recycleNovel=async book=>{
+    if(busy||!await confirm(`将《${book.title}》移入回收站？\n正文、章节历史、设定、规划和写作预设会完整保留，之后可以恢复。相关会话将解除作品绑定。`))return;
+    await run(async()=>{await call('novel.archive',{novelId:book.id,expectedRevision:book.revision,requestId:crypto.randomUUID(),confirm:true});notifyLibraryChanged();});
+  };
   const openTransfer=initial=>{if(homeOpen||!novelId)setManagementReturn('welcome');else if(['chapters','plan','memory','preset','manage'].includes(tab))setManagementReturn(tab);setHomeOpen(false);setTransferInitial(initial);setTransferVisit(value=>value+1);setReturnTarget(null);setTab('data');};
   const returnFromManagement=()=>{setReturnTarget(null);setHomeOpen(managementReturn==='welcome');setTab(['chapters','plan','memory','preset','manage'].includes(managementReturn)?managementReturn:'chapters');};
   const managementBack={onBack:returnFromManagement,backLabel:managementReturn==='welcome'?'返回作品首页':novelId?'返回'+({plan:'规划',memory:'设定',chapters:'正文',preset:'写作预设',manage:'作品与备份'}[managementReturn]||'正文'):'返回作品选择'};
+  const welcomeProps={books,busy,recycledCount,onOpen:openNovel,onCreate:create,onImport:()=>openTransfer({mode:'import'}),onManage:()=>openManagement('manage'),onRecycle:recycleNovel,onTrash:()=>openManagement('manage','recycle')};
+  const manageProps={call,novelId,novel,run,busy,tick,initialView:manageInitial,onTransfer:openTransfer,...managementBack};
   const jump=(page,key,id)=>{setReturnTarget(tab);try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:${key}`,JSON.stringify(id));}catch{}setTab(page);};
   return <section className="cuigengji" data-motion={preferences.motion} style={{'--prose-size':`${preferences.fontSize}px`,'--prose-leading':preferences.leading}} aria-label="催更姬小说工作台">
     <style>{styles}</style>
@@ -108,13 +118,13 @@ function WorkbenchContent({ sessionId, rpc }) {
     {error && <div className="notice error" role="alert">{error}<button onClick={()=>setError('')}>关闭提示</button></div>}
 
     <ResourceState resource={resource}>
-      {homeOpen?<Welcome {...{books,busy}} onOpen={openNovel} onCreate={create} onImport={()=>openTransfer({mode:'import'})} onManage={()=>openManagement('manage')}/>:tab==='data'?<TransferPage key={transferVisit} {...{call,run,busy,novelId}} {...managementBack} initial={transferInitial} onOpen={openNovel}/>:<>
-      {!novelId ? (tab==='manage'?<Manage {...{call,run,busy}} {...managementBack} onTransfer={openTransfer}/>:<Welcome {...{books,busy}} onOpen={openNovel} onCreate={create} onImport={()=>openTransfer({mode:'import'})} onManage={()=>openManagement('manage')}/>) : <div className="workbench-body" key={novelId}>{returnTarget&&<div className="return-strip"><button onClick={()=>{setTab(returnTarget);setReturnTarget(null);}}>‹ 返回{({plan:'规划',memory:'设定'})[returnTarget]||'上一页'}</button></div>}
+      {homeOpen?<Welcome {...welcomeProps}/>:tab==='data'?<TransferPage key={transferVisit} {...{call,run,busy,novelId}} {...managementBack} initial={transferInitial} onOpen={openNovel}/>:<>
+      {!novelId ? (tab==='manage'?<Manage {...manageProps}/>:<Welcome {...welcomeProps}/>) : <div className="workbench-body" key={novelId}>{returnTarget&&<div className="return-strip"><button onClick={()=>{setTab(returnTarget);setReturnTarget(null);}}>‹ 返回{({plan:'规划',memory:'设定'})[returnTarget]||'上一页'}</button></div>}
         {tab==='chapters' && <Chapters {...{call,novelId,tick,run,busy}} onTransfer={openTransfer}/>}
         {tab==='memory' && <Memory {...{call,novelId,tick,run,busy}} onTransfer={openTransfer} onChapter={id=>jump('chapters','chapter',id)}/>}
         {tab==='plan' && <Planning {...{call,novelId,tick,run,busy}} onTransfer={openTransfer} onMemory={id=>jump('memory','memory-selected',id)} onChapter={id=>jump('chapters','chapter',id)}/>}
         {tab==='preset' && <Preset {...{call,novelId,run,busy}} {...managementBack} onTransfer={openTransfer}/>}
-        {tab==='manage' && <Manage {...{call,novelId,novel,run,busy}} {...managementBack} onTransfer={openTransfer}/>}
+        {tab==='manage' && <Manage {...manageProps}/>}
       </div>}
       </>}
     </ResourceState>

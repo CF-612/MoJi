@@ -1,6 +1,8 @@
 # 开发、测试与公开发布
 
-当前插件版本 0.4.1，Node.js 24+，DSH 兼容基线 0.2.0-rc.2。源码同时包含 TypeScript、JavaScript 和 JSX，尚未完成全部模块的 TypeScript 迁移。
+渠道分工、版本规则与每次发布的顺序统一见[渠道维护与发布流程](release-process.md)；本文说明具体构建、测试和迁移验收工具。
+
+当前插件版本 0.4.2，统一公开名称 `dsh-cuigengji-plugin`，Node.js 24+，DSH 兼容基线 0.2.0-rc.2。源码同时包含 TypeScript、JavaScript 和 JSX，尚未完成全部模块的 TypeScript 迁移。
 
 ## 模块与构建
 
@@ -29,6 +31,8 @@ npm run pack:release
 
 单独看前端可以运行 `npm run preview:workbench`；添加 `-- --welcome` 查看未绑定会话的作品首页，添加 `-- --empty` 查看空库欢迎页。两种模式都使用隔离的临时数据，不加载日常小说。
 
+整本作品的回收与恢复由 `tests/novel-recycle.test.js` 覆盖，包含完整内容与引用、旧归档兼容、运行中拒绝回收、并发启动检查、永久删除和中断恢复。`npm run test:novel-recycle` 使用隔离数据检查卡片右侧按钮的独立点击范围、确认取消、跨面板刷新、恢复与永久删除，以及窄窗口和深色布局。
+
 DSH 内的真实 RPC 验收用 `test:rpc` / `test:rpc-flow`，需要独立 DSH 实例及其认证 URL；后者会创建测试作品。不要在正式小说目录运行写入验收。`test:live` 检查 desktop profile 的安装版本，并逐一比对已安装 `package.json`、前端构建、全部服务端运行时和 Skill 文件的 SHA-256；同版本号的旧包也会报错。这个只读检查不代表浏览器与模型行为验证。
 
 Windows 桌面更新请参考[安装说明](getting-started.md)。桌面内置 Electron Node 与普通 Node 的子进程环境不同，涉及 MCP 的修改还应通过桌面运行时检查。
@@ -56,12 +60,12 @@ node scripts/check-project-names-migration.mjs <数据目录> <报告目录>
 Windows 上 `scripts/check-release-install.mjs` 在临时 profile 中调用 DSH 原生 `runPluginCommand`，把 PATH 限制为桌面内置 Node shim 与 Windows 系统目录，检查找不到 Git，再验收本地或远程 `.tgz` 的新安装/旧包更新。它保留无关 profile 字段、启用组合包，随后用桌面 Node 加载 node_modules 中的编译包，验证维护工具、正文、规划、预设和真实 stdio MCP。不会读写用户 desktop profile。
 
 ```powershell
-node scripts/check-release-install.mjs --desktop-exe "C:\你的DSH安装目录\DeepSeek Harness.exe" --package "C:\发布目录\dsh-cuigengji-0.4.1.tgz" --old-package "C:\旧包目录\dsh-cuigengji-0.3.13.tgz" --report "C:\验收目录\update.json"
+node scripts/check-release-install.mjs --desktop-exe "C:\你的DSH安装目录\DeepSeek Harness.exe" --package "C:\发布目录\dsh-cuigengji-plugin-0.4.2.tgz" --old-package "C:\旧包目录\dsh-cuigengji-0.3.13.tgz" --report "C:\验收目录\update.json"
 ```
 
 省略 `--old-package` 验证全新安装；`--package` 也可使用真实 Release `.tgz` URL、完整 GitHub 仓库 URL 或固定提交的 `github:owner/repo#commit`。默认不提供 Git，固定提交使用完整 40 位 SHA；不固定提交的仓库地址加 `--with-git` 验收宿主的 Git 引用解析。GitHub 路径同样检查安装后的编译文件、无构建授权和旧库内容。用户安装使用[原生 Agent 指南](agent-installation.md)，不运行此开发者验收脚本。
 
-npm 首次发布与后续可信发布流程见 [npm 发布](npm-publishing.md)。首次发布成功后，同一验收脚本可用 `--npm-package dsh-cuigengji@0.4.1` 检查按包名安装；它与 `--package` 二选一，继续使用没有 Git 的隔离 profile。
+npm 首次发布与后续可信发布流程见 [npm 发布](npm-publishing.md)。首次发布成功后，同一验收脚本可用 `--npm-package dsh-cuigengji-plugin@0.4.2` 检查按包名安装；它与 `--package` 二选一，继续使用没有 Git 的隔离 profile。名称转换由 `tests/package-identity.test.js` 和真实安装验收覆盖，包括自定义数据根、home/profile 配置、去重、配置原始备份和幂等重试。
 
 ## 小说数据与源码分离
 

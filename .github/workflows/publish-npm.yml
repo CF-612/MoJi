@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing GitHub Release tag, for example v0.4.1
+        description: Existing GitHub Release tag, for example v0.4.2
         required: true
         type: string
 
@@ -19,7 +19,8 @@ concurrency:
 
 jobs:
   publish:
-    if: github.repository == 'mistnest/dsh-cuigengji-plugin'
+    # Enable only after the first package and its trusted publisher are configured.
+    if: github.repository == 'mistnest/dsh-cuigengji-plugin' && vars.NPM_TRUSTED_PUBLISHING_ENABLED == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -42,7 +43,7 @@ jobs:
           import {readFileSync, appendFileSync} from 'node:fs';
           import {join} from 'node:path';
           const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
-          assert.equal(pkg.name, 'dsh-cuigengji');
+          assert.equal(pkg.name, 'dsh-cuigengji-plugin');
           assert.match(pkg.version, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/);
           assert.equal(process.env.RELEASE_TAG, `v${pkg.version}`);
           assert.equal(pkg.repository.url, 'git+https://github.com/mistnest/dsh-cuigengji-plugin.git');

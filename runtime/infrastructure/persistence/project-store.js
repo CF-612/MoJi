@@ -356,6 +356,11 @@ class ProjectStore extends AtomicStore {
         for (const transaction of novel.planning.transactions) await this.planningTransaction(novel, book, view, transaction.id);
       }
     }
+    await this.loadRequests(state, view);
+    this.validateMigration(state);
+    return state;
+  }
+  async loadRequests(state, view) {
     const files = await readdir(join(this.root, "runtime", "requests")).catch((error) => {
       if (errorCode(error) === "ENOENT") return [];
       throw error;
@@ -365,8 +370,6 @@ class ProjectStore extends AtomicStore {
       state.requests[id] = await this.json(`runtime/requests/${file}`, view);
       view.requests.add(id);
     }
-    this.validateMigration(state);
-    return state;
   }
   async hydrateNovel(state, id) {
     const view = this.views.get(state);
@@ -380,6 +383,8 @@ class ProjectStore extends AtomicStore {
     if (typeof args.requestId === "string") {
       const key = digest(args.requestId), previous = await this.json(`runtime/requests/${key}.json`, view, true);
       if (previous !== void 0) {
+        const cachedNovelId = args.novelId || state.bindings[digest(actor.sessionId || "")]?.novelId || previous.novelId;
+        if (state.novels[cachedNovelId]?.archived && !(actor.kind === "human" && ["novel.get", "novel.export", "novel.archive", "novel.restore", "novel.purge"].includes(action))) throw Object.assign(new Error("\u4F5C\u54C1\u5DF2\u5728\u56DE\u6536\u7AD9\uFF0C\u8BF7\u5148\u6062\u590D\u4F5C\u54C1"), { code: "NOVEL_RECYCLED" });
         state.requests[key] = previous;
         view.requests.add(key);
         return state;
@@ -390,9 +395,15 @@ class ProjectStore extends AtomicStore {
     const id = action === "novel.import" ? args.backup?.novel?.id : args.novelId || binding?.novelId;
     if (!id || !own(state.novels, id)) return state;
     const book = await this.book(state, view, id), novel = state.novels[id];
+    if (novel.archived && !(actor.kind === "human" && ["novel.get", "novel.export", "novel.archive", "novel.restore", "novel.purge"].includes(action))) throw Object.assign(new Error("\u4F5C\u54C1\u5DF2\u5728\u56DE\u6536\u7AD9\uFF0C\u8BF7\u5148\u6062\u590D\u4F5C\u54C1"), { code: "NOVEL_RECYCLED" });
+    if (action === "novel.purge") {
+      await this.fullBook(state, view, book);
+      await this.loadRequests(state, view);
+      return state;
+    }
     if (action === "novel.import" || action === "novel.export") return this.fullBook(state, view, book);
     const preset = action.startsWith("preset.");
-    const directory = !preset && !["novel.update", "novel.archive", "volume.list", "volume.create", "volume.update"].includes(action);
+    const directory = !preset && !["novel.update", "novel.archive", "novel.restore", "volume.list", "volume.create", "volume.update"].includes(action);
     if (directory) await this.chapterIndex(novel, book, view);
     const memory = action.startsWith("graph.") || action.startsWith("edge.") || action.startsWith("planning.") || ["novel.get", "novel.handoff", "context.get", "chapter.update", "chapter.restore", "chapter.delete", "volume.delete", "tavern.import"].includes(action);
     if (memory) await this.memoryIndex(novel, book, view);
@@ -505,6 +516,7 @@ class ProjectStore extends AtomicStore {
     }
     const { directories, moves } = planProjectDirectories(state.novels, view.library.directories, view.library.novels, await this.occupiedDirectories());
     const changes = new Map(attachments);
+    const removals = Object.keys(view.library.novels).filter((id) => !own(state.novels, id)).map((id) => ({ path: bookPath(id, view.library.directories), novelId: id }));
     const put = async (path, value) => {
       const content = JSON.stringify(value);
       let previous = view.baseline.get(path);
@@ -582,14 +594,12 @@ class ProjectStore extends AtomicStore {
     }
     await put("runtime/bindings.json", state.bindings);
     for (const [id, request] of Object.entries(state.requests)) await put(`runtime/requests/${fileId(id)}.json`, request);
-    if (view.full) {
-      for (const id of view.requests) if (!own(state.requests, id)) changes.set(`runtime/requests/${fileId(id)}.json`, null);
-    }
-    const novels = view.full ? {} : structuredClone(view.library.novels);
+    for (const id of view.requests) if (!own(state.requests, id)) changes.set(`runtime/requests/${fileId(id)}.json`, null);
+    const novels = {};
     for (const [id, novel] of Object.entries(state.novels)) novels[id] = libraryRow(novel);
     const library = { format: "cuigengji-library", storageVersion: 4, metadata: without(state, ["novels", "bindings", "requests"]), novels, directories };
     await put("library.json", library);
-    await this.transaction.commit(changes, moves);
+    await this.transaction.commit(changes, moves, removals);
     for (const move of moves) for (const [path, content] of [...view.baseline]) if (path.startsWith(move.from + "/")) {
       view.baseline.delete(path);
       view.baseline.set(move.to + path.slice(move.from.length), content);

@@ -13,7 +13,7 @@ export const TOOL_ACTIONS = Object.freeze({
 export const MEMORY_ACTIONS = Object.freeze([...TOOL_ACTIONS.cuigengji_memory, 'context.get']);
 export const HUMAN_ACTIONS = Object.freeze([...new Set([
   ...Object.values(TOOL_ACTIONS).flat(), 'novel.list','novel.create','novel.import',
-  'novel.export','novel.update','novel.archive','binding.set','settings.get','legacy.preview','tavern.preview','tavern.import',
+  'novel.export','novel.update','novel.archive','novel.restore','novel.purge','binding.set','settings.get','legacy.preview','tavern.preview','tavern.import',
   'preset.get','preset.preview','preset.set',
   'chapter.move',
   'workspace.status','workspace.export','workspace.preview','workspace.import',

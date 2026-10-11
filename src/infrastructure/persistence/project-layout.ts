@@ -67,7 +67,7 @@ export const bookPath = (id: string, directories: ProjectDirectories) => {
 export const legacyBookPath = (id: string) => 'novels/' + fileId(id);
 export const pageKey = (id: string | null) => id === null ? '~main' : fileId(id);
 export const sections = ['chapters', 'nodes', 'edges', 'memoryGroups', 'planning', 'preset', 'plan', 'tavernSources'] as const;
-export const libraryRow = (novel: Row) => Object.fromEntries(['id', 'title', 'description', 'revision', 'archived', 'createdAt', 'updatedAt'].filter(key => own(novel, key)).map(key => [key, novel[key]]));
+export const libraryRow = (novel: Row) => Object.fromEntries(['id', 'title', 'description', 'revision', 'archived', 'archivedAt', 'createdAt', 'updatedAt'].filter(key => own(novel, key)).map(key => [key, novel[key]]));
 export const projectRecord = (novel: Row): Project => ({ novel: without(novel, [...sections]), sections: sections.filter(key => own(novel, key)), preview: {
   ...(novel.preset ? { preset: without(novel.preset, ['blocks', 'raw', 'warnings']) } : {}),
   ...(novel.plan ? { plan: without(novel.plan, ['content']) } : {}),

@@ -52,6 +52,7 @@ class TransferService {
   }
   async plan(state, file, input) {
     const recognized = this.validate(recognize(file, input)), options = this.options(recognized, input);
+    if (options.mode === "copy" && options.targetId && state.novels[options.targetId]?.archived) fail("\u76EE\u6807\u4F5C\u54C1\u5728\u56DE\u6536\u7AD9\uFF0C\u8BF7\u5148\u6062\u590D\u4F5C\u54C1", "NOVEL_RECYCLED");
     const slice = options.selection.kind === "workspace" ? { projects: recognized.projects, dependencies: [], warnings: [] } : selectProjects(recognized.projects, options.selection);
     const conflicts = [], skipped = [], warnings = [...recognized.warnings, ...slice.warnings];
     let target = options.mode === "restore" ? "\u6062\u590D\u539F\u4F5C\u54C1\u4E0E\u7248\u672C" : options.targetId ? state.novels[options.targetId]?.title ?? fail("\u76EE\u6807\u4F5C\u54C1\u5DF2\u4E0D\u5B58\u5728") : "\u65B0\u5EFA\u4F5C\u54C1";

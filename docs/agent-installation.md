@@ -1,15 +1,17 @@
 # 交给 Agent 安装或更新催更姬（Windows）
 
-普通用户使用 DSH 桌面版自带的插件管理和预构建包即可，无需 Git、Node.js、pnpm 或源码构建。此文可以在首次安装前交给 Agent；安装后另有 `cuigengji-maintenance` Skill 指导维护验收。
+统一公开名称为 **`dsh-cuigengji-plugin`**，界面显示“催更姬”。普通用户使用 DSH 桌面版自带的插件管理和预构建包即可，无需 Git、Node.js、pnpm 或源码构建。此文可以在首次安装前交给 Agent；安装后另有 `cuigengji-maintenance` Skill 指导维护验收。
 
 ## 下载入口
 
-- 当前发布：[0.4.1](https://github.com/mistnest/dsh-cuigengji-plugin/releases/tag/v0.4.1)
-- 成品安装包：[dsh-cuigengji-0.4.1.tgz](https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.1/dsh-cuigengji-0.4.1.tgz)
-- 哈希校验：[SHA256SUMS](https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.1/SHA256SUMS)
+- 目标发布：[0.4.2](https://github.com/mistnest/dsh-cuigengji-plugin/releases/tag/v0.4.2)
+- 成品安装包：[dsh-cuigengji-plugin-0.4.2.tgz](https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.2/dsh-cuigengji-plugin-0.4.2.tgz)
+- 哈希校验：[SHA256SUMS](https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.2/SHA256SUMS)
 - 已验证宿主：DSH Windows 桌面版 **0.2.0-rc.2**。后续宿主版本以对应发布说明为准。
 
-普通用户可在 DSH“添加插件”的“包名或地址”中填 `https://github.com/mistnest/dsh-cuigengji-plugin`；0.4.1 起仓库包含完整编译文件，不需要构建授权。固定版本安装和无 Git 环境优先使用上面的 `.tgz` URL，或下载后的 Windows 绝对路径。GitHub 的源码 ZIP 不替代 `.tgz` 包。本项目尚未发布 npm 包，不把 `dsh-cuigengji@0.4.1` 当成可用 registry 安装命令。
+npm 发布后可在 DSH“添加插件”的“包名或地址”中填 `dsh-cuigengji-plugin`；Agent 更新使用精确版本 `dsh-cuigengji-plugin@0.4.2`，并先查明该版本确已公开。也支持仓库地址 `https://github.com/mistnest/dsh-cuigengji-plugin`；0.4.1 起仓库包含完整编译文件，不需要构建授权。固定版本与无 Git 安装可使用上面的 `.tgz` URL，或下载后的 Windows 绝对路径。GitHub 的源码 ZIP 不替代 `.tgz` 包。
+
+**环境清单中若存在旧包 `dsh-cuigengji`，先按[安装名称迁移](package-name-migration.md)以关闭状态装入新包，再离线转接启用项和原配置。不要直接同时启用两个包。** 新安装或已经使用统一名称的更新继续本页流程。
 
 已经从同一个 GitHub 地址安装过时，重复填写该地址可能沿用 pnpm 锁定的旧提交，并报“无法从依赖变更中确定安装了哪一个包”。这是已验证宿主的同地址安装限制，不表示新代码已经加载。升级使用新版本的 `.tgz` URL；需要测试指定源码时，可在仓库地址后加 `#` 和完整 40 位提交 SHA。不要为了刷新源码而删除小说目录。普通仓库地址及分支名仍可能需要 Git 解析，不能代替无 Git 用户的成品包路径。
 
@@ -17,7 +19,7 @@
 
 ## 用户可直接交给 Agent 的话
 
-> 请按催更姬的 Windows Agent 安装指南帮我安装或更新到 0.4.1。使用 DSH 原生插件管理和 GitHub Release 成品包，保留已有配置和小说数据，完整重启后用维护工具确认实际加载版本、正确的数据目录和迁移校验结果。用户重新进入插件时应能直接继续写作。
+> 请按催更姬的 Windows Agent 安装指南帮我安装或更新 dsh-cuigengji-plugin 到 0.4.2。使用 DSH 原生插件管理与已公开成品包；如果存在旧安装名，先完成名称迁移。保留已有配置和小说数据，完整重启后确认实际加载版本、数据目录和迁移校验结果。重新进入插件时应能直接继续写作。
 
 ## 1. 查明当前环境
 
@@ -42,7 +44,7 @@ Windows 外部 Agent 可以用 PowerShell 的 `Get-FileHash -Algorithm SHA256` �
 通过 DSH 原生工具安装 URL：
 
 ```json
-{"action":"install_bundle","target":"https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.1/dsh-cuigengji-0.4.1.tgz","enabled":true}
+{"action":"install_bundle","target":"https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.2/dsh-cuigengji-plugin-0.4.2.tgz","enabled":true}
 ```
 
 或把 `target` 换成已经核对过的本地 `.tgz` 绝对路径。没有原生工具访问能力的外部 Agent，可以先准备好包，交由 DSH 的原生插件页安装，并继续接手后面的验证。
@@ -68,12 +70,12 @@ desktop profile 由桌面应用管理。普通 DSH CLI 会拒绝对它直接操�
 再核对版本、原数据根和原作品 ID；下面的数据目录是示例，请换成之前查明的目录：
 
 ```json
-{"action":"verify","args":{"expectedVersion":"0.4.1","expectedDataRoot":"C:\\Users\\用户名\\AppData\\Local\\cuigengji","expectedNovelIds":[]}}
+{"action":"verify","args":{"expectedVersion":"0.4.2","expectedDataRoot":"C:\\Users\\用户名\\AppData\\Local\\cuigengji","expectedNovelIds":[]}}
 ```
 
 `expectedNovelIds` 可填升级前作品的真实 ID，不用新 ID 替代。确认：
 
-- `status.status=ready`，实际加载版本为 0.4.1，数据根与更新前一致。
+- `status.status=ready`，实际加载版本为 0.4.2，数据根与更新前一致。
 - `verify.verified=true`，各作品、正文版本、回收站、设定、规划页和绑定数量符合原数据。
 - 原有作品仍能通过只读工具访问。初次安装应是可用空库，不会附带作者小说。
 

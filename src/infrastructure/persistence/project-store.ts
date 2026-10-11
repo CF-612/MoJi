@@ -306,10 +306,14 @@ export class ProjectStore extends AtomicStore<Workspace> {
         for (const transaction of novel.planning.transactions) await this.planningTransaction(novel, book, view, transaction.id);
       }
     }
-    const files = await readdir(join(this.root, 'runtime', 'requests')).catch(error => { if (errorCode(error) === 'ENOENT') return []; throw error; });
-    for (const file of files) if (/^[a-f0-9]{64}\.json$/.test(file)) { const id = file.slice(0, -5); state.requests[id] = await this.json(`runtime/requests/${file}`, view); view.requests.add(id); }
+    await this.loadRequests(state, view);
     this.validateMigration(state);
     return state;
+  }
+
+  private async loadRequests(state: Workspace, view: View) {
+    const files = await readdir(join(this.root, 'runtime', 'requests')).catch(error => { if (errorCode(error) === 'ENOENT') return []; throw error; });
+    for (const file of files) if (/^[a-f0-9]{64}\.json$/.test(file)) { const id = file.slice(0, -5); state.requests[id] = await this.json(`runtime/requests/${file}`, view); view.requests.add(id); }
   }
 
   async hydrateNovel(state: Workspace, id: string) {
@@ -324,16 +328,22 @@ export class ProjectStore extends AtomicStore<Workspace> {
     const { state, view } = await this.begin();
     if (typeof args.requestId === 'string') {
       const key = digest(args.requestId), previous = await this.json(`runtime/requests/${key}.json`, view, true);
-      if (previous !== undefined) { state.requests[key] = previous; view.requests.add(key); return state; }
+      if (previous !== undefined) {
+        const cachedNovelId = args.novelId || state.bindings[digest(actor.sessionId || '')]?.novelId || previous.novelId;
+        if (state.novels[cachedNovelId]?.archived && !(actor.kind === 'human' && ['novel.get', 'novel.export', 'novel.archive', 'novel.restore', 'novel.purge'].includes(action))) throw Object.assign(new Error('作品已在回收站，请先恢复作品'), {code: 'NOVEL_RECYCLED'});
+        state.requests[key] = previous; view.requests.add(key); return state;
+      }
     }
     if (['novel.list', 'novel.create', 'binding.get'].includes(action)) return state;
     const binding = state.bindings[digest(actor.sessionId || '')];
     const id = action === 'novel.import' ? args.backup?.novel?.id : args.novelId || binding?.novelId;
     if (!id || !own(state.novels, id)) return state;
     const book = await this.book(state, view, id), novel = state.novels[id];
+    if (novel.archived && !(actor.kind === 'human' && ['novel.get', 'novel.export', 'novel.archive', 'novel.restore', 'novel.purge'].includes(action))) throw Object.assign(new Error('作品已在回收站，请先恢复作品'), {code: 'NOVEL_RECYCLED'});
+    if (action === 'novel.purge') {await this.fullBook(state, view, book); await this.loadRequests(state, view); return state;}
     if (action === 'novel.import' || action === 'novel.export') return this.fullBook(state, view, book);
     const preset = action.startsWith('preset.');
-    const directory = !preset && !['novel.update', 'novel.archive', 'volume.list', 'volume.create', 'volume.update'].includes(action);
+    const directory = !preset && !['novel.update', 'novel.archive', 'novel.restore', 'volume.list', 'volume.create', 'volume.update'].includes(action);
     if (directory) await this.chapterIndex(novel, book, view);
     const memory = action.startsWith('graph.') || action.startsWith('edge.') || action.startsWith('planning.') || ['novel.get', 'novel.handoff', 'context.get', 'chapter.update', 'chapter.restore', 'chapter.delete', 'volume.delete', 'tavern.import'].includes(action);
     if (memory) await this.memoryIndex(novel, book, view);
@@ -418,6 +428,7 @@ export class ProjectStore extends AtomicStore<Workspace> {
     if (!view) { const previous = await this.load(); view = this.views.get(previous)!; this.views.set(state, view); }
     const {directories, moves} = planProjectDirectories(state.novels, view.library.directories, view.library.novels, await this.occupiedDirectories());
     const changes: FileChanges = new Map(attachments);
+    const removals = Object.keys(view.library.novels).filter(id => !own(state.novels, id)).map(id => ({path: bookPath(id, view!.library.directories), novelId: id}));
     const put = async (path: string, value: unknown) => {
       const content = JSON.stringify(value);
       let previous = view!.baseline.get(path);
@@ -491,12 +502,12 @@ export class ProjectStore extends AtomicStore<Workspace> {
     }
     await put('runtime/bindings.json', state.bindings);
     for (const [id, request] of Object.entries(state.requests)) await put(`runtime/requests/${fileId(id)}.json`, request);
-    if (view.full) for (const id of view.requests) if (!own(state.requests, id)) changes.set(`runtime/requests/${fileId(id)}.json`, null);
-    const novels = view.full ? {} : structuredClone(view.library.novels);
+    for (const id of view.requests) if (!own(state.requests, id)) changes.set(`runtime/requests/${fileId(id)}.json`, null);
+    const novels: Record<string, Row> = {};
     for (const [id, novel] of Object.entries(state.novels)) novels[id] = libraryRow(novel);
     const library: Library = {format: 'cuigengji-library', storageVersion: 4, metadata: without(state, ['novels', 'bindings', 'requests']), novels, directories};
     await put('library.json', library);
-    await this.transaction.commit(changes, moves);
+    await this.transaction.commit(changes, moves, removals);
     for (const move of moves) for (const [path, content] of [...view.baseline]) if (path.startsWith(move.from + '/')) {view.baseline.delete(path); view.baseline.set(move.to + path.slice(move.from.length), content);}
     for (const [path, content] of changes) if (content === null) view.baseline.delete(path); else view.baseline.set(path, content);
     view.library = library;

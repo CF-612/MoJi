@@ -15,6 +15,8 @@ const HUMAN_ACTIONS = Object.freeze([.../* @__PURE__ */ new Set([
   "novel.export",
   "novel.update",
   "novel.archive",
+  "novel.restore",
+  "novel.purge",
   "binding.set",
   "settings.get",
   "legacy.preview",

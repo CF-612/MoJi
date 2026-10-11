@@ -11,6 +11,7 @@ import { isDeepStrictEqual } from "node:util";
 import { previewTavern } from "../infrastructure/migrations/tavern.js";
 import { checkDirectorySnapshot, directorySnapshot, planChapterMove } from "../domain/chapters/order.js";
 import { compilePreset, importPreset, validatePreset } from "../domain/preset/index.js";
+import { applyNovelLifecycle, novelLifecycleActions } from "./novels/lifecycle.js";
 class StoreError extends Error {
   constructor(code, message) {
     super(message);
@@ -144,11 +145,13 @@ class Store extends ProjectStore {
   validateProject(novel) {
     this.importNovel({ novels: {} }, { backup: { format: "cuigengji", schemaVersion: 2, novel } });
   }
-  async dispatch(action, args = {}, actor = {}) {
+  async dispatch(action, args = {}, actor = {}, beforeExecute) {
     if (!args || typeof args !== "object" || Array.isArray(args)) fail("INVALID_INPUT", "\u53C2\u6570\u5FC5\u987B\u662F\u5BF9\u8C61");
+    if (novelLifecycleActions.includes(action) && actor.kind !== "human") fail("HUMAN_REQUIRED", "\u6574\u90E8\u4F5C\u54C1\u7684\u56DE\u6536\u3001\u6062\u590D\u4E0E\u6C38\u4E45\u5220\u9664\u9700\u8981\u4F5C\u8005\u64CD\u4F5C");
     const release = await this.acquire();
     try {
       const state = await this.loadForAction(action, args, actor);
+      beforeExecute?.(state);
       const signature = hash(JSON.stringify({ action, args, actor: source(actor) }));
       const requestKey = args.requestId === void 0 ? null : hash(text(args.requestId, "requestId"));
       if (requestKey && own(state.requests, requestKey)) {
@@ -166,7 +169,12 @@ class Store extends ProjectStore {
       }
       const before = JSON.stringify(state);
       const result = this.execute(state, action, args, actor);
-      if (requestKey) state.requests[requestKey] = { signature, result: clone(result), timestamp: now() };
+      if (requestKey) state.requests[requestKey] = {
+        signature,
+        result: clone(result),
+        timestamp: now(),
+        ...migrationNovelId || ["novel.create", "novel.import"].includes(action) ? { novelId: ["novel.create", "novel.import"].includes(action) ? result.id : migrationNovelId } : {}
+      };
       if (JSON.stringify(state) !== before) await this.save(state);
       return clone(result);
     } finally {
@@ -174,17 +182,21 @@ class Store extends ProjectStore {
     }
   }
   execute(state, action, a, actor) {
-    if (action === "novel.list") return Object.values(state.novels).filter((n2) => a.includeArchived || !n2.archived).map((n2) => ({ id: n2.id, title: n2.title, revision: n2.revision, archived: n2.archived, updatedAt: n2.updatedAt }));
+    if (action === "novel.list") return Object.values(state.novels).filter((n2) => a.includeArchived || !n2.archived).map((n2) => ({ id: n2.id, title: n2.title, revision: n2.revision, archived: n2.archived, ...n2.archivedAt ? { archivedAt: n2.archivedAt } : {}, updatedAt: n2.updatedAt }));
     if (action === "novel.create") {
       const n2 = record({ title: text(a.title, "title"), description: a.description ?? "", archived: false, volumes: {}, chapters: {}, nodes: {}, edges: {}, plan: null });
       state.novels[n2.id] = n2;
       return { id: n2.id, title: n2.title, revision: n2.revision };
     }
     if (action === "novel.import") return this.importNovel(state, a);
-    if (action === "binding.get") return state.bindings[hash(text(actor.sessionId || a.sessionId, "sessionId"))] ?? null;
+    if (action === "binding.get") {
+      const binding2 = state.bindings[hash(text(actor.sessionId || a.sessionId, "sessionId"))];
+      return binding2 && own(state.novels, binding2.novelId) && !state.novels[binding2.novelId].archived ? binding2 : null;
+    }
     if (action === "binding.set") {
       const sessionId = text(actor.sessionId || a.sessionId, "sessionId");
       const n2 = get(state.novels, a.novelId, "\u5C0F\u8BF4");
+      if (n2.archived) fail("NOVEL_RECYCLED", "\u4F5C\u54C1\u5DF2\u5728\u56DE\u6536\u7AD9\uFF0C\u8BF7\u5148\u6062\u590D\u4F5C\u54C1");
       if (a.chapterId) {
         const ch = get(n2.chapters, a.chapterId, "\u7AE0\u8282");
         if (ch.deleted) fail("DELETED", "\u7AE0\u8282\u5DF2\u5220\u9664");
@@ -209,6 +221,14 @@ class Store extends ProjectStore {
     if (!novelId) fail("NOVEL_REQUIRED", "\u8BF7\u5148\u7ED1\u5B9A\u5C0F\u8BF4\u6216\u63D0\u4F9B novelId");
     if (actor.kind !== "human" && binding && binding.novelId !== novelId) fail("NOVEL_MISMATCH", "\u5F53\u524D\u4F1A\u8BDD\u5DF2\u7ED1\u5B9A\u53E6\u4E00\u672C\u5C0F\u8BF4");
     const n = get(state.novels, novelId, "\u5C0F\u8BF4");
+    if (n.archived && !(actor.kind === "human" && ["novel.get", "novel.export", ...novelLifecycleActions].includes(action))) fail("NOVEL_RECYCLED", "\u4F5C\u54C1\u5DF2\u5728\u56DE\u6536\u7AD9\uFF0C\u8BF7\u5148\u6062\u590D\u4F5C\u54C1");
+    if (novelLifecycleActions.includes(action)) {
+      cas(n, a);
+      applyNovelLifecycle(state, n, action, a);
+      if (action === "novel.purge") return { id: n.id, purged: true };
+      touch(n);
+      return { id: n.id, title: n.title, revision: n.revision, archived: n.archived, ...n.archivedAt ? { archivedAt: n.archivedAt } : {} };
+    }
     if (action === "tavern.preview" || action === "tavern.import") {
       if (actor.kind !== "human") fail("HUMAN_REQUIRED", "\u9152\u9986\u6587\u4EF6\u5BFC\u5165\u9700\u8981\u4F5C\u8005\u64CD\u4F5C");
       const preview = previewTavern(a);
@@ -256,12 +276,8 @@ class Store extends ProjectStore {
       ensurePlanning(n);
       return { format: "cuigengji", schemaVersion: 2, exportedAt: now(), novel: clone(n) };
     }
-    if (action === "novel.update" || action === "novel.archive") {
+    if (action === "novel.update") {
       cas(n, a);
-      if (action === "novel.archive") {
-        if (a.archived !== void 0 && typeof a.archived !== "boolean") fail("INVALID_INPUT", "archived \u5FC5\u987B\u662F\u5E03\u5C14\u503C");
-        n.archived = a.archived ?? true;
-      }
       if (a.title !== void 0) n.title = text(a.title, "title");
       if (a.description !== void 0) n.description = text(a.description, "description", true);
       touch(n);
@@ -577,6 +593,7 @@ class Store extends ProjectStore {
     text(n.id, "novel.id");
     text(n.title, "novel.title");
     if (!Number.isSafeInteger(n.revision) || n.revision < 1 || typeof n.archived !== "boolean") fail("INVALID_BACKUP", "\u5C0F\u8BF4\u7248\u672C\u6216\u5F52\u6863\u72B6\u6001\u65E0\u6548");
+    if (n.archivedAt !== void 0 && (typeof n.archivedAt !== "string" || !Number.isFinite(Date.parse(n.archivedAt)))) fail("INVALID_BACKUP", "\u4F5C\u54C1\u56DE\u6536\u65F6\u95F4\u65E0\u6548");
     for (const field of ["volumes", "chapters", "nodes", "edges"]) if (!n[field] || typeof n[field] !== "object" || Array.isArray(n[field])) fail("INVALID_BACKUP", `${field}\u65E0\u6548`);
     for (const collection of [n.volumes, n.chapters, n.nodes, n.edges]) for (const [id, entity] of Object.entries(collection)) {
       if (id !== entity.id || !Number.isSafeInteger(entity.revision) || entity.revision < 1) fail("INVALID_BACKUP", "\u5BF9\u8C61 ID \u6216\u7248\u672C\u65E0\u6548");

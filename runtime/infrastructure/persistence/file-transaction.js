@@ -104,6 +104,33 @@ class FileTransaction {
     await rename(this.path(move.from), this.path(move.to));
     await this.barrier(join(this.root, "novels"));
   }
+  removalStage(id, index) {
+    return `runtime/transactions/${id}/removed-books/${index}`;
+  }
+  async preflightRemovals(removals, moves, id, recovering) {
+    const paths = /* @__PURE__ */ new Set(), ids = /* @__PURE__ */ new Set();
+    for (const [index, removal] of removals.entries()) {
+      if (!removal || typeof removal.novelId !== "string" || !removal.novelId || typeof removal.path !== "string" || !removal.path.startsWith("novels/") || !validProjectDirectory(removal.path.slice(7))) corrupt("\u4F5C\u54C1\u5220\u9664\u8DEF\u5F84\u65E0\u6548");
+      this.path(removal.path);
+      const key = directoryKey(removal.path);
+      if (paths.has(key) || ids.has(removal.novelId) || moves.some((move) => [move.from, move.to].some((path) => directoryKey(path) === key))) corrupt("\u4F5C\u54C1\u5220\u9664\u76EE\u6807\u91CD\u590D\u6216\u4E0E\u8FC1\u79FB\u51B2\u7A81");
+      paths.add(key);
+      ids.add(removal.novelId);
+      const source = await this.directoryExists(removal.path, removal.novelId);
+      const stage = await this.directoryExists(this.removalStage(id, index), removal.novelId);
+      if (source && stage || !source && !stage || !recovering && !source) corrupt("\u5F85\u5220\u9664\u4F5C\u54C1\u7684\u76EE\u5F55\u6216\u5185\u90E8 ID \u5DF2\u53D8\u5316\uFF0C\u539F\u6587\u4EF6\u5DF2\u4FDD\u7559");
+    }
+  }
+  /** Keep the complete directory in the transaction until the index and binding
+   * changes are durable. Recovery can finish after either side of the rename. */
+  async applyRemoval(removal, id, index) {
+    if (!await this.directoryExists(removal.path, removal.novelId)) return;
+    const stage = this.path(this.removalStage(id, index));
+    await mkdir(dirname(stage), { recursive: true, mode: 448 });
+    await rename(this.path(removal.path), stage);
+    await this.barrier(join(this.root, "novels"));
+    await this.barrier(dirname(stage));
+  }
   async recover() {
     let journal;
     try {
@@ -112,8 +139,9 @@ class FileTransaction {
       if (errorCode(error) === "ENOENT") return;
       throw error;
     }
-    if (![1, 2].includes(journal?.version) || typeof journal.id !== "string" || !/^[a-f0-9-]{36}$/.test(journal.id) || !Array.isArray(journal.entries) || !journal.entries.length || journal.version === 2 && !Array.isArray(journal.moves)) corrupt("\u5B58\u50A8\u4E8B\u52A1\u65E5\u5FD7\u65E0\u6548");
-    const moves = journal.version === 2 ? journal.moves : [];
+    if (![1, 2, 3].includes(journal?.version) || typeof journal.id !== "string" || !/^[a-f0-9-]{36}$/.test(journal.id) || !Array.isArray(journal.entries) || !journal.entries.length || journal.version >= 2 && !Array.isArray(journal.moves) || journal.version === 3 && !Array.isArray(journal.removals)) corrupt("\u5B58\u50A8\u4E8B\u52A1\u65E5\u5FD7\u65E0\u6548");
+    const moves = journal.version >= 2 ? journal.moves : [];
+    const removals = journal.version === 3 ? journal.removals : [];
     const paths = /* @__PURE__ */ new Set();
     const contents = [];
     for (const entry of journal.entries) {
@@ -131,24 +159,33 @@ class FileTransaction {
       contents.push(content);
     }
     await this.preflightMoves(moves, true);
+    await this.preflightRemovals(removals, moves, journal.id, true);
     if (journal.entries.some((entry) => moves.some((move) => entry.path.startsWith(move.from + "/")))) corrupt("\u4E8B\u52A1\u4E0D\u80FD\u91CD\u65B0\u5199\u5165\u8FC1\u79FB\u524D\u7684\u76EE\u5F55");
+    if (journal.entries.some((entry) => removals.some((removal) => entry.path.startsWith(removal.path + "/")))) corrupt("\u4E8B\u52A1\u4E0D\u80FD\u5199\u5165\u5F85\u5220\u9664\u7684\u4F5C\u54C1\u76EE\u5F55");
     if (moves.length) {
       const libraryIndex = journal.entries.findIndex((entry) => entry.path === "library.json");
       const library = libraryIndex >= 0 && contents[libraryIndex] ? JSON.parse(contents[libraryIndex]) : null;
       if (!([3, 4].includes(library?.storageVersion) && moves.every((move) => library.directories?.[move.novelId] === move.to.slice(7)))) corrupt("\u76EE\u5F55\u8FC1\u79FB\u4E0E\u6682\u5B58\u7684\u4F5C\u54C1\u7D22\u5F15\u4E0D\u4E00\u81F4");
     }
+    if (removals.length) {
+      const libraryIndex = journal.entries.findIndex((entry) => entry.path === "library.json");
+      const library = libraryIndex >= 0 && contents[libraryIndex] ? JSON.parse(contents[libraryIndex]) : null;
+      if (!(library?.storageVersion === 4 && removals.every((removal) => !Object.hasOwn(library.novels || {}, removal.novelId) && !Object.hasOwn(library.directories || {}, removal.novelId)))) corrupt("\u4F5C\u54C1\u5220\u9664\u4E0E\u6682\u5B58\u7D22\u5F15\u4E0D\u4E00\u81F4");
+    }
     for (const move of moves) await this.applyMove(move);
+    for (const [index, removal] of removals.entries()) await this.applyRemoval(removal, journal.id, index);
     for (let index = 0; index < journal.entries.length; index++) if (contents[index] === null) await this.applyEntry(journal.entries[index], contents[index]);
     for (let index = 0; index < journal.entries.length; index++) if (contents[index] !== null) await this.applyEntry(journal.entries[index], contents[index]);
     await unlink(this.journal);
     await this.barrier(this.root);
     await rm(this.path(`runtime/transactions/${journal.id}`), { recursive: true, force: true });
   }
-  async commit(changes, moves = []) {
+  async commit(changes, moves = [], removals = []) {
     if (!changes.size) return;
     await this.recover();
     await this.preflightMoves(moves, false);
     const id = randomUUID(), entries = [];
+    await this.preflightRemovals(removals, moves, id, false);
     for (const [path, content] of changes) {
       this.path(path);
       if (content === null) {
@@ -160,7 +197,13 @@ class FileTransaction {
       entries.push({ path, stage, sha256: digest(content) });
     }
     await this.barrier(join(this.root, "runtime", "transactions"));
-    await this.write(this.journal, JSON.stringify({ version: moves.length ? 2 : 1, id, entries, ...moves.length ? { moves } : {} }));
+    await this.write(this.journal, JSON.stringify({
+      version: removals.length ? 3 : moves.length ? 2 : 1,
+      id,
+      entries,
+      ...moves.length || removals.length ? { moves } : {},
+      ...removals.length ? { removals } : {}
+    }));
     await this.recover();
   }
   async cleanOrphans() {

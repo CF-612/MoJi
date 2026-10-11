@@ -1,6 +1,6 @@
 {
-  "name": "dsh-cuigengji",
-  "version": "0.4.1",
+  "name": "dsh-cuigengji-plugin",
+  "version": "0.4.2",
   "description": "催更姬：给大肥鱼一个小说工作台，一起写正文、讨论情节、整理人物与世界设定。",
   "type": "module",
   "main": "runtime/index.js",
@@ -8,6 +8,7 @@
     ".": "./runtime/index.js",
     "./client": "./lib/client.js",
     "./core": "./runtime/core/store.js",
+    "./maintenance/rename-installation": "./runtime/adapters/dsh/rename-installation.js",
     "./package.json": "./package.json"
   },
   "files": [
@@ -57,6 +58,7 @@
     "test:management": "node tests/ui-management.mjs",
     "test:transfer": "node tests/ui-transfer.mjs",
     "test:welcome-batch": "node tests/ui-welcome-batch.mjs",
+    "test:novel-recycle": "node tests/ui-novel-recycle.mjs",
     "test:navigation": "node tests/ui-navigation.mjs",
     "test:manuscript": "node tests/ui-manuscript.mjs",
     "test:chapter-order": "node tests/ui-chapter-order.mjs",
@@ -68,11 +70,13 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",
-    "zod": "4.4.3"
+    "zod": "4.4.3",
+    "yaml": "2.9.0"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "~4.0.4",
     "@deepseek-ai/dsh-tools": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-atomic-write": "0.2.0-rc.2",
     "@deepseek-ai/schemastery": "~3.18.4"
   },
   "devDependencies": {
@@ -102,6 +106,9 @@
   },
   "keywords": [
     "dsh",
+    "dsh-plugin",
+    "cuigengji",
+    "催更姬",
     "deepseek-harness",
     "novel-writing",
     "writing-assistant"

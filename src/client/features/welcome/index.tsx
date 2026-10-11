@@ -1,8 +1,9 @@
 import React, {useState} from 'react';
 import avatar from '../../assets/avatar.png';
+import {Icon} from '../../shared/icons.tsx';
+import type {BookSummary} from '../../../contracts/novels.ts';
 
-interface Book {id: string; title: string; updatedAt?: string}
-interface Props {books: Book[]; busy: boolean; onOpen: (id: string) => unknown; onCreate: () => unknown; onImport: () => unknown; onManage: () => unknown}
+interface Props {books: BookSummary[]; busy: boolean; onOpen: (id: string) => unknown; onCreate: () => unknown; onImport: () => unknown; onManage: () => unknown; onRecycle: (book: BookSummary) => unknown; onTrash: () => unknown; recycledCount: number}
 
 function updated(value?: string) {
   const date = value ? new Date(value) : null;
@@ -10,7 +11,7 @@ function updated(value?: string) {
 }
 
 /** A useful landing page: start a story or open an existing one in one click. */
-export function Welcome({books, busy, onOpen, onCreate, onImport, onManage}: Props) {
+export function Welcome({books, busy, onOpen, onCreate, onImport, onManage, onRecycle, onTrash, recycledCount}: Props) {
   const [query, setQuery] = useState(''), [expanded, setExpanded] = useState(false);
   const sorted = [...books].sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
   const matching = sorted.filter(book => book.title.toLowerCase().includes(query.trim().toLowerCase()));
@@ -26,13 +27,16 @@ export function Welcome({books, busy, onOpen, onCreate, onImport, onManage}: Pro
     </section>
     {books.length > 0 ? <section className="welcome-library" aria-label="我的作品">
       <header><h2>我的作品 <span>{books.length}</span></h2><div className="welcome-library-tools">{books.length > 6 && <input type="search" aria-label="查找作品" placeholder="查找作品…" value={query} onChange={event => setQuery(event.target.value)}/>}<button disabled={busy} aria-label="作品管理" onClick={onManage}>作品管理 <span aria-hidden="true">↗</span></button></div></header>
-      <div className="welcome-books">{visible.map(book => <button key={book.id} className="welcome-book" disabled={busy} onClick={() => onOpen(book.id)}>
+      <div className="welcome-books">{visible.map(book => <article key={book.id} className="welcome-book" aria-label={`作品 ${book.title}`}><button className="welcome-book-open" aria-label={`打开作品 ${book.title}`} disabled={busy} onClick={() => onOpen(book.id)}>
         <span className="welcome-book-mark" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 3h13a1 1 0 0 1 1 1v16H6a3 3 0 0 1-3-3V5a2 2 0 0 1 2-2Z"/><path d="M3 17a2 2 0 0 1 2-2h14M7 7h7M7 10h5"/></svg></span>
-        <span className="welcome-book-copy"><strong>{book.title}</strong><small>{updated(book.updatedAt)}</small></span><span className="welcome-book-arrow" aria-hidden="true">↗</span>
-      </button>)}</div>
+        <span className="welcome-book-copy"><strong>{book.title}</strong><small>{updated(book.updatedAt)}</small></span>
+      </button><button className="welcome-book-recycle" aria-label={`将《${book.title}》移入回收站`} title="移入回收站" disabled={busy} onClick={() => onRecycle(book)}><Icon name="trash"/></button></article>)}</div>
       {!matching.length && <p className="welcome-no-match">没找到这部作品，试试其他关键词。</p>}
       {!query && !expanded && matching.length > 6 && <button className="welcome-expand" onClick={() => setExpanded(true)}>查看其余 {matching.length - 6} 部作品 ↓</button>}
     </section> : <section className="welcome-start" aria-label="开始写作"><span className="welcome-start-line" aria-hidden="true"/><p>不用准备完所有设定。<br/><strong>先写下第一个念头，故事会慢慢长出来。</strong></p></section>}
-    <footer className="welcome-footer">{!books.length?<button className="welcome-expand" onClick={onManage} disabled={busy}>作品管理</button>:<><span>正文</span><i aria-hidden="true"/><span>情节规划</span><i aria-hidden="true"/><span>人物与世界</span></>}<small>你的故事，你做主。</small></footer>
+    <footer className="welcome-footer">
+      {!books.length && <button className="welcome-manage" onClick={onManage} disabled={busy}>作品管理</button>}
+      <button className="welcome-trash" onClick={onTrash} disabled={busy}><Icon name="trash"/><span>作品回收站{recycledCount > 0 ? ` · ${recycledCount}` : ''}</span></button>
+    </footer>
   </div></div>;
 }

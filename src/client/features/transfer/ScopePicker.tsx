@@ -27,7 +27,7 @@ export function ScopePicker({catalog, selection, change, disabled}: {catalog: Ca
   const [volume, setVolume] = useState(selection.volumeIds?.[0] || ''), [group, setGroup] = useState(selection.groupIds ? selection.groupIds[0] ?? 'none' : ''), [type, setType] = useState(selection.memoryType || '');
   const book = catalog.books.find(n => n.id === selection.novelId) || catalog.books[0];
   if (selection.kind === 'workspace') return <div className="transfer-whole-library"><span aria-hidden="true">▤</span><div><h3>把整个作品库带走</h3><p>所有作品与版本历史、回收站、会话绑定和操作日志。</p></div></div>;
-  if (selection.kind === 'works') return <SelectionList rows={catalog.books.map(b => ({id: b.id, title: b.title, detail: `${b.counts.chapters} 章 · ${b.counts.memory} 条设定${b.archived ? ' · 已归档' : ''}`}))} selected={selection.novelIds ?? catalog.books.map(n => n.id)} change={ids => change({...selection, novelIds: ids as string[]})} noun="作品" disabled={disabled}/>;
+  if (selection.kind === 'works') return <SelectionList rows={catalog.books.map(b => ({id: b.id, title: b.title, detail: `${b.counts.chapters} 章 · ${b.counts.memory} 条设定${b.archived ? ' · 回收站' : ''}`}))} selected={selection.novelIds ?? catalog.books.map(n => n.id)} change={ids => change({...selection, novelIds: ids as string[]})} noun="作品" disabled={disabled}/>;
   return <>
     <label className="management-field transfer-book-field">来源作品<select aria-label="来源作品" disabled={disabled} value={book?.id || ''} onChange={e => {setVolume(''); setGroup(''); setType(''); change(defaultSelection(selection.kind, catalog, e.target.value, selection.includeDependencies));}}>{catalog.books.map(n => <option key={n.id} value={n.id}>{n.title}</option>)}</select></label>
     {book ? selection.kind === 'chapters' ? <>

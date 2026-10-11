@@ -1,49 +1,41 @@
 # 安装与开始使用
 
-## 先试用工作台
+使用 DSH Windows 桌面版自带的插件管理即可，普通用户无需另装 Git、Node.js 或 pnpm，也不用编译源码。当前已验证 DSH **0.2.0-rc.2**，其他宿主版本请先核对对应发布说明。
 
-源码预览需要 Node.js 24 或更新版本。克隆后运行 `npm ci`，然后运行 `npm run preview:workbench`，打开返回的地址。预览使用独立临时目录，不读取你的日常作品，也不提供真实模型对话；桌面成品包安装不需要另装 Node.js。
+## 交给 Agent 安装或更新
 
-也可以用自己的单本作品备份创建试用副本：
+把[Windows Agent 安装指南](agent-installation.md)的链接交给 DSH 的 Agent，并告诉它：
 
-```powershell
-npm run preview:workbench -- "C:\你的备份目录\作品.cuigengji.json"
-```
+> 请按这个指南帮我安装或更新催更姬，保留我的配置和小说数据，重启后确认新版已加载、数据迁移完成，原有作品可以继续使用。
 
-修改只写入临时副本。要保留内容，请在预览工作台中导出。
+首次安装会得到空白工作库。已有用户更新时，由插件自动备份、迁移和校验，Agent 负责确认结果；用户不需要单独运行迁移命令。
 
-## 安装到 DSH Windows 桌面版
+## 自己在桌面版安装
 
-当前已验证 DSH 0.2.0-rc.2，其他版本请先核对发布说明。0.4.1 起，仓库随源码提供编译后的安装文件，支持 DSH 官方 GitHub 地址安装；同时继续提供[成品安装包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/latest)。
+0.4.2 起统一名称为 `dsh-cuigengji-plugin`。新安装与已使用统一名称的用户可按下面步骤安装[成品包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/tag/v0.4.2)。旧安装名为 `dsh-cuigengji` 的用户，把[名称迁移指南](package-name-migration.md)交给 Agent，由它保留配置与小说完成转换。
 
 1. 从 DSH 左侧进入“插件”，点击“添加插件”。
-2. 在“包名或地址”输入 `https://github.com/mistnest/dsh-cuigengji-plugin`。
+2. 在“包名或地址”中粘贴下面的成品包地址。
 3. “安装源”保持默认，或选择 npm 官方源 / 中国大陆镜像源；它用于下载依赖，不填写 GitHub 仓库地址。
 4. 点击“安装”，完成后按 DSH 提示完整重启，从左侧“催更姬”进入。
 
-使用固定发布版本时，也可将成品 `.tgz` URL 或下载后的 Windows 绝对路径填入同一个“包名或地址”输入框。也可以把[Windows Agent 安装指南](agent-installation.md)交给 DSH 的 Agent 完成安装、重启和校验。升级会自动备份并迁移已有数据，详见[更新说明](upgrade.md)。本项目尚未发布 npm 包，不直接填 `dsh-cuigengji` 作为安装目标。
-
-已有用户升级和无 Git 用户优先使用带版本号的 `.tgz`。当前宿主重复安装同一个仓库地址时可能沿用旧提交；遇到“无法从依赖变更中确定安装了哪一个包”，按 Agent 安装指南改用目标版本的包，不删除小说数据。
-
-### 开发者本地安装
-
-下面的源码构建流程仅供开发维护使用。
-
-1. 安装并启动过 DSH 桌面版，让它创建 `desktop` profile。
-2. 克隆本仓库，进入项目目录，执行 `npm ci`。
-3. 从 DSH 菜单退出应用，包括托盘进程。
-4. 运行安装脚本，将参数换成你实际的 DSH 可执行文件路径：
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\install-desktop.ps1 -DesktopExe "C:\你的DSH安装目录\DeepSeek Harness.exe"
+```text
+https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.2/dsh-cuigengji-plugin-0.4.2.tgz
 ```
 
-脚本构建并打包插件，使用 DSH 自带的 Node/pnpm 安装到 `%USERPROFILE%\.dsh\profiles\desktop`。如果自定义过 DSH Home，请额外传入 `-DshHome "你的DSH数据目录"`。打包文件存于项目内 `releases`，不包含小说工作数据。
+也可以先[下载成品包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/tag/v0.4.2)，将下载后的 Windows 绝对路径填入同一输入框。需要核对下载文件时，可使用 Release 中的 `SHA256SUMS`，或交给 Agent 检查。GitHub 的“Download ZIP”是源码下载，不是这里的成品包。
 
-5. 首次安装时，在 `desktop` profile 的 `package.json` 中找到 `dsh.profile.bundles`，保留已有内容并加入 `"dsh-cuigengji"`。更新已启用的插件无需重复添加。
-6. 通过 DSH 自己的快捷方式重新启动，从左侧栏的“催更姬”进入。
+npm 安装使用相同名称 `dsh-cuigengji-plugin`，固定版本填写 `dsh-cuigengji-plugin@0.4.2`。包名入口以 npm 实际发布结果为准；尚未发布或镜像未同步时使用上面的成品包，不填写旧包名。
 
-若找不到可执行文件，可查看桌面快捷方式的属性。不要用 CLI 创建或替换名为 `desktop` 的 profile；桌面 profile 由 DSH 桌面应用管理。
+### GitHub 地址安装
+
+0.4.1 起，仓库包含完整编译文件，也支持在“包名或地址”中填写：
+
+```text
+https://github.com/mistnest/dsh-cuigengji-plugin
+```
+
+仓库地址的引用解析可能需要 Git；没有 Git 或更新已有插件时，优先使用带版本号的成品包。当前宿主重复安装同一个仓库地址时可能沿用旧提交；遇到“无法从依赖变更中确定安装了哪一个包”，按 Agent 安装指南改用目标版本的包，不删除小说数据。
 
 ## 开始一起写
 
@@ -77,14 +69,55 @@ Windows 桌面版是当前主要验证环境；其他系统的默认目录已实
 - 同 ID、同内容会跳过；同 ID、不同内容不会直接覆盖。
 - DSH 聊天记录、附件、账号配置和浏览器未保存草稿不属于小说备份。迁移 DSH 时需要另外处理。
 
-升级前建议导出一份工作数据；不要用旧备份覆盖升级后新增的正文。详细存储边界见[架构说明](architecture.md)。
+插件升级时自动创建原始快照并迁移校验，负责升级的 Agent 按[更新指南](upgrade.md)确认结果。你也可以自行导出额外备份；不要用旧备份覆盖升级后新增的正文。详细存储边界见[架构说明](architecture.md)。
 
 ## 常见问题
 
-**安装后没有入口**：检查 desktop profile 的 bundles 是否包含 `dsh-cuigengji`，并完全退出、重启 DSH。脚本安装成功不代表正在运行的应用已经加载新插件。
+**安装后没有入口**：在 DSH 插件管理中检查催更姬是否已安装、启用，并按提示完全退出、重启。仍没有入口时，将[Agent 安装指南](agent-installation.md)交给 Agent 核对当前环境和实际加载状态。
 
 **提示版本冲突**：保留草稿，读取最新内容后比较。不要修改版本号强行覆盖另一会话或 AI 的修改。
 
 **找不到以前的作品**：检查“工作数据”显示的实际目录，再从旧环境导出备份。切换数据目录不会自动迁移。
 
 **酒馆文件导入后效果不同**：我们保留资料和提示词内容，不运行酒馆的触发与装填规则；导入后检查和编辑内容，再启用预设。见[导入说明](tavern-import.md)和[预设说明](presets.md)。
+
+## 开发者源码预览
+
+源码预览需要 Git 和 Node.js 24 或更新版本，属于开发试用方式。克隆后运行：
+
+```powershell
+git clone https://github.com/mistnest/dsh-cuigengji-plugin.git
+cd dsh-cuigengji-plugin
+npm ci
+npm run preview:workbench
+```
+
+打开返回的本地地址。预览使用独立临时目录，不读取日常作品，也不提供真实模型对话。想保留试用内容，请在工作台导出。
+
+也可以用自己的单本作品备份创建试用副本：
+
+```powershell
+npm run preview:workbench -- "C:\你的备份目录\作品.cuigengji.json"
+```
+
+修改只写入临时副本，保留内容仍需导出。完整开发、测试和发布流程见[开发说明](development.md)与[渠道维护与发布流程](release-process.md)。
+
+## 开发者本地安装
+
+下面的源码构建流程仅供开发维护使用。
+
+1. 安装并启动过 DSH 桌面版，让它创建 `desktop` profile。
+2. 克隆本仓库，进入项目目录，执行 `npm ci`。
+3. 从 DSH 菜单退出应用，包括托盘进程。
+4. 运行安装脚本，将参数换成你实际的 DSH 可执行文件路径：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\install-desktop.ps1 -DesktopExe "C:\你的DSH安装目录\DeepSeek Harness.exe"
+```
+
+脚本构建并打包插件，使用 DSH 自带的 Node/pnpm 安装到 `%USERPROFILE%\.dsh\profiles\desktop`。如果自定义过 DSH Home，请额外传入 `-DshHome "你的DSH数据目录"`。打包文件存于项目内 `releases`，不包含小说工作数据。
+
+5. 首次安装时，在 `desktop` profile 的 `package.json` 中找到 `dsh.profile.bundles`，保留已有内容并加入 `"dsh-cuigengji-plugin"`。开发者安装脚本会处理已启用旧包的名称与配置转换；普通用户交给 Agent 按[名称迁移指南](package-name-migration.md)操作。
+6. 通过 DSH 自己的快捷方式重新启动，从左侧栏的“催更姬”进入。
+
+若找不到可执行文件，可查看桌面快捷方式的属性。不要用 CLI 创建或替换名为 `desktop` 的 profile；桌面 profile 由 DSH 桌面应用管理。

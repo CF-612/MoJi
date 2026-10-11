@@ -15,12 +15,12 @@ category: ui
 description:
   en: A fiction-writing workbench for DSH with chapter editing, shared plot canvases, grouped character and world settings, writing presets, and scoped import/export for author-agent collaboration.
   zh: 催更姬：DSH 小说写作工作台，支持章节编辑、共享剧情画布、人物与世界设定分组、写作预设和按范围导入导出，供作者与 AI 一起讨论和推进故事。
-tarball: https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.1/dsh-cuigengji-0.4.1.tgz
+tarball: https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.2/dsh-cuigengji-plugin-0.4.2.tgz
 ```
 
 市场显示名统一为 `dsh-cuigengji-plugin`，中文介绍保留“催更姬”，便于按英文名称或中文名称查找。条目文件名和仓库地址仍用于识别作者与项目，不随显示名修改。
 
-仓库保留 `dsh-plugin`、`deepseek-harness` 等主题标签，供市场与 Agent 检索。实际宿主兼容范围以 `package.json` 和 Release 为准，不扩大声明。本项目尚未发布 npm 包，条目使用已经验证的 GitHub Release 成品包，不让用户从源码构建。
+仓库保留 `dsh-plugin`、`deepseek-harness`、`cuigengji` 等主题标签，供市场与 Agent 检索。实际宿主兼容范围以 `package.json` 和 Release 为准，不扩大声明。npm 包名也统一为 `dsh-cuigengji-plugin`，首次发布与安装验收通过后再将包名入口标为可用；成品包仍使用固定版本 Release 地址。用户界面标题保持“催更姬”，英文安装名在全部渠道一致。
 
 ## 收录验收
 

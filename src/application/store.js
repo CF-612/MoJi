@@ -11,6 +11,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { previewTavern } from '../infrastructure/migrations/tavern.js';
 import { checkDirectorySnapshot, directorySnapshot, planChapterMove } from '../domain/chapters/order.ts';
 import { compilePreset, importPreset, validatePreset } from '../domain/preset/index.js';
+import {applyNovelLifecycle, novelLifecycleActions} from './novels/lifecycle.ts';
 
 export class StoreError extends Error {
   constructor(code, message) { super(message); this.name = 'StoreError'; this.code = code; }
@@ -123,11 +124,15 @@ export class Store extends ProjectStore {
     this.importNovel({novels: {}}, {backup: {format: 'cuigengji', schemaVersion: 2, novel}});
   }
 
-  async dispatch(action, args = {}, actor = {}) {
+  async dispatch(action, args = {}, actor = {}, beforeExecute) {
     if (!args || typeof args !== 'object' || Array.isArray(args)) fail('INVALID_INPUT', '参数必须是对象');
+    if (novelLifecycleActions.includes(action) && actor.kind !== 'human') fail('HUMAN_REQUIRED', '整部作品的回收、恢复与永久删除需要作者操作');
     const release = await this.acquire();
     try {
       const state = await this.loadForAction(action, args, actor);
+      // A synchronous host guard sees the latest bindings while the Store lock
+      // is held, including Agent tasks that started during disk reads.
+      beforeExecute?.(state);
       const signature = hash(JSON.stringify({ action, args, actor: source(actor) }));
       const requestKey = args.requestId === undefined ? null : hash(text(args.requestId, 'requestId'));
       if (requestKey && own(state.requests, requestKey)) {
@@ -143,23 +148,28 @@ export class Store extends ProjectStore {
       }
       const before = JSON.stringify(state);
       const result = this.execute(state, action, args, actor);
-      if (requestKey) state.requests[requestKey] = { signature, result: clone(result), timestamp: now() };
+      if (requestKey) state.requests[requestKey] = { signature, result: clone(result), timestamp: now(),
+        ...((migrationNovelId || ['novel.create','novel.import'].includes(action)) ? {novelId: ['novel.create','novel.import'].includes(action) ? result.id : migrationNovelId} : {}) };
       if (JSON.stringify(state) !== before) await this.save(state);
       return clone(result);
     } finally { await release(); }
   }
 
   execute(state, action, a, actor) {
-    if (action === 'novel.list') return Object.values(state.novels).filter(n => a.includeArchived || !n.archived).map(n => ({ id: n.id, title: n.title, revision: n.revision, archived: n.archived, updatedAt: n.updatedAt }));
+    if (action === 'novel.list') return Object.values(state.novels).filter(n => a.includeArchived || !n.archived).map(n => ({ id: n.id, title: n.title, revision: n.revision, archived: n.archived, ...(n.archivedAt ? {archivedAt:n.archivedAt} : {}), updatedAt: n.updatedAt }));
     if (action === 'novel.create') {
       const n = record({ title: text(a.title, 'title'), description: a.description ?? '', archived: false, volumes: {}, chapters: {}, nodes: {}, edges: {}, plan: null });
       state.novels[n.id] = n; return { id: n.id, title: n.title, revision: n.revision };
     }
     if (action === 'novel.import') return this.importNovel(state, a);
-    if (action === 'binding.get') return state.bindings[hash(text(actor.sessionId || a.sessionId, 'sessionId'))] ?? null;
+    if (action === 'binding.get') {
+      const binding = state.bindings[hash(text(actor.sessionId || a.sessionId, 'sessionId'))];
+      return binding && own(state.novels, binding.novelId) && !state.novels[binding.novelId].archived ? binding : null;
+    }
     if (action === 'binding.set') {
       const sessionId = text(actor.sessionId || a.sessionId, 'sessionId');
       const n = get(state.novels, a.novelId, '小说');
+      if (n.archived) fail('NOVEL_RECYCLED', '作品已在回收站，请先恢复作品');
       if (a.chapterId) { const ch = get(n.chapters, a.chapterId, '章节'); if (ch.deleted) fail('DELETED', '章节已删除'); }
       const previous = state.bindings[hash(sessionId)];
       const sameNovel = previous?.novelId === n.id;
@@ -174,6 +184,13 @@ export class Store extends ProjectStore {
     if (!novelId) fail('NOVEL_REQUIRED', '请先绑定小说或提供 novelId');
     if (actor.kind !== 'human' && binding && binding.novelId !== novelId) fail('NOVEL_MISMATCH', '当前会话已绑定另一本小说');
     const n = get(state.novels, novelId, '小说');
+    if (n.archived && !(actor.kind === 'human' && ['novel.get','novel.export',...novelLifecycleActions].includes(action))) fail('NOVEL_RECYCLED', '作品已在回收站，请先恢复作品');
+    if (novelLifecycleActions.includes(action)) {
+      cas(n, a);
+      applyNovelLifecycle(state, n, action, a);
+      if (action === 'novel.purge') return {id: n.id, purged: true};
+      touch(n); return {id: n.id, title: n.title, revision: n.revision, archived: n.archived, ...(n.archivedAt ? {archivedAt:n.archivedAt} : {})};
+    }
     if (action === 'tavern.preview' || action === 'tavern.import') {
       if (actor.kind !== 'human') fail('HUMAN_REQUIRED', '酒馆文件导入需要作者操作');
       const preview = previewTavern(a);
@@ -206,12 +223,8 @@ export class Store extends ProjectStore {
     if (action === 'novel.get') return { ...n, tavernSources: undefined, planning: undefined, plan: undefined, volumes: Object.values(n.volumes), chapters: Object.values(n.chapters).map(meta), nodes: Object.values(n.nodes).map(({ content, ...v }) => v), edges: Object.values(n.edges).map(({ content, ...v }) => v) };
     if (action === 'novel.handoff') return createHandoff(n, binding, a);
     if (action === 'novel.export') { ensurePlanning(n); return { format: 'cuigengji', schemaVersion: 2, exportedAt: now(), novel: clone(n) }; }
-    if (action === 'novel.update' || action === 'novel.archive') {
+    if (action === 'novel.update') {
       cas(n, a);
-      if (action === 'novel.archive') {
-        if (a.archived !== undefined && typeof a.archived !== 'boolean') fail('INVALID_INPUT', 'archived 必须是布尔值');
-        n.archived = a.archived ?? true;
-      }
       if (a.title !== undefined) n.title = text(a.title, 'title');
       if (a.description !== undefined) n.description = text(a.description, 'description', true);
       touch(n); return { id: n.id, title: n.title, revision: n.revision, archived: n.archived };
@@ -460,6 +473,7 @@ export class Store extends ProjectStore {
     const n = clone(backup.novel);
     text(n.id, 'novel.id'); text(n.title, 'novel.title');
     if (!Number.isSafeInteger(n.revision) || n.revision < 1 || typeof n.archived !== 'boolean') fail('INVALID_BACKUP', '小说版本或归档状态无效');
+    if (n.archivedAt !== undefined && (typeof n.archivedAt !== 'string' || !Number.isFinite(Date.parse(n.archivedAt)))) fail('INVALID_BACKUP', '作品回收时间无效');
     for (const field of ['volumes', 'chapters', 'nodes', 'edges']) if (!n[field] || typeof n[field] !== 'object' || Array.isArray(n[field])) fail('INVALID_BACKUP', `${field}无效`);
     for (const collection of [n.volumes, n.chapters, n.nodes, n.edges]) for (const [id, entity] of Object.entries(collection)) {
       if (id !== entity.id || !Number.isSafeInteger(entity.revision) || entity.revision < 1) fail('INVALID_BACKUP', '对象 ID 或版本无效');

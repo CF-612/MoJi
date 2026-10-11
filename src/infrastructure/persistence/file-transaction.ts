@@ -4,7 +4,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import {directoryKey, validProjectDirectory, type ProjectDirectoryMove} from './project-directories.ts';
 
 type Entry = { path: string; stage: string | null; sha256: string | null };
-type Journal = { version: 1 | 2; id: string; entries: Entry[]; moves?: ProjectDirectoryMove[] };
+export type ProjectDirectoryRemoval = {path: string; novelId: string};
+type Journal = { version: 1 | 2 | 3; id: string; entries: Entry[]; moves?: ProjectDirectoryMove[]; removals?: ProjectDirectoryRemoval[] };
 export type FileChanges = Map<string, string | null>;
 export const digest = (text: string) => createHash('sha256').update(text).digest('hex');
 export const errorCode = (error: unknown) => error && typeof error === 'object' && 'code' in error ? String(error.code) : '';
@@ -94,12 +95,40 @@ export class FileTransaction {
     await this.barrier(join(this.root, 'novels'));
   }
 
+  private removalStage(id: string, index: number) {return `runtime/transactions/${id}/removed-books/${index}`;}
+
+  private async preflightRemovals(removals: ProjectDirectoryRemoval[], moves: ProjectDirectoryMove[], id: string, recovering: boolean) {
+    const paths = new Set<string>(), ids = new Set<string>();
+    for (const [index, removal] of removals.entries()) {
+      if (!removal || typeof removal.novelId !== 'string' || !removal.novelId || typeof removal.path !== 'string' || !removal.path.startsWith('novels/') || !validProjectDirectory(removal.path.slice(7))) corrupt('作品删除路径无效');
+      this.path(removal.path);
+      const key = directoryKey(removal.path);
+      if (paths.has(key) || ids.has(removal.novelId) || moves.some(move => [move.from, move.to].some(path => directoryKey(path) === key))) corrupt('作品删除目标重复或与迁移冲突');
+      paths.add(key); ids.add(removal.novelId);
+      const source = await this.directoryExists(removal.path, removal.novelId);
+      const stage = await this.directoryExists(this.removalStage(id, index), removal.novelId);
+      if ((source && stage) || (!source && !stage) || (!recovering && !source)) corrupt('待删除作品的目录或内部 ID 已变化，原文件已保留');
+    }
+  }
+
+  /** Keep the complete directory in the transaction until the index and binding
+   * changes are durable. Recovery can finish after either side of the rename. */
+  protected async applyRemoval(removal: ProjectDirectoryRemoval, id: string, index: number) {
+    if (!await this.directoryExists(removal.path, removal.novelId)) return;
+    const stage = this.path(this.removalStage(id, index));
+    await mkdir(dirname(stage), {recursive: true, mode: 0o700});
+    await rename(this.path(removal.path), stage);
+    await this.barrier(join(this.root, 'novels'));
+    await this.barrier(dirname(stage));
+  }
+
   async recover() {
     let journal: Journal;
     try { journal = JSON.parse(await readFile(this.journal, 'utf8')); }
     catch (error) { if (errorCode(error) === 'ENOENT') return; throw error; }
-    if (![1, 2].includes(journal?.version) || typeof journal.id !== 'string' || !/^[a-f0-9-]{36}$/.test(journal.id) || !Array.isArray(journal.entries) || !journal.entries.length || (journal.version === 2 && !Array.isArray(journal.moves))) corrupt('存储事务日志无效');
-    const moves = journal.version === 2 ? journal.moves! : [];
+    if (![1, 2, 3].includes(journal?.version) || typeof journal.id !== 'string' || !/^[a-f0-9-]{36}$/.test(journal.id) || !Array.isArray(journal.entries) || !journal.entries.length || (journal.version >= 2 && !Array.isArray(journal.moves)) || (journal.version === 3 && !Array.isArray(journal.removals))) corrupt('存储事务日志无效');
+    const moves = journal.version >= 2 ? journal.moves! : [];
+    const removals = journal.version === 3 ? journal.removals! : [];
     const paths = new Set<string>();
     // Preflight every payload, before changing any destination. Staging files
     // stay in place until all destinations have been durably promoted.
@@ -115,13 +144,21 @@ export class FileTransaction {
       contents.push(content);
     }
     await this.preflightMoves(moves, true);
+    await this.preflightRemovals(removals, moves, journal.id, true);
     if (journal.entries.some(entry => moves.some(move => entry.path.startsWith(move.from + '/')))) corrupt('事务不能重新写入迁移前的目录');
+    if (journal.entries.some(entry => removals.some(removal => entry.path.startsWith(removal.path + '/')))) corrupt('事务不能写入待删除的作品目录');
     if (moves.length) {
       const libraryIndex = journal.entries.findIndex(entry => entry.path === 'library.json');
       const library = libraryIndex >= 0 && contents[libraryIndex] ? JSON.parse(contents[libraryIndex]!) : null;
       if (!([3, 4].includes(library?.storageVersion) && moves.every(move => library.directories?.[move.novelId] === move.to.slice(7)))) corrupt('目录迁移与暂存的作品索引不一致');
     }
+    if (removals.length) {
+      const libraryIndex = journal.entries.findIndex(entry => entry.path === 'library.json');
+      const library = libraryIndex >= 0 && contents[libraryIndex] ? JSON.parse(contents[libraryIndex]!) : null;
+      if (!(library?.storageVersion === 4 && removals.every(removal => !Object.hasOwn(library.novels || {}, removal.novelId) && !Object.hasOwn(library.directories || {}, removal.novelId)))) corrupt('作品删除与暂存索引不一致');
+    }
     for (const move of moves) await this.applyMove(move);
+    for (const [index, removal] of removals.entries()) await this.applyRemoval(removal, journal.id, index);
     // Remove renamed managed files before promoting new names. This also makes
     // a pair of colliding title changes recoverable without overwriting a
     // staged destination from the previous name.
@@ -133,11 +170,12 @@ export class FileTransaction {
     await rm(this.path(`runtime/transactions/${journal.id}`), { recursive: true, force: true });
   }
 
-  async commit(changes: FileChanges, moves: ProjectDirectoryMove[] = []) {
+  async commit(changes: FileChanges, moves: ProjectDirectoryMove[] = [], removals: ProjectDirectoryRemoval[] = []) {
     if (!changes.size) return;
     await this.recover();
     await this.preflightMoves(moves, false);
     const id = randomUUID(), entries: Entry[] = [];
+    await this.preflightRemovals(removals, moves, id, false);
     for (const [path, content] of changes) {
       this.path(path);
       if (content === null) { entries.push({ path, stage: null, sha256: null }); continue; }
@@ -146,7 +184,8 @@ export class FileTransaction {
       entries.push({ path, stage, sha256: digest(content) });
     }
     await this.barrier(join(this.root, 'runtime', 'transactions'));
-    await this.write(this.journal, JSON.stringify({ version: moves.length ? 2 : 1, id, entries, ...(moves.length ? {moves} : {}) } satisfies Journal));
+    await this.write(this.journal, JSON.stringify({ version: removals.length ? 3 : moves.length ? 2 : 1, id, entries,
+      ...((moves.length || removals.length) ? {moves} : {}), ...(removals.length ? {removals} : {}) } satisfies Journal));
     await this.recover();
   }
 

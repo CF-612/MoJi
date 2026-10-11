@@ -2,11 +2,11 @@
 
 **给大肥鱼一个小说工作台，陪你把故事写下去。**
 
-催更姬是 [DeepSeek Harness（DSH）](https://github.com/deepseek-ai/deepseek-harness) 的小说写作插件。你可以在聊天旁边写正文、整理人物和世界设定、画出情节规划，再和 DSH 里的 AI 一起讨论、续写和修改。
+催更姬（`dsh-cuigengji-plugin`）是 [DeepSeek Harness（DSH）](https://github.com/deepseek-ai/deepseek-harness) 的小说写作插件。你可以在聊天旁边写正文、整理人物和世界设定、画出情节规划，再和 DSH 里的 AI 一起讨论、续写和修改。
 
 想看它怎样用？[B 站演示：一个插件，让大肥鱼成为你的小说写作助手](https://www.bilibili.com/video/BV1e5HE6wErd/)。
 
-开始使用：在 DSH 的“添加插件”中填入本仓库地址，或[下载成品包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/latest) · [把安装/更新指南交给 Agent](docs/agent-installation.md)。
+开始使用：[桌面版安装](docs/getting-started.md) · [让 Agent 安装或更新](docs/agent-installation.md) · [下载成品包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/latest)。
 
 它想解决的是长篇创作里的一个常见问题：**AI 能写出一段像样的文字，却未必知道你整本书想怎么写。** 人物为什么沉默、哪条伏笔还不能揭开、下一章要走向哪里，这些往往都在正文之外。
 
@@ -55,28 +55,15 @@
 
 正文、版本历史、设定、规划和预设都存放在独立的小说工作数据目录里，可以导入、导出和备份。升级插件或更换源码目录，不需要把小说混在代码里。
 
-## 先试用，再安装
+## 开始使用
 
-如果想先看看界面，安装 Node.js 24 或更新版本，执行：
+当前主要适配 DSH Windows 桌面版，已验证的宿主版本是 **0.2.0-rc.2**。普通用户无需另装 Git、Node.js 或编译源码。
 
-```powershell
-git clone https://github.com/mistnest/dsh-cuigengji-plugin.git
-cd dsh-cuigengji-plugin
-npm ci
-npm run preview:workbench
-```
-
-打开终端返回的本地地址即可。预览会创建一份临时演示作品，可以自由操作；想留下试用内容，请从作品菜单导出。这个预览用来体验工作台，和 AI 协作需要安装到 DSH。
-
-当前主要适配 DSH Windows 桌面版，已验证的宿主版本是 **0.2.0-rc.2**。进入 DSH 左侧“插件”，点击“添加插件”，在 **“包名或地址”** 输入框填入：
-
-```text
-https://github.com/mistnest/dsh-cuigengji-plugin
-```
-
-“安装源”选择默认源、npm 官方源或中国大陆镜像源，这里用于下载依赖。插件已经编译，用户安装时无需构建源码或批准构建脚本。也可使用[成品安装包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/latest)；桌面安装步骤见[安装与开始使用](docs/getting-started.md)，更新和自动迁移见[更新与数据迁移](docs/upgrade.md)。
+推荐把[安装与更新指南](docs/agent-installation.md)交给 Agent；也可以按[桌面安装步骤](docs/getting-started.md)，在 DSH“添加插件”中安装[成品包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/latest)。更新时自动备份、迁移并校验已有作品，详见[更新与数据迁移](docs/upgrade.md)。
 
 安装后，从 DSH 左侧栏的 **催更姬** 进入。创建或选择一本作品，再在绑定这本作品的会话里讨论写作；空白会话也能打开工作台。
+
+开发者可通过[源码预览](docs/getting-started.md#开发者源码预览)试用临时演示作品。
 
 ## 你的小说与你的代码分开
 

@@ -19,23 +19,29 @@ export const welcomeStyles = `
 .cuigengji .welcome-library-tools {display:flex;align-items:center;gap:12px;min-width:0;}
 .cuigengji .welcome-library-tools button {border:0;background:none;color:var(--cg-muted);font-size:11px;padding:5px;white-space:nowrap;}
 .cuigengji .welcome-books {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
-.cuigengji button.welcome-book {display:flex;align-items:center;gap:14px;text-align:left;min-width:0;min-height:88px;padding:18px;border-radius:12px;background:var(--cg-paper);transition:background 140ms,border-color 140ms,transform 140ms;}
+.cuigengji .welcome-book {display:flex;align-items:center;min-width:0;min-height:88px;border:1px solid var(--cg-line);border-radius:12px;background:var(--cg-paper);transition:background 140ms,border-color 140ms,transform 140ms;}
 .cuigengji .welcome-book:hover {border-color:color-mix(in srgb,var(--cg-accent) 40%,var(--cg-line));transform:translateY(-1px);}
+.cuigengji .welcome-book:focus-within {border-color:var(--cg-accent);}
+.cuigengji button.welcome-book-open {display:flex;align-items:center;align-self:stretch;flex:1;gap:14px;min-width:0;text-align:left;padding:18px 8px 18px 18px;border:0;border-radius:11px;background:transparent;}
+.cuigengji button.welcome-book-recycle {display:grid;place-items:center;flex:none;width:36px;height:36px;padding:8px;margin-right:10px;border:0;border-radius:8px;background:transparent;color:var(--cg-muted);transition:color 140ms,background 140ms;}
+.cuigengji .welcome-book-recycle:hover,.cuigengji .welcome-book-recycle:focus-visible {color:var(--dsw-alias-state-error-primary,#bf443a);background:color-mix(in srgb,var(--dsw-alias-state-error-primary,#bf443a) 8%,transparent);}
+.cuigengji .welcome-book-recycle svg,.cuigengji .welcome-trash svg {width:18px;height:18px;border:0;border-radius:0;}
 .cuigengji .welcome-book-mark {display:grid;place-items:center;width:40px;height:44px;flex:none;border-radius:8px;background:var(--cg-wash);color:var(--cg-accent);}
 .cuigengji .welcome-book-mark svg {width:22px;height:22px;border:0;border-radius:0;}
 .cuigengji .welcome-book-copy {min-width:0;flex:1;}
 .cuigengji .welcome-book strong {display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-weight:500;font-size:14px;line-height:1.6;overflow-wrap:anywhere;}
 .cuigengji .welcome-book small {display:block;color:var(--cg-muted);font-size:10px;margin-top:5px;}
-.cuigengji .welcome-book-arrow {flex:none;color:var(--cg-muted);font-size:15px;}
 .cuigengji .welcome-expand {display:block;font-size:11px;border:0;background:none;color:var(--cg-muted);margin:18px auto 0;}
 .cuigengji .welcome-no-match {color:var(--cg-muted);font-size:12px;padding:16px 0;}
 .cuigengji .welcome-start {border-top:1px solid var(--cg-line);display:flex;gap:18px;align-items:center;padding:30px 0;}
 .cuigengji .welcome-start-line {width:3px;height:40px;flex:none;background:color-mix(in srgb,var(--cg-accent) 30%,var(--cg-paper));border-radius:2px;}
 .cuigengji .welcome-start p {color:var(--cg-muted);font-size:12px;line-height:2;margin:0;}
 .cuigengji .welcome-start strong {font-weight:400;color:var(--cg-ink);}
-.cuigengji .welcome-footer {display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:var(--cg-muted);font-size:10px;padding:28px 0 0;}
-.cuigengji .welcome-footer i {width:3px;height:3px;background:var(--cg-line);border-radius:50%;}
-.cuigengji .welcome-footer small {font:inherit;margin-left:auto;}
+.cuigengji .welcome-footer {display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:24px 0 0;}
+.cuigengji .welcome-footer button {display:inline-flex;align-items:center;gap:6px;padding:6px 8px;font-size:11px;min-height:36px;border:0;border-radius:8px;background:transparent;color:var(--cg-muted);transition:color 140ms,background 140ms;}
+.cuigengji .welcome-footer button:hover,.cuigengji .welcome-footer button:focus-visible {color:var(--cg-accent);background:var(--cg-wash);}
+.cuigengji .welcome-manage {margin-right:auto;}
+.cuigengji .welcome-trash {margin-left:auto;}
 @container (max-width:640px) {
  .cuigengji .welcome-hero {flex-direction:column;align-items:flex-start;gap:24px;padding-top:0;}
  .cuigengji .welcome-avatar {width:128px;border-radius:26px;}
@@ -52,6 +58,5 @@ export const welcomeStyles = `
  .cuigengji .welcome-actions {gap:8px;}
  .cuigengji .welcome-actions button {padding:10px 13px;}
  .cuigengji .welcome-library input {width:140px;}
- .cuigengji .welcome-footer small {flex-basis:100%;margin:2px 0 0;}
 }
 `;

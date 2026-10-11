@@ -45,6 +45,7 @@ export class TransferService {
   }
   private async plan(state: Workspace, file: TransferFile, input: ImportOptions): Promise<Plan> {
     const recognized = this.validate(recognize(file, input)), options = this.options(recognized, input);
+    if (options.mode === 'copy' && options.targetId && state.novels[options.targetId]?.archived) fail('目标作品在回收站，请先恢复作品', 'NOVEL_RECYCLED');
     const slice = options.selection!.kind === 'workspace' ? {projects: recognized.projects, dependencies: [], warnings: []} : selectProjects(recognized.projects, options.selection!);
     const conflicts: string[] = [], skipped: string[] = [], warnings = [...recognized.warnings, ...slice.warnings];
     let target = options.mode === 'restore' ? '恢复原作品与版本' : options.targetId ? state.novels[options.targetId]?.title ?? fail('目标作品已不存在') : '新建作品';
