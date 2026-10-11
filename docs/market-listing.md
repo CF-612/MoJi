@@ -1,6 +1,8 @@
 # 插件市场展示与维护
 
-催更姬的市场条目通过 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) 目录提交，由 dsh-market 使用该目录展示。提交成功不代表已经收录，需要目录维护者审核并合并；收录规则以其 [contributing.md](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/contributing.md) 为准。
+催更姬的市场条目通过 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) 目录提交，由 [dshmarket](https://github.com/dsh-market/dsh-market)（npm 包名 `dshmarket`）使用该目录展示。提交成功不代表已经收录，需要目录维护者审核并合并；收录规则以其 [contributing.md](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/blob/main/contributing.md) 为准。
+
+按作者 2026-10-11 的决定，不再维护另一个 `2BingLing/dsh-market`（`dsh.market` / `@dsh-market/plugin`）渠道。它自动索引到本仓库不代表其安装器已经通过本项目验收。
 
 首次收录申请：[PR #7064](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/7064)。审核、合并与反馈以该页面的实际状态为准。
 
@@ -25,14 +27,10 @@ tarball: https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4
 ## 收录验收
 
 1. 确认收录 PR 已合并，再核对公开 `https://awesome-dsh-plugin.com/plugins.json` 中的名称、仓库地址与 `tarball`。PR 检查通过不等于已经上架。
-2. 在 dsh-market 内分别搜索 `dsh-cuigengji-plugin`、`cuigengji` 和 `催更姬`，确认结果指向同一仓库。
+2. 在 `dshmarket` 内分别搜索 `dsh-cuigengji-plugin`、`cuigengji` 和 `催更姬`，确认结果指向同一仓库。
 3. 从该条目完成安装，确认使用公开 Release 成品包，随后重启并打开催更姬核对版本和作品数据。成品包的直接安装验收不能替代市场入口验收。
 
 如果 PR 尚未合并或公开目录尚未更新，记录“待收录”，不能宣称用户已经能通过市场搜索和安装。此时可以使用 Release 成品包经 DSH 的“添加插件”入口安装，步骤见 `agent-installation.md`。
-
-另一个 [dsh.market](https://dsh.market/) 按 GitHub topic 自动收录。仓库简介必须包含“催更姬”，它的中英文搜索会读取名称和简介；改完后要等待公开索引刷新，再检查搜索，不能拿本地候选数据当作已经上线。
-
-2026-10-11 的隔离验收发现，`@dsh-market/core@0.4.9` 的桌面安装仍调用 `dsh plugin --profile desktop add <包名>`。纯桌面环境没有额外的 `dsh` CLI；普通官方 CLI 又会拒绝操作受 Electron 管理的 desktop profile。该入口尚不能代替桌面原生插件管理，不为绕过限制添加全局工具或修改受管 profile。桌面用户继续通过 `agent-installation.md` 的宿主安装服务安装成品包；市场安装器适配后重新验收。
 
 ## 展示图与介绍
 

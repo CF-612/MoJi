@@ -40,7 +40,7 @@ npm run release -- status
 | [公开主仓库](https://github.com/mistnest/dsh-cuigengji-plugin) | 维护源码、使用文档、安装与升级指南、兼容范围、更新记录 |
 | npm 包 `dsh-cuigengji-plugin` | 首次发布并验收后，作为普通用户首选安装渠道；稳定版 `latest`，预发布版 `next` |
 | GitHub Release | 提供与 npm 完全相同的 `.tgz`、`SHA256SUMS`、版本说明和已验证的 DSH 版本 |
-| 社区市场 | 维护名称、介绍、安装映射与收录状态；安装目标指向同一发布版本 |
+| 社区市场 `dshmarket` | 通过 `awesome-dsh-plugin` 维护名称、介绍、安装映射与收录状态；安装目标指向同一发布版本 |
 | 仓库内的 Agent 指南 | 指导环境确认、原生安装、自动迁移验收与失败恢复 |
 
 GitHub 仓库、npm 包和市场显示名统一为 **`dsh-cuigengji-plugin`**，中文名为“催更姬”。旧 `dsh-cuigengji` 仅用于识别和迁移历史安装；内部工具、数据目录和稳定条目 ID 不随包名变化。首次跨名称更新按[名称迁移指南](package-name-migration.md)执行。市场贡献用的 fork 只用于提交条目和跟进收录。
@@ -49,14 +49,15 @@ GitHub 仓库、npm 包和市场显示名统一为 **`dsh-cuigengji-plugin`**，
 
 先生成、审计、验收一份 `.tgz`，上传 GitHub Release；npm 发布复用这份归档并核对 SHA-256。不要从另一个工作目录重新打包同版本，也不要替换已经公开的同版本资产。公开内容变化必须递增版本。
 
-## 两个市场分别跟进
+## 社区市场
 
 | 市场 | 收录方式 | 发布时核对 |
 | --- | --- | --- |
 | [dshmarket](https://github.com/dsh-market/dsh-market)，npm 名 `dshmarket` | 向 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) 提交条目 | PR 是否合并、公开目录是否出现、中文和英文搜索及实际安装 |
-| [dsh.market](https://dsh.market/)，插件 `@dsh-market/plugin` | [市场仓库](https://github.com/2BingLing/dsh-market)自动扫描 GitHub topic | 公开索引、搜索结果、安装目标、安装后实际加载版本 |
 
 收录、可搜索、点击安装成功是不同状态，逐项记录。市场是可选发现入口，用户也能直接通过 DSH 原生插件管理安装。
+
+按作者 2026-10-11 的决定，不再维护 `2BingLing/dsh-market`（`dsh.market` / `@dsh-market/plugin`），不跟进该渠道的索引或安装器，也不把它列为发布验收要求。其他平台自动索引本仓库，不代表本项目已适配或推荐其安装入口。
 
 ## 当前待完成事项
 
@@ -64,7 +65,6 @@ GitHub 仓库、npm 包和市场显示名统一为 **`dsh-cuigengji-plugin`**，
 
 - npm `dsh-cuigengji-plugin` 首次发布与无 Git 安装仍需验收。账号与首次发布见 [npm 发布](npm-publishing.md)，未通过前使用已公开的 Release 成品包。
 - `dshmarket` 的[收录 PR #7064](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/7064)尚未合并；不宣称该市场已经可搜索安装。
-- `dsh.market` 公开目录已有条目，其实际安装按钮仍需验收。
 - 补充官方插件卡片可读取的中文标题、图标和简短介绍，并在真实插件管理界面核对显示。
 
 npm 首次发布和无 Git 安装验收通过后，再把普通用户安装首选改成包名。已经验收的 Release `.tgz` 保留为备用入口。
