@@ -2,6 +2,35 @@
 
 本文件记录催更姬长期维护的发布方式。后续维护者和 Agent 以此为入口，再按链接使用现有安装、迁移和发布工具。普通用户看[安装说明](getting-started.md)或把[安装与更新指南](agent-installation.md)交给 Agent。
 
+## 固定发布入口
+
+作者说“发布更新”后，维护 Agent 先汇总这次实际修改，确定递增版本、更新 `package.json` / 锁文件 / `CHANGELOG.md`，构建并提交对应源码和产物，然后执行以下入口。作者不需要自己运行这些命令。
+
+```powershell
+npm run release -- plan
+npm run release -- prepare --desktop-exe "D:\Apps\DeepSeek Harness\DeepSeek Harness.exe"
+npm run release -- publish
+npm run release -- status
+```
+
+其他电脑传实际 DSH exe 路径，或设置 `CUIGENGJI_DESKTOP_EXE`。这些命令不会更新或关闭正式 DSH，不读真实作品；原生安装测试使用临时 profile 和虚构工作库。
+
+| 命令 | 负责什么 |
+| --- | --- |
+| `plan` / `status` | 只读检查当前版本、工作树、GitHub Release、npm 精确版本与占位状态、可信发布开关、市场 PR |
+| `prepare` | 要求已提交的 main；跑测试、类型检查、构建一致性、实际包审计、桌面无 Git 全新安装与升级；上一稳定版和 v0.4.1 旧名称边界都验证 |
+| `publish` | 复用准备好的包；推送提交并等待 CI；建立同提交的版本标签和草稿，核对资产后公开；等待 npm 工作流；下载公开版本并进行原生安装验收，再同步待审核市场条目 |
+| `verify` | 不重新打包，补验收公开 GitHub URL / npm 精确版本和升级，恢复中断后的渠道同步 |
+| `trust` | 首次通过 npm 官方 2FA 流程配置指定仓库 / 工作流的直接可信发布权限，核对后启用工作流；需要账号持有人的真实验证方式 |
+
+每个版本的安装包、SHA-256、验收 JSON、`release-state.json`、更新公告草稿保存在 `releases/v<版本>/`，由 Git 忽略。状态绑定源提交与已测试归档；源、说明或包字节变化时拒绝继续。失败后先看报告中具体步骤，重跑原命令；同版本不重打包、不覆盖公开资产、不强推标签。并发运行会被锁阻止；已退出进程留下的锁可由脚本恢复。
+
+默认完整发布必须已有 npm 可信发布授权。首次授权未完成而作者仍要发布 GitHub 版本时，用 `publish --github-only`，明确记录“GitHub 可用，npm 待完成”；之后用 `verify` 补齐。不得把 `0.0.0-stage` 占位版本、npm 命令返回 0 或只下载成功当作完成。npm 成功须同时核对精确版本、同一份归档、完整性、`latest` / `next` 指向与 DSH 无 Git 原生安装和升级。
+
+市场入口与主发布分开记录：当前工具只更新已授权的收录 PR #7064 中本插件的 `tarball`，保留介绍；PR 已合并或关闭后提示核对公开目录并准备独立条目更新，不自动改其他条目或发送评论。实际市场搜索和点击安装尚未验证时，报告保持“未验证”。
+
+账号首次授权完成后，后续 npm 上传由 GitHub Actions OIDC 处理；不依赖本地 npm 登录 token，也不保存密码或恢复码。首次可信授权必须两天内真实发布一个新版本，才能完成 npm 对仓库的验证。
+
 ## 一套源码，同一份成品包
 
 | 维护项 | 固定职责 |

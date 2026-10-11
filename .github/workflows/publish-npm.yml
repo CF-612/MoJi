@@ -32,10 +32,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.release.tag_name || inputs.tag }}
+      - uses: actions/checkout@v4
+        with:
+          # Keep verification tooling available when retrying an older Release.
+          ref: ${{ github.workflow_sha }}
+          path: .release-tools
+          sparse-checkout: scripts/release-support.mjs
+          sparse-checkout-cone-mode: false
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
+      - name: Use a pinned CLI with trusted-publishing support
+        run: npm install --global npm@11.15.0 --ignore-scripts --registry=https://registry.npmjs.org
       - name: Check the release identity
         run: |
           node --input-type=module <<'NODE'
@@ -107,15 +116,14 @@ jobs:
         run: |
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
-          import {createHash} from 'node:crypto';
-          const response = await fetch(`https://registry.npmjs.org/${process.env.PACKAGE_NAME}/${process.env.PACKAGE_VERSION}`);
-          assert.ok(response.ok, `Registry returned ${response.status}`);
-          const pkg = await response.json();
-          assert.equal(pkg.name, process.env.PACKAGE_NAME);
-          assert.equal(pkg.version, process.env.PACKAGE_VERSION);
-          assert.equal(pkg.repository.url, 'git+https://github.com/mistnest/dsh-cuigengji-plugin.git');
-          const archive = await fetch(pkg.dist.tarball);
-          assert.ok(archive.ok, `Package download returned ${archive.status}`);
-          assert.equal(createHash('sha256').update(Buffer.from(await archive.arrayBuffer())).digest('hex'), process.env.PACKAGE_SHA256);
-          console.log(`Verified public package ${pkg.name}@${pkg.version}`);
+          import {verifyRegistry} from './.release-tools/scripts/release-support.mjs';
+          let result;
+          for (let attempt=0; attempt<8; attempt++) {
+            result = await verifyRegistry({version:process.env.PACKAGE_VERSION, expectedHash:process.env.PACKAGE_SHA256});
+            if (result.published) break;
+            console.log('Exact npm version is not public yet; a placeholder is not a successful publication.');
+            if (attempt<7) await new Promise(done=>setTimeout(done,5000));
+          }
+          assert.equal(result.published,true,'npm version is not publicly installable');
+          console.log(`Verified public package ${process.env.PACKAGE_NAME}@${result.version}, archive and dist-tag`);
           NODE

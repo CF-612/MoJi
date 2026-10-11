@@ -32,6 +32,8 @@ npm view dsh-cuigengji-plugin@0.4.2 version repository.url dist.integrity --regi
 
 ## 后续自动发布
 
+维护者的固定入口为 `npm run release -- trust`：使用 npm 11.15.0 官方 CLI，先读取现有配置，只在缺少匹配权限时添加 `mistnest/dsh-cuigengji-plugin` 的 `publish-npm.yml` 可信发布；不删除其他连接。核对直接发布权限后启用仓库变量。该首次步骤仍需要使用真实安全密钥完成 npm 验证，不能由密码、邮箱验证码或恢复码代替。
+
 首次包已经发布后，在 npm 的 `dsh-cuigengji-plugin` 包设置中添加 GitHub Actions trusted publisher：
 
 - Organization or user：`mistnest`
@@ -54,6 +56,8 @@ npm view dsh-cuigengji-plugin@0.4.2 version repository.url dist.integrity --regi
 2. 下载 GitHub 已发布成品包，核对 SHA-256，并审计归档，保证 npm 与 GitHub 使用同一份包。
 3. 使用 npm trusted publishing 发布。稳定版使用 `latest`，预发布版使用 `next`。
 4. 从 npm 重新下载对应版本，核对包身份与 SHA-256。已有版本只有在归档完全一致时才跳过上传；任何不一致都会失败。
+
+CLI 显示 `+ 包名@版本` 不足以证明可用。发布流程还要核对精确版本、`dist.integrity`、`latest` / `next` 指向和原生安装；公开包只有 `0.0.0-stage` 时视为未完成。若直接上传返回成功但精确版本不存在、`npm stage list` 也为空，保留状态为“公开版本待确认”，不要反复重传同版本或擅自消耗恢复码。
 
 旧 Release 或工作流中断可以在 GitHub Actions 的「Publish npm package」中手动运行，填写已有的 Release 标签。没有 trusted publisher 或权限不符时停止处理，不改用不明来源的凭据。
 
