@@ -1,4 +1,4 @@
-import {ChronologyPanel} from '../structure/ChronologyChart.jsx';
+import {Timeline} from '../structure/Timeline.jsx';
 import {Foreshadows} from '../structure/Foreshadows.jsx';
 import {CardQuickSettings} from '../../shared/CardQuickSettings.tsx';
 import {CardQuickButton,CardLegend} from '../../shared/card-appearance.tsx';
@@ -25,7 +25,7 @@ const scopeNames={long:'长期',phase:'阶段',near:'近期',unspecified:'未指
 const edgeNames={next:'剧情推进',requires:'依赖铺垫',alternative:'备选分支'};
 export function Planning({call,novelId,tick,run,busy,onChapter,onMemory,onTransfer,onEvent,onPlanning}) {
  const {preferences}=useWorkbenchPreferences();
- const [quick,setQuick]=useState(null),[area,setArea]=usePreference(`${novelId}:planning-area`,'narration');
+ const [quick,setQuick]=useState(null),[area,setArea]=usePreference(`${novelId}:planning-area`,'scenes');
  const [ledgerOpen,setLedgerOpen]=useState(area==='foreshadows'),[focusForeshadow,setFocusForeshadow]=useState(null);
  const canvas=useRef(null),batchView=useRef(preferences.planningView);
  const [creating,setCreating]=useState(null),[created,setCreated]=useState(null),[batch,setBatch]=useState(false);
@@ -101,8 +101,8 @@ export function Planning({call,novelId,tick,run,busy,onChapter,onMemory,onTransf
    }
    await refreshWritten();setQuery('');setFilter('');setThread('');setPoll(n=>n+1);
  });
- const navigation=<div className="connected-nav"><button className={area!=='scenes'?'selected':''} onClick={()=>setArea('narration')}>章节叙述图</button><button className={area==='scenes'?'selected':''} onClick={()=>setArea('scenes')}>情节画布</button></div>;
- if(area!=='scenes')return <div className="planning-workspace connected-workspace">{navigation}<div className="connected-scroll"><ChronologyPanel {...{call,novelId,tick,busy,onChapter,onMemory,onEvent,onPlanning}} onForeshadow={id=>{setFocusForeshadow(id);setLedgerOpen(true);}} mode="narration"/><details className="inline-ledger" open={ledgerOpen} onToggle={e=>setLedgerOpen(e.currentTarget.open)}><summary>伏笔记录 · 与上方章节图共用</summary>{ledgerOpen&&<Foreshadows {...{call,novelId,busy,run,onChapter,onMemory}} focusId={focusForeshadow} onFocused={()=>setFocusForeshadow(null)}/>}</details></div></div>;
+ const navigation=<div className="connected-nav"><button className={area!=='scenes'?'selected':''} onClick={()=>setArea('narration')}>时间线规划</button><button className={area==='scenes'?'selected':''} onClick={()=>setArea('scenes')}>情节画布</button></div>;
+ if(area!=='scenes')return <div className="planning-workspace connected-workspace">{navigation}<div className="connected-scroll"><Timeline {...{call,novelId,tick,run,busy,onChapter,onMemory,onPlanning}} onForeshadow={id=>{setFocusForeshadow(id);setLedgerOpen(true);}}/><details className="inline-ledger" open={ledgerOpen} onToggle={e=>setLedgerOpen(e.currentTarget.open)}><summary>伏笔记录 · 与上方章节图共用</summary>{ledgerOpen&&<Foreshadows {...{call,novelId,busy,run,onChapter,onMemory}} focusId={focusForeshadow} onFocused={()=>setFocusForeshadow(null)}/>}</details></div></div>;
  return <div className="planning-workspace">{navigation}
   <header className="module-heading canvas-heading"><div className="module-toolbar">
    <button onClick={()=>{setArea('narration');setLedgerOpen(true);}}>伏笔与章节</button><PlanningPages pages={pages} value={pageId} busy={busy} change={switchPage} create={(name,summary)=>run(async()=>{const page=await call('planning.page.create',{novelId,name,summary,requestId:crypto.randomUUID()});switchPage(page.id);})} update={(page,name,summary)=>run(()=>call('planning.page.update',{novelId,pageId:page.id,expectedRevision:page.revision,name,summary,requestId:crypto.randomUUID()}))} remove={page=>run(async()=>{await call('planning.page.delete',{novelId,pageId:page.id,expectedRevision:page.revision,confirm:true,requestId:crypto.randomUUID()});switchPage('');})}/>

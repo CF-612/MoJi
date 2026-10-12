@@ -1,5 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {writingBoard} from './writing-board.js';
+import {projectStage} from './story-workspace.js';
+import {planningAction} from './planning/index.ts';
 import {readEvolution,changeEvolution,validateEvolution,copyEvolution,sliceEvolution,storyEvents,stageRelations} from './story-evolution.js';
 const fail=(message,code='INVALID_WRITING')=>{throw Object.assign(new Error(message),{code});};
 const obj=v=>v&&typeof v==='object'&&!Array.isArray(v);
@@ -9,7 +11,7 @@ const clone=structuredClone,active=map=>Object.values(map||{}).filter(x=>!x.dele
 const fresh=()=>({version:1,fields:{},cards:{},links:{},foreshadows:{},goal:null});
 const data=n=>n.writing||fresh();
 const kind=node=>node.type==='character_card'?'character':'world';
-const builtin={character:[['gender','性别说明'],['age','年龄说明'],['birth','出生时间'],['death','死亡时间'],['occupation','身份／职业'],['organization','所属组织'],['appearance','外貌'],['personality','性格'],['motivation','目标／动机'],['ability','能力／限制']],world:[['category','类别'],['region','所属区域／组织'],['period','适用时期'],['rules','规则／限制'],['related','关联资料']]};
+const builtin={character:[['gender','性别说明'],['age','年龄段／描述'],['birth','出生日期'],['death','死亡时间'],['occupation','身份／职业'],['organization','所属组织'],['appearance','外貌'],['personality','性格'],['motivation','目标／动机'],['ability','能力／限制']],world:[['category','类别'],['region','所属区域／组织'],['period','适用时期'],['rules','规则／限制'],['related','关联资料']]};
 export function writingFields(n,type){
  const all=data(n).fields,base=builtin[type].map(([key,label])=>({id:`${type}:${key}`,revision:0,kind:type,label,type:key==='related'?'reference':['appearance','personality','motivation','ability','rules'].includes(key)?'long':'short',archived:false,...all[`${type}:${key}`]}));
  return [...base,...Object.values(all).filter(f=>f.kind===type&&!base.some(b=>b.id===f.id))];
@@ -61,6 +63,26 @@ export function writingAction(n,action,a,actor){
  if(n.writing&&n.writing.version!==1)fail('此作品结构版本较新，请更新工作台后再操作','WRITING_VERSION');
  const w=data(n);
  if(action==='writing.board.get')return writingBoard(n,w,stats(n),active(w.foreshadows).map(f=>foreshadowView(n,f,a.chapterId)),a);
+ if(action==='writing.stage.get'){
+  if(a.eventId&&!active(w.events).some(e=>e.id===a.eventId))fail('请选择有效事件');
+  return projectStage(writingBoard(n,w,stats(n),active(w.foreshadows).map(f=>foreshadowView(n,f,a.chapterId))),a.eventId,{complete:!!a.complete,chapterId:a.chapterId});
+ }
+ if(action==='writing.timelinePlan.create'){
+  if(a.confirmed!==true)fail('请确认规划写入','CONFIRM_REQUIRED');
+  const e=get(w.events,a.eventId,'事件');cas(e,a.expectedEventRevision);if(e.deleted)fail('事件已删除');
+  const result=planningAction(n,'planning.apply',{requestId:a.requestId,reason:a.reason||'在时间线上创建规划',operations:[{op:'node.create',ref:'plan',value:a.value}]},actor);
+  const saved=changeEvolution(n,w,'writing.event.update',{id:e.id,expectedRevision:e.revision,confirmed:true,value:{planningRefs:[...e.planningRefs,result.mapping.plan]}},actor,a.reason,save,cas,randomUUID);
+  n.writing=w;return {...result,eventRevision:saved.value.revision,nodeId:result.mapping.plan};
+ }
+ if(action==='writing.timelinePlan.move'){
+  if(a.confirmed!==true)fail('请确认规划安排','CONFIRM_REQUIRED');
+  const plan=get(n.planning?.nodes,a.nodeId,'规划');cas(plan,a.expectedRevision);if(plan.deleted)fail('规划已删除');
+  const target=get(w.events,a.eventId,'目标事件');if(target.deleted)fail('目标事件已删除');
+  const affected=active(w.events).filter(e=>e.id===target.id||e.planningRefs.includes(plan.id));
+  for(const e of affected)cas(e,a.eventRevisions?.[e.id]);
+  for(const e of affected)changeEvolution(n,w,'writing.event.update',{id:e.id,expectedRevision:e.revision,confirmed:true,value:{planningRefs:e.id===target.id?[...new Set([...e.planningRefs,plan.id])]:e.planningRefs.filter(id=>id!==plan.id)}},actor,a.reason||'移动规划的时间位置，保留网格卡片',save,cas,randomUUID);
+  n.writing=w;return {nodeId:plan.id,eventId:target.id};
+ }
  const evolution=readEvolution(n,w,action,a);if(evolution)return evolution.value;
  if(action==='writing.fields.list')return {character:writingFields(n,'character'),world:writingFields(n,'world')};
  if(action==='writing.card.get')return cardView(n,a.nodeId);
