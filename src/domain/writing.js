@@ -107,7 +107,7 @@ export function writingAction(n,action,a,actor){
   if(!['cards','fields','links','foreshadows'].includes(a.collection))fail('恢复类型无效');const old=get(draft[a.collection],a.id,'记录');cas(old,a.expectedRevision);if(a.collection==='cards')cas(get(n.nodes,a.id,'资料'),a.expectedNodeRevision);const version=old.versions?.find(v=>v.revision===a.targetRevision);if(!version)fail('历史版本不存在');result=save(draft[a.collection],old.id,version.value,old,source,reason);
  }else fail('不支持的结构操作','NOT_ALLOWED');
  const checked={...n,writing:draft};validateWriting(checked);
- n.writing=draft;if(action==='writing.card.update'&&a.aliases!==undefined||action==='writing.restore'&&a.collection==='cards'){const node=n.nodes[a.nodeId||a.id];node.aliases=clone(action==='writing.restore'?result.aliases||[]:a.aliases);node.revision++;node.updatedAt=new Date().toISOString();}
+ n.writing=draft;if(action==='writing.card.update'&&a.aliases!==undefined||action==='writing.restore'&&a.collection==='cards'){const node=n.nodes[a.nodeId||a.id],aliases=action==='writing.restore'?result.aliases||[]:a.aliases;if(JSON.stringify(node.aliases||[])!==JSON.stringify(aliases)){node.aliases=clone(aliases);node.revision++;node.updatedAt=new Date().toISOString();}}
  n.revision++;n.updatedAt=new Date().toISOString();return clone(result);
 }
 export function validateWriting(n){

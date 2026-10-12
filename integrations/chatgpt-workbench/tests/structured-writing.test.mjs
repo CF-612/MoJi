@@ -18,6 +18,9 @@ test('字段改名、归档、恢复与完整备份；未知结构版本停止�
  const currentNode=await call('graph.get',{nodeId:node.id});const second=await call('writing.card.update',{nodeId:node.id,expectedRevision:profile.revision,expectedNodeRevision:currentNode.revision,aliases:['林小姐'],values:{[field.id]:'改写的秘密'}});
  await call('writing.restore',{collection:'cards',id:node.id,expectedRevision:second.revision,expectedNodeRevision:(await call('graph.get',{nodeId:node.id})).revision,targetRevision:profile.revision});
  assert.deepEqual((await call('graph.get',{nodeId:node.id})).aliases,['小林']);assert.equal((await call('writing.card.get',{nodeId:node.id})).values[field.id],profile.values[field.id]);
+ const proseDraft=await call('graph.get',{nodeId:node.id}),fieldsDraft=await call('writing.card.get',{nodeId:node.id});
+ await call('writing.card.update',{nodeId:node.id,expectedRevision:fieldsDraft.revision,expectedNodeRevision:proseDraft.revision,aliases:['小林'],values:{'character:gender':'作者自定义描述'}});
+ assert.equal((await call('graph.get',{nodeId:node.id})).revision,proseDraft.revision);await call('graph.update',{nodeId:node.id,expectedRevision:proseDraft.revision,content:'正文草稿可以继续保存'});
  await assert.rejects(call('writing.field.create',{id:'__proto__',kind:'character',label:'恶意',type:'short'}),{code:'INVALID_WRITING'});
  const backup=await call('workspace.export'),other=await setup();await other.s.rpc('workspace.import',{backup},'restore','human');
  assert.equal((await other.s.rpc('writing.card.get',{novelId,nodeId:node.id},'restore','human')).values[field.id],profile.values[field.id]);
