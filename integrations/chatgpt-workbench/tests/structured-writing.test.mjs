@@ -1,0 +1,54 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,mkdir} from 'node:fs/promises';
+import {join,resolve} from 'node:path';
+import {createService} from '../server/service.mjs';
+import {directorySnapshot} from '../../../src/domain/chapters/order.ts';
+async function setup(){const path=resolve(import.meta.dirname,'../.data/tests');await mkdir(path,{recursive:true});const s=await createService(await mkdtemp(join(path,'structure-'))),novelId=s.novelId;return {s,novelId,call:(action,args={})=>s.rpc(action,{novelId,...args},'structured-test','human')};}
+test('字段改名、归档、恢复与完整备份；未知结构版本停止读取写入',async()=>{
+ const {s,novelId,call}=await setup(),node=await call('graph.create',{name:'林照',type:'character_card',content:'自由详述保留'});
+ const field=await call('writing.field.create',{kind:'character',label:'秘密',type:'long'});
+ await call('writing.card.update',{nodeId:node.id,expectedRevision:0,expectedNodeRevision:node.revision,aliases:['小林'],values:{[field.id]:'一封未寄出的信','character:age':'看起来二十岁'}});
+ const renamed=await call('writing.field.update',{id:field.id,kind:'character',expectedRevision:field.revision,label:'隐藏秘密'});
+ const archived=await call('writing.field.update',{id:field.id,kind:'character',expectedRevision:renamed.revision,archived:true});
+ let profile=await call('writing.card.get',{nodeId:node.id});assert.equal(profile.values[field.id],'一封未寄出的信');assert.equal(profile.fields.find(f=>f.id===field.id).archived,true);
+ await call('writing.field.update',{id:field.id,kind:'character',expectedRevision:archived.revision,archived:false});
+ profile=await call('writing.card.get',{nodeId:node.id});assert.equal(profile.fields.find(f=>f.id===field.id).label,'隐藏秘密');assert.equal((await call('graph.get',{nodeId:node.id})).content,'自由详述保留');assert.deepEqual((await call('graph.get',{nodeId:node.id})).aliases,['小林']);
+ await assert.rejects(call('writing.card.update',{nodeId:node.id,expectedRevision:0,values:{}}),{code:'CONFLICT'});
+ const currentNode=await call('graph.get',{nodeId:node.id});const second=await call('writing.card.update',{nodeId:node.id,expectedRevision:profile.revision,expectedNodeRevision:currentNode.revision,aliases:['林小姐'],values:{[field.id]:'改写的秘密'}});
+ await call('writing.restore',{collection:'cards',id:node.id,expectedRevision:second.revision,expectedNodeRevision:(await call('graph.get',{nodeId:node.id})).revision,targetRevision:profile.revision});
+ assert.deepEqual((await call('graph.get',{nodeId:node.id})).aliases,['小林']);assert.equal((await call('writing.card.get',{nodeId:node.id})).values[field.id],profile.values[field.id]);
+ await assert.rejects(call('writing.field.create',{id:'__proto__',kind:'character',label:'恶意',type:'short'}),{code:'INVALID_WRITING'});
+ const backup=await call('workspace.export'),other=await setup();await other.s.rpc('workspace.import',{backup},'restore','human');
+ assert.equal((await other.s.rpc('writing.card.get',{novelId,nodeId:node.id},'restore','human')).values[field.id],profile.values[field.id]);
+ const partial=await call('transfer.export',{selection:{kind:'memory',novelId,nodeIds:[node.id]},format:'package'});const selected=JSON.parse(partial.content).payload.projects[0];assert.equal(selected.writing.cards[node.id].values[field.id],profile.values[field.id]);assert.equal(Object.keys(selected.chapters).length,0);
+ const work=await call('novel.export');work.novel.writing.version=99;assert.throws(()=>s.store.validateProject(work.novel),{code:'INVALID_BACKUP'});
+});
+test('出场由作者确认，依据是已保存正文；调序、改写、删除恢复后汇总与复核正确',async()=>{
+ const {s,call}=await setup(),node=await call('graph.create',{name:'林照',type:'character_card',aliases:['小林']});
+ const a=await call('chapter.update',{chapterId:s.chapterId,expectedRevision:1,content:'林照听见雨声。小林推开门。'}),b=await call('chapter.create',{title:'第二章',content:'林照到了邮局。'});
+ const candidates=await call('writing.link.candidates',{chapterId:a.id});assert.equal(candidates.candidateOnly,true);assert.equal((await call('writing.card.get',{nodeId:node.id})).firstAppearance,null);
+ await assert.rejects(call('writing.link.create',{nodeId:node.id,chapterId:a.id,expectedChapterRevision:a.revision,kind:'appearance',evidence:'林照听见雨声。'}),{code:'CONFIRM_REQUIRED'});
+ await assert.rejects(call('writing.link.create',{nodeId:node.id,chapterId:a.id,expectedChapterRevision:a.revision,kind:'appearance',evidence:'尚未保存的句子',confirmed:true}),{code:'INVALID_WRITING'});
+ const ref=await call('writing.link.create',{nodeId:node.id,chapterId:a.id,expectedChapterRevision:a.revision,kind:'mention',evidence:'林照听见雨声。',confirmed:true});
+ await call('writing.link.create',{nodeId:node.id,chapterId:b.id,expectedChapterRevision:b.revision,kind:'appearance',evidence:'林照到了邮局。',confirmed:true});
+ assert.equal((await call('writing.card.get',{nodeId:node.id})).firstMention.chapterId,a.id);assert.equal((await call('writing.card.get',{nodeId:node.id})).firstAppearance.chapterId,b.id);
+ await call('writing.link.create',{nodeId:node.id,chapterId:a.id,expectedChapterRevision:a.revision,kind:'appearance',evidence:'小林推开门。',confirmed:true});assert.equal((await call('writing.card.get',{nodeId:node.id})).firstAppearance.chapterId,a.id);
+ await call('chapter.move',{chapterId:b.id,volumeId:null,beforeChapterId:a.id,requestId:crypto.randomUUID(),expectedDirectory:directorySnapshot(await call('chapter.list'),await call('volume.list'))});assert.equal((await call('writing.card.get',{nodeId:node.id})).firstAppearance.chapterId,b.id);
+ const changed=await call('chapter.update',{chapterId:a.id,expectedRevision:(await call('chapter.get',{chapterId:a.id})).revision,content:'林照听见铃声。'});assert.equal((await call('writing.link.list',{chapterId:a.id}))[0].review,true);
+ const removed=await call('chapter.delete',{chapterId:a.id,expectedRevision:changed.revision,confirm:true});assert.equal((await call('writing.card.get',{nodeId:node.id})).firstMention,null);
+ await call('chapter.restore',{chapterId:a.id,expectedRevision:removed.revision,targetRevision:a.revision});assert.equal((await call('writing.card.get',{nodeId:node.id})).firstMention.id,ref.id);
+});
+test('伏笔回收必须有依据；提醒、历史恢复、字数与上下文容量；复制作品引用重新映射',async()=>{
+ const {s,call}=await setup(),node=await call('graph.create',{name:'钥匙',type:'world_entry'}),chapter=await call('chapter.update',{chapterId:s.chapterId,expectedRevision:1,content:'　钥匙落在门边。\n\n“原来如此！”'});
+ const value={title:'钥匙',status:'planted',content:'门边的秘密',memoryRefs:[node.id],targetChapterId:chapter.id,evidence:[{kind:'plant',chapterId:chapter.id,revision:chapter.revision,evidence:'钥匙落在门边。'}],abandonReason:''};
+ const f=await call('writing.foreshadow.create',{value,confirmed:true});assert.equal((await call('writing.foreshadow.list'))[0].due,true);
+ await assert.rejects(call('writing.foreshadow.update',{id:f.id,expectedRevision:f.revision,value:{...value,status:'recovered'},confirmed:true}),{code:'INVALID_WRITING'});
+ const recovered=await call('writing.foreshadow.update',{id:f.id,expectedRevision:f.revision,value:{...value,status:'recovered',evidence:[...value.evidence,{kind:'recover',chapterId:chapter.id,revision:chapter.revision,evidence:'“原来如此！”'}]},confirmed:true});assert.equal((await call('writing.foreshadow.list'))[0].due,false);
+ await call('writing.restore',{collection:'foreshadows',id:f.id,expectedRevision:recovered.revision,targetRevision:f.revision});assert.equal((await call('writing.foreshadow.list'))[0].status,'planted');
+ const stats=await call('writing.stats.get');assert.equal(stats.words,Array.from('　钥匙落在门边。\n\n“原来如此！”'.replace(/\s/gu,'')).length);assert.equal(stats.chapters,1);
+ const context=await call('writing_context.get',{chapterId:chapter.id,nodeIds:[node.id],maxChars:2000});assert.ok(JSON.stringify(context).length<=2000);assert.equal(context.cards[0].name,'钥匙');
+ const backup=await call('novel.export'),file={name:'结构作品.json',json:backup},options={mode:'copy',title:'结构副本'};
+ const preview=await call('transfer.preview',{file,options});assert.equal(preview.valid,true,preview.conflicts.join(','));const imported=await call('transfer.import',{file,options,proof:preview.proof,requestId:crypto.randomUUID()});
+ const copy=await s.rpc('novel.export',{novelId:imported.novelIds[0]},'copy','human'),cf=Object.values(copy.novel.writing.foreshadows)[0];assert.notEqual(cf.memoryRefs[0],node.id);assert.ok(copy.novel.nodes[cf.memoryRefs[0]]);assert.ok(copy.novel.chapters[cf.evidence[0].chapterId]);
+});

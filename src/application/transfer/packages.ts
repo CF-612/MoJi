@@ -1,4 +1,5 @@
 import {ensurePlanning} from '../../domain/planning/model.ts';
+import {sliceWriting} from '../../domain/writing.js';
 import {previewTavern} from '../../infrastructure/migrations/tavern.js';
 import type {Novel, Selection, PackagePayload, DataPackage, MemoryNode, MemoryEdge} from '../../contracts/transfer.ts';
 import {active, copy, fail, hash, checkSelection, own} from './model.ts';
@@ -105,6 +106,7 @@ export function selectProjects(source: Novel[], selection: Selection): Slice {
   }
   if (selection.kind === 'preset') result.preset = copy(n.preset!);
   if (detached) warnings.push(`未携带的 ${detached} 项正文或设定引用会移除；相关设定需重新确认。`);
+  if(result.writing){const {omitted}=sliceWriting(n,result);if(omitted)warnings.push(`局部导出保留所选资料字段；未携带完整端点的 ${omitted} 项结构引用或伏笔不会复制。完整工作库备份保留全部。`);}
   return {projects: [result], warnings, dependencies};
 }
 

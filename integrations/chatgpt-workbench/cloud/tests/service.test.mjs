@@ -29,6 +29,17 @@ test('真实本地 D1：双端保存、冲突、人物、规划、预设、历�
     const person=await rpc('graph.create',{name:'演示人物',type:'character_card',content:'珍惜朋友。'});
     await rpc('graph.update',{nodeId:person.id,expectedRevision:person.revision,content:'害怕失去朋友。'},'agent');
     assert.equal((await rpc('graph.get',{nodeId:person.id})).content,'害怕失去朋友。');
+    const field=await rpc('writing.field.create',{kind:'character',label:'作者备注',type:'long'});
+    const currentPerson=await rpc('graph.get',{nodeId:person.id});
+    await rpc('writing.card.update',{nodeId:person.id,expectedRevision:0,expectedNodeRevision:currentPerson.revision,aliases:['小林'],values:{[field.id]:'手机与电脑共用的可选字段'}});
+    assert.equal((await rpc('writing.card.get',{nodeId:person.id})).values[field.id],'手机与电脑共用的可选字段');
+    const writingChapter=await rpc('chapter.get',{chapterId});
+    await rpc('writing.link.create',{nodeId:person.id,chapterId,expectedChapterRevision:writingChapter.revision,kind:'appearance',evidence:'手机保存。',confirmed:true});
+    assert.equal((await rpc('writing.card.get',{nodeId:person.id})).firstAppearance.chapterId,chapterId);
+    const foreshadow=await rpc('writing.foreshadow.create',{confirmed:true,value:{title:'手机来信',status:'planted',memoryRefs:[person.id],targetChapterId:chapterId,evidence:[{kind:'plant',chapterId,revision:writingChapter.revision,evidence:'手机保存。'}]}});
+    assert.equal((await rpc('writing.foreshadow.list'))[0].due,true);
+    await assert.rejects(rpc('writing.foreshadow.update',{id:foreshadow.id,expectedRevision:foreshadow.revision,value:{status:'recovered'},confirmed:true}),{code:'INVALID_WRITING'});
+    assert.equal((await rpc('writing_context.get',{chapterId})).cards[0].id,person.id);
     const page=await rpc('planning.page.create',{name:'手机规划',requestId:crypto.randomUUID()});
     const tx=await rpc('planning.apply',{requestId:crypto.randomUUID(),operations:[{op:'node.create',ref:'a',value:{title:'收到来信',pageId:page.id}}]},'agent');
     assert.equal((await rpc('planning.get',{nodeId:tx.mapping.a})).node.title,'收到来信');

@@ -1,4 +1,5 @@
 import type {Board} from './planning.ts';
+import type {WritingState} from './writing.ts';
 import type {Group} from '../domain/memory/groups.ts';
 
 export type ContentKind = 'works' | 'chapters' | 'memory' | 'planning' | 'preset';
@@ -20,6 +21,7 @@ export interface MemoryEdge extends MemoryFields {from: string; to: string}
 export interface PresetBlock {identifier: string; name: string; content: string; enabled: boolean; [key: string]: unknown}
 export interface PresetData {id?: string; revision?: number; name: string; enabled: boolean; blocks: PresetBlock[]; raw?: unknown; importFormat?: string; warnings?: string[]; [key: string]: unknown}
 export interface Novel extends Entity {
+  writing?: WritingState;
   title: string; description: string; archived: boolean; volumes: Record<string, Volume>; chapters: Record<string, Chapter>;
   nodes: Record<string, MemoryNode>; edges: Record<string, MemoryEdge>; memoryGroups?: Record<string, Group>;
   planning?: Board; plan?: Board['legacy'] | null; preset?: PresetData;

@@ -331,7 +331,7 @@ export class ProjectStore extends AtomicStore<Workspace> {
     const id = action === 'novel.import' ? args.backup?.novel?.id : args.novelId || binding?.novelId;
     if (!id || !own(state.novels, id)) return state;
     const book = await this.book(state, view, id), novel = state.novels[id];
-    if (action === 'novel.import' || action === 'novel.export') return this.fullBook(state, view, book);
+    if (action === 'novel.import' || action === 'novel.export' || action.startsWith('writing.') || action === 'writing_context.get') return this.fullBook(state, view, book);
     const preset = action.startsWith('preset.');
     const directory = !preset && !['novel.update', 'novel.archive', 'volume.list', 'volume.create', 'volume.update'].includes(action);
     if (directory) await this.chapterIndex(novel, book, view);

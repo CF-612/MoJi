@@ -1,4 +1,5 @@
 import { memoryGroupAction, groupId, validateMemoryGroups } from '../domain/memory/groups.ts';
+import {writingAction,validateWriting} from '../domain/writing.js';
 import { ensurePlanning, planningAction, validatePlanning } from '../domain/planning/index.ts';
 import { selectReference } from './queries/context.js';
 import { createHandoff } from './queries/handoff.js';
@@ -174,6 +175,7 @@ export class Store extends ProjectStore {
     if (!novelId) fail('NOVEL_REQUIRED', '请先绑定小说或提供 novelId');
     if (actor.kind !== 'human' && binding && binding.novelId !== novelId) fail('NOVEL_MISMATCH', '当前会话已绑定另一本小说');
     const n = get(state.novels, novelId, '小说');
+    if(action.startsWith('writing.')||action==='writing_context.get')return writingAction(n,action,a,actor);
     if (action === 'tavern.preview' || action === 'tavern.import') {
       if (actor.kind !== 'human') fail('HUMAN_REQUIRED', '酒馆文件导入需要作者操作');
       const preview = previewTavern(a);
@@ -203,7 +205,7 @@ export class Store extends ProjectStore {
     }
     if (action.startsWith('planning.')) { const previous=n.planning?.sequence; const result=planningAction(n,action,a,actor); if(previous!==n.planning.sequence)touch(n); return result; }
     if (action.startsWith('plan.')) fail('MIGRATED_ACTION', '旧规划接口已迁移，请使用 cuigengji_plan 的 planning.list/get/apply');
-    if (action === 'novel.get') return { ...n, tavernSources: undefined, planning: undefined, plan: undefined, volumes: Object.values(n.volumes), chapters: Object.values(n.chapters).map(meta), nodes: Object.values(n.nodes).map(({ content, ...v }) => v), edges: Object.values(n.edges).map(({ content, ...v }) => v) };
+    if (action === 'novel.get') return { ...n, writing: undefined, tavernSources: undefined, planning: undefined, plan: undefined, volumes: Object.values(n.volumes), chapters: Object.values(n.chapters).map(meta), nodes: Object.values(n.nodes).map(({ content, ...v }) => v), edges: Object.values(n.edges).map(({ content, ...v }) => v) };
     if (action === 'novel.handoff') return createHandoff(n, binding, a);
     if (action === 'novel.export') { ensurePlanning(n); return { format: 'cuigengji', schemaVersion: 2, exportedAt: now(), novel: clone(n) }; }
     if (action === 'novel.update' || action === 'novel.archive') {
@@ -480,6 +482,7 @@ export class Store extends ProjectStore {
     validateMemoryGroups(n);
     if (n.planning) validatePlanning(n.planning,n);
     if (n.preset) { validatePreset(n.preset); if (!Number.isSafeInteger(n.preset.revision) || n.preset.revision < 1) fail('INVALID_BACKUP','预设版本无效'); }
+    validateWriting(n);
     if (own(state.novels, n.id)) {
       if (isDeepStrictEqual(state.novels[n.id], n)) return { id: n.id, imported: false, reason: 'identical' };
       fail('IMPORT_CONFLICT', '同 ID 小说已存在且内容不同；不会覆盖现有小说');

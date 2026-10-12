@@ -1,4 +1,5 @@
 import {randomUUID} from 'node:crypto';
+import {copyWriting} from '../../domain/writing.js';
 import {ensurePlanning} from '../../domain/planning/model.ts';
 import {validatePreset} from '../../domain/preset/index.js';
 import type {Collection, PlanningEntity, Change} from '../../contracts/planning.ts';
@@ -75,6 +76,7 @@ export function copyInto(source: Novel, target: Novel, options: ImportOptions): 
     draft.sequence++;
     draft.transactions.push({id: randomUUID(), sequence: draft.sequence, ...stamp, reason: `导入“${source.title}”的规划`, changes});
   }
+  copyWriting(n,target,{nodes:nodeIds,chapters:chapterIds});
   target.revision++; target.updatedAt = time;
 }
 function mergePreset(target: Novel, preset: PresetData, policy: 'append' | 'replace') {
