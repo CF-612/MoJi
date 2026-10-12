@@ -45,7 +45,8 @@ test('出场由作者确认，依据是已保存正文；调序、改写、删�
 test('伏笔回收必须有依据；提醒、历史恢复、字数与上下文容量；复制作品引用重新映射',async()=>{
  const {s,call}=await setup(),node=await call('graph.create',{name:'钥匙',type:'world_entry'}),chapter=await call('chapter.update',{chapterId:s.chapterId,expectedRevision:1,content:'　钥匙落在门边。\n\n“原来如此！”'});
  const value={title:'钥匙',status:'planted',content:'门边的秘密',memoryRefs:[node.id],targetChapterId:chapter.id,evidence:[{kind:'plant',chapterId:chapter.id,revision:chapter.revision,evidence:'钥匙落在门边。'}],abandonReason:''};
- const f=await call('writing.foreshadow.create',{value,confirmed:true});assert.equal((await call('writing.foreshadow.list'))[0].due,true);
+ const createRequest={value,confirmed:true,requestId:'structure-foreshadow-intent'};
+ const f=await call('writing.foreshadow.create',createRequest);assert.equal((await call('writing.foreshadow.create',createRequest)).id,f.id);assert.equal((await call('writing.foreshadow.list')).length,1);assert.equal((await call('writing.foreshadow.list'))[0].due,true);
  await assert.rejects(call('writing.foreshadow.update',{id:f.id,expectedRevision:f.revision,value:{...value,status:'recovered'},confirmed:true}),{code:'INVALID_WRITING'});
  const recovered=await call('writing.foreshadow.update',{id:f.id,expectedRevision:f.revision,value:{...value,status:'recovered',evidence:[...value.evidence,{kind:'recover',chapterId:chapter.id,revision:chapter.revision,evidence:'“原来如此！”'}]},confirmed:true});assert.equal((await call('writing.foreshadow.list'))[0].due,false);
  await call('writing.restore',{collection:'foreshadows',id:f.id,expectedRevision:recovered.revision,targetRevision:f.revision});assert.equal((await call('writing.foreshadow.list'))[0].status,'planted');
