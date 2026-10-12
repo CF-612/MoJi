@@ -1,3 +1,4 @@
+import {Foreshadows} from '../structure/Foreshadows.jsx';
 import {CardQuickSettings} from '../../shared/CardQuickSettings.tsx';
 import {CardQuickButton,CardLegend} from '../../shared/card-appearance.tsx';
 import {ReferenceButton} from '../../shared/collaboration.tsx';
@@ -23,7 +24,7 @@ const scopeNames={long:'长期',phase:'阶段',near:'近期',unspecified:'未指
 const edgeNames={next:'剧情推进',requires:'依赖铺垫',alternative:'备选分支'};
 export function Planning({call,novelId,tick,run,busy,onChapter,onMemory,onTransfer}) {
  const {preferences}=useWorkbenchPreferences();
- const [quick,setQuick]=useState(null);
+ const [quick,setQuick]=useState(null),[area,setArea]=useState('scenes');
  const canvas=useRef(null),batchView=useRef(preferences.planningView);
  const [creating,setCreating]=useState(null),[created,setCreated]=useState(null),[batch,setBatch]=useState(false);
  const [parent,setParent]=usePreference(`${novelId}:planning-parent`,null),[selected,setSelected]=usePreference(`${novelId}:planning-selected`,null),[viewChoice,setView]=useState(preferences.planningView),[query,setQuery]=useState(''),[filter,setFilter]=useState(''),[thread,setThread]=useState(''),[group,setGroup]=useState(''),[checked,setChecked]=useState([]),[poll,setPoll]=useState(0),[historyOpen,setHistoryOpen]=useState(false),[changes,setChanges]=useState(null);
@@ -98,9 +99,10 @@ export function Planning({call,novelId,tick,run,busy,onChapter,onMemory,onTransf
    }
    await refreshWritten();setQuery('');setFilter('');setThread('');setPoll(n=>n+1);
  });
+ if(area==='foreshadows')return <div className="planning-workspace"><button className="quiet-button" onClick={()=>setArea('scenes')}>‹ 返回情节规划</button><Foreshadows {...{call,novelId,busy,run,onChapter,onMemory}}/></div>;
  return <div className="planning-workspace">
   <header className="module-heading canvas-heading"><div className="module-toolbar">
-   <PlanningPages pages={pages} value={pageId} busy={busy} change={switchPage} create={(name,summary)=>run(async()=>{const page=await call('planning.page.create',{novelId,name,summary,requestId:crypto.randomUUID()});switchPage(page.id);})} update={(page,name,summary)=>run(()=>call('planning.page.update',{novelId,pageId:page.id,expectedRevision:page.revision,name,summary,requestId:crypto.randomUUID()}))} remove={page=>run(async()=>{await call('planning.page.delete',{novelId,pageId:page.id,expectedRevision:page.revision,confirm:true,requestId:crypto.randomUUID()});switchPage('');})}/>
+   <button onClick={()=>setArea('foreshadows')}>伏笔台账</button><PlanningPages pages={pages} value={pageId} busy={busy} change={switchPage} create={(name,summary)=>run(async()=>{const page=await call('planning.page.create',{novelId,name,summary,requestId:crypto.randomUUID()});switchPage(page.id);})} update={(page,name,summary)=>run(()=>call('planning.page.update',{novelId,pageId:page.id,expectedRevision:page.revision,name,summary,requestId:crypto.randomUUID()}))} remove={page=>run(async()=>{await call('planning.page.delete',{novelId,pageId:page.id,expectedRevision:page.revision,confirm:true,requestId:crypto.randomUUID()});switchPage('');})}/>
    <Groups {...{groups,busy,call,run,novelId}} prefix="planning" value={group} onChange={value=>{setGroup(value);setChecked([]);}}/>
    <span className="toolbar-spacer"/><SearchControl label="搜索规划" value={query} change={setQuery}/>
    <details className={`menu filter-menu ${filter||thread?'is-active':''}`}><summary aria-label="筛选规划"><Icon name="filter"/>筛选{(filter||thread)&&<small>{Number(Boolean(filter))+Number(Boolean(thread))}</small>}</summary><div className="menu-panel"><label>进展<select aria-label="规划状态" value={filter} onChange={e=>setFilter(e.target.value)}><option value="">全部状态</option>{Object.entries(statusNames).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label><label>故事线<select aria-label="故事线" value={thread} onChange={e=>setThread(e.target.value)}><option value="">全部故事线</option>{[...new Set(nodes.flatMap(n=>n.threads))].sort().map(t=><option key={t} value={t}>{t}</option>)}</select></label><button disabled={!filter&&!thread} onClick={()=>{setFilter('');setThread('');}}>清除筛选</button></div></details>

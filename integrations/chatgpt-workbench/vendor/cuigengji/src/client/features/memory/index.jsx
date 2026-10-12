@@ -1,3 +1,4 @@
+import {StructuredCard} from '../../shared/StructuredCard.jsx';
 import {CardQuickSettings} from '../../shared/CardQuickSettings.tsx';
 import {CardQuickButton,CardLegend} from '../../shared/card-appearance.tsx';
 import {ReferenceButton} from '../../shared/collaboration.tsx';
@@ -15,7 +16,7 @@ import {useDraft,useResource,usePreference} from '../../shared/state.js';
 import {ResourceState,SaveBar,saveShortcut} from '../../shared/ui.jsx';
 
 const kind=n=>n.type==='character_card'?'角色卡':'世界书';
-export function Memory({call,novelId,tick,run,busy,onTransfer}) {
+export function Memory({call,novelId,tick,run,busy,onTransfer,onChapter}) {
  const {preferences}=useWorkbenchPreferences();
  const [quick,setQuick]=useState(null);
  const {confirm}=useDialog();
@@ -60,12 +61,12 @@ export function Memory({call,novelId,tick,run,busy,onTransfer}) {
  {batch?<BatchList items={batchItems} selected={checked} change={setChecked} busy={busy||resource.loading}/>:view==='canvas'?<RelationCanvas key={novelId} scopeKey={`${novelId}:settings`} nodes={visible} allNodes={allNodes} edges={edges} groups={groups} busy={busy} onReady={center=>{canvas.current=center;}} onNew={(position,connection,type)=>create(type||allNodes.find(n=>n.id===connection?.id)?.type||'character_card',position,connection)} onQuick={setQuick} onSelect={open} onConnect={connectDirect} onLayout={saveLayout} onEdit={setEdge} onDelete={disconnect} onRemove={removeNodes} onDuplicate={duplicateNodes} onMove={moveNodes}/>:!visible.length?<div className="empty">{query||filter||group?'没有匹配的设定，试试调整筛选。':'添加第一张角色卡或世界书。'}</div>:<div className="library-list">{visible.map(n=><div className="selectable-entry" key={n.id}><CardQuickButton title={n.name} open={()=>setQuick(n.id)} disabled={busy}/><button className={`library-entry kind-${n.type==='character_card'?'character':'world'} ${trail.lastOpened===n.id?'selected':''}`} aria-current={trail.lastOpened===n.id?'true':undefined} onClick={()=>open(n.id)}><span className="entry-heading"><strong>{n.name}</strong><small>{kind(n)}</small></span>{n.summary&&<p>{n.summary}</p>}{n.groupId&&<small>{groups.find(g=>g.id===n.groupId)?.name}</small>}</button></div>)}</div>}</ResourceState></div></div></OverviewPage>
  {quick&&<CardQuickSettings kind="memory" id={quick} {...{call,novelId,groups,run,busy}} close={()=>setQuick(null)} updated={()=>{setPoll(n=>n+1);}} openDetail={()=>open(quick)}/>}
  {error&&<p className="notice error" role="alert">{error}</p>}
- {node&&<DetailPage key={node.id} className="memory-detail" backLabel={trail.previous?'‹ 返回上一条':'‹ 返回设定'} onBack={close}><NodeEditor key={node.id||node.type} {...{call,novelId,run,busy,saved,groups,onTransfer}} initial={node} latest={allNodes.find(n=>n.id===node.id)}/>
+ {node&&<DetailPage key={node.id} className="memory-detail" backLabel={trail.previous?'‹ 返回上一条':'‹ 返回设定'} onBack={close}><NodeEditor key={node.id||node.type} {...{call,novelId,tick,run,busy,saved,groups,onTransfer,onChapter}} initial={node} latest={allNodes.find(n=>n.id===node.id)}/>
  {node.id&&<section className="section-fold"><div className="row"><h3 className="grow">相关设定</h3><button disabled={busy||allNodes.length<2} onClick={()=>connect(node.id,allNodes.find(n=>n.id!==node.id)?.id)}>添加关系</button></div>{related.map(e=><div key={e.id} className="related-entry"><button onClick={()=>open(e.from===node.id?e.to:e.from)}>{allNodes.find(n=>n.id===(e.from===node.id?e.to:e.from))?.name||'设定'}</button>{e.name&&<small>{e.name}</small>}{e.content&&<p>{e.content}</p>}<button aria-label={`修改关系 ${e.name||'连线'}`} onClick={()=>setEdge(e)}>···</button></div>)}</section>}
  </DetailPage>}{edge&&<Modal title={edge.id?'编辑关系':'添加关系'} close={()=>setEdge(null)}><EdgeEditor key={edge.id||`new:${edge.from}:${edge.to}`} {...{call,novelId,run,busy}} nodes={allNodes} initial={edge} saved={()=>setEdge(null)}/></Modal>}</div>;
 }
 
-function NodeEditor({call,novelId,run,busy,initial,latest,saved,groups,onTransfer}) {
+function NodeEditor({call,novelId,tick,run,busy,initial,latest,saved,groups,onTransfer,onChapter}) {
  const {value,base,change,accept,dirty,cacheError}=useDraft(`${novelId}:node:${initial.id||initial.type+':new'}`,initial);
   const fresh=useResource(()=>initial.id?call('graph.get',{novelId,nodeId:initial.id}):Promise.resolve(null),[call,novelId,initial.id,latest?.revision]);
   useEffect(()=>{if(!busy&&!dirty&&fresh.value?.revision>base.revision){accept(fresh.value);saved(fresh.value);}},[fresh.value,busy,dirty,base.revision]);
@@ -75,6 +76,7 @@ function NodeEditor({call,novelId,run,busy,initial,latest,saved,groups,onTransfe
  return <div onKeyDown={e=>saveShortcut(e,save)}><h2>{value.name||`新${kind(value)}`}</h2><DetailActions><ReferenceButton reference={{kind:'memory',novelId,id:value.id,title:value.name,revision:base.revision,dirty}}/><button onClick={()=>setEditing(!editing)}>{editing?'阅读':'编辑'}</button></DetailActions>{fresh.error&&<p className="notice error" role="alert">{fresh.error}</p>}{latest&&latest.revision!==base.revision&&<p className="notice">设定已有新版本，本地草稿仍保留。保存会检查冲突。</p>}
  {editing?<fieldset disabled={busy} className="editor-fields document-fields"><label>类型<select value={value.type==='character_card'?'character_card':'world_entry'} onChange={e=>set('type',e.target.value)}><option value="character_card">角色卡</option><option value="world_entry">世界书</option></select></label><div className="creation-settings"><GroupSelect groups={groups} value={value.groupId} onChange={id=>set('groupId',id)}/><button type="button" disabled={busy} onClick={async()=>{const name=await ask('新建分组名称');if(name?.trim())run(async()=>{const g=await call('graph.group.create',{novelId,name});set('groupId',g.id);});}}>＋ 新建分组</button></div><label>名称<input value={value.name} onChange={e=>set('name',e.target.value)}/></label><label>摘要<DocumentTextarea aria-label="摘要" value={value.summary||''} onChange={e=>set('summary',e.target.value)}/></label><label>全文<DocumentTextarea aria-label="全文" className="prose" value={value.content||''} onChange={e=>set('content',e.target.value)}/></label></fieldset>:<><p className="document-summary">{value.summary||'暂无摘要'}</p><article className="document-body">{value.content||'暂无内容'}</article></>}
  {(editing||dirty)&&<SaveBar dirty={dirty||!value.id} {...{busy}} error={cacheError} invalid={!value.name.trim()?'请填写名称':null} onSave={save} label="保存设定"/>}
+ {value.id&&<StructuredCard {...{call,novelId,tick,busy,run,onChapter}} nodeId={value.id}/>}
  {value.id&&<details className="section-fold"><summary>更多操作</summary><button disabled={busy||dirty} title={dirty?'先保存设定后导出':undefined} onClick={()=>onTransfer({mode:'export',selection:{kind:'memory',novelId,nodeIds:[value.id]}})}>导出这条设定</button><button disabled={busy} onClick={async()=>{if(!dirty||await confirm('放弃本地草稿并读取最新设定？'))run(async()=>{const n=await call('graph.get',{novelId,nodeId:value.id});accept(n);saved(n);});}}>读取最新</button><button className="danger" disabled={busy} onClick={async()=>{if(await confirm(`删除“${value.name}”及其关系？`))run(async()=>{await call('graph.delete',{novelId,nodeId:value.id,expectedRevision:base.revision,confirm:true});accept(initial);saved(null);});}}>删除设定</button></details>}
  </div>;
 }
