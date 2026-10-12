@@ -6,6 +6,8 @@
 
 图表联动、默认资料字段与切页改进见 [图表工作台说明](CONNECTED_CHARTS.md)。
 
+日常写作统一使用一个远程「催更姬 · 小说工作台」插件，电脑与手机共用云端作品。旧本地演示入口与重复的远程连接应停用，资料备份后保留。入口合并及恢复边界见 [统一入口说明](UNIFIED_ENTRY.md)。
+
 ## 本地运行
 
 需要 Node.js 24。执行 `npm ci`、`npm run build`、`npm run build:cloud`、`npm test`。`npm start` 打开仅监听本机的演示服务，数据保存在忽略的 `.data/`。
