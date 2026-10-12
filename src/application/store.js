@@ -390,6 +390,8 @@ export class Store extends ProjectStore {
         if (action === 'edge.delete') { if (a.confirm !== true) fail('CONFIRM_REQUIRED', '删除需要 confirm:true'); e.deleted = true; }
         else {
           if (e.deleted) fail('DELETED', '关系已删除');
+          if (['from','to'].some(field => a[field] !== undefined && a[field] !== e[field]) && Object.values(n.writing?.relationshipChanges || {}).some(change => change.edgeId === e.id || change.versions.some(version => version.value.edgeId === e.id)))
+            fail('RELATIONSHIP_HISTORY', '这条关系已有事件变化历史，不能替换人物端点；请另建基础关系。');
           for (const field of ['from', 'to']) if (a[field] !== undefined) { if (get(n.nodes, a[field], '关系端点').deleted) fail('DELETED', '关系端点已删除'); e[field] = a[field]; }
           Object.assign(e, memoryFields(a, n, false, true));
         }

@@ -22,6 +22,7 @@ function uniqueName(name: string, items: {name: string}[]) {
 export function copyInto(source: Novel, target: Novel, options: ImportOptions): void {
   const n = copy(source), time = new Date().toISOString();
   const volumeIds = idMap(n.volumes), chapterIds = idMap(n.chapters), nodeIds = idMap(n.nodes), edgeIds = idMap(n.edges), groupIds = idMap(n.memoryGroups);
+  let planningIds = new Map<string,string>();
   let volumeOrder = maxOrder(Object.values(target.volumes)) + 1;
   for (const v of Object.values(n.volumes).sort((a, b) => a.order - b.order)) {
     const id = volumeIds.get(v.id)!;
@@ -56,6 +57,7 @@ export function copyInto(source: Novel, target: Novel, options: ImportOptions): 
     const board = ensurePlanning(n), draft = ensurePlanning(target);
     draft.pages ??= {}; draft.decorations ??= {};
     const ids = {nodes: idMap(board.nodes), edges: idMap(board.edges), groups: idMap(board.groups), pages: idMap(board.pages), decorations: idMap(board.decorations)};
+    planningIds = ids.nodes;
     const mainPage = randomUUID();
     const changes: Change[] = [];
     const stamp = {lastSequence: draft.sequence + 1, updatedAt: time, actor: {kind: 'human', sessionId: null}};
@@ -76,7 +78,7 @@ export function copyInto(source: Novel, target: Novel, options: ImportOptions): 
     draft.sequence++;
     draft.transactions.push({id: randomUUID(), sequence: draft.sequence, ...stamp, reason: `导入“${source.title}”的规划`, changes});
   }
-  copyWriting(n,target,{nodes:nodeIds,chapters:chapterIds});
+  copyWriting(n,target,{nodes:nodeIds,chapters:chapterIds,edges:edgeIds,planning:planningIds});
   target.revision++; target.updatedAt = time;
 }
 function mergePreset(target: Novel, preset: PresetData, policy: 'append' | 'replace') {
