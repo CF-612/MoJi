@@ -1,3 +1,4 @@
+import {CanvasEditorSurface} from '../../shared/CanvasEditorSurface.tsx';
 import React,{useEffect,useId,useMemo,useState} from 'react';
 import {arrange} from './layout.ts';
 import {useGraph,curve,CARD_WIDTH,CARD_HEIGHT,PORT_Y,GraphControls} from '../../shared/graph.tsx';
@@ -73,8 +74,8 @@ export function PlanningCanvas(props:Props){
         {graph.preview&&<path className="graph-preview" d={graph.preview}/>}
       </svg>
       {nodes.map(n=><SceneCard key={n.id} node={n} point={points[n.id]} selected={graph.selected.includes(n.id)} dragProps={graph.cardProps(n.id,()=>onSelect(n.id))} inPort={graph.portProps(n.id,'in',n.title)} outPort={graph.portProps(n.id,'out',n.title)}/>)}
-      {props.creation&&<CanvasDraft key={props.creation.key} creation={props.creation} draftKey={`${props.scopeKey}:create:${props.creation.kind}:${props.creation.source?.id||'new'}`} busy={busy} save={props.saveCreation} close={props.cancelCreation}/>}
-      {props.editingDecoration&&points[props.editingDecoration.id]&&<DecorationInlineEditor key={props.editingDecoration.id} initial={props.editingDecoration} latest={decorations.find(d=>d.id===props.editingDecoration!.id)} point={points[props.editingDecoration.id]} scopeKey={props.scopeKey} busy={busy} save={props.saveDecoration} close={props.closeDecoration}/>}
+      {props.creation&&<CanvasEditorSurface><CanvasDraft key={props.creation.key} creation={props.creation} draftKey={`${props.scopeKey}:create:${props.creation.kind}:${props.creation.source?.id||'new'}`} busy={busy} save={props.saveCreation} close={props.cancelCreation}/></CanvasEditorSurface>}
+      {props.editingDecoration&&points[props.editingDecoration.id]&&<CanvasEditorSurface><DecorationInlineEditor key={props.editingDecoration.id} initial={props.editingDecoration} latest={decorations.find(d=>d.id===props.editingDecoration!.id)} point={points[props.editingDecoration.id]} scopeKey={props.scopeKey} busy={busy} save={props.saveDecoration} close={props.closeDecoration}/></CanvasEditorSurface>}
     </div>
     {!drawn.length&&!props.creation&&<p className="canvas-empty">{props.emptyMessage||'右键开始新的情节'}</p>}
     {graph.lasso&&<div className="graph-lasso" style={{left:graph.lasso.x,top:graph.lasso.y,width:graph.lasso.width,height:graph.lasso.height}}/>}

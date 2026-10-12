@@ -32,6 +32,10 @@ async function discuss(reference:Reference,selection:string){
 }
 function hostContext(context:any){
   if(context?.theme)document.documentElement.dataset.theme=context.theme;
+  if(context?.safeAreaInsets)for(const edge of ['top','right','bottom','left']){
+    const value=context.safeAreaInsets[edge];
+    if(Number.isFinite(value))document.documentElement.style.setProperty(`--cg-host-${edge}`,`${Math.max(0,value)}px`);
+  }
   const mode=context?.displayMode||lastHostMode||app.getHostContext()?.displayMode||'inline';
   document.documentElement.dataset.hostMode=mode;
   // 聊天内的摘要卡片只上报一次固定高度，侧栏由宿主控制尺寸。

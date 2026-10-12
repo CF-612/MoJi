@@ -17,7 +17,7 @@ export function DecorationInlineEditor({initial,latest,point,scopeKey,busy,save,
     else setError('保存未完成，草稿已保留。');
   };
   return <form className={`canvas-draft decoration-inline-editor draft-${value.kind}`} data-graph-editor="true" aria-label="编辑画布批注" style={{left:point.x,top:point.y}}
-    onPointerDown={e=>e.stopPropagation()} onDoubleClick={e=>e.stopPropagation()} onContextMenu={e=>{e.preventDefault();e.stopPropagation();}}
+    onPointerDown={e=>e.stopPropagation()} onDoubleClick={e=>e.stopPropagation()} onContextMenu={e=>e.stopPropagation()}
     onSubmit={e=>{e.preventDefault();void submit();}}
     onKeyDown={e=>{if(e.nativeEvent.isComposing)return;if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();}if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();void submit();}}}>
     <input autoFocus aria-label="批注标题" value={value.title} placeholder={value.kind==='frame'?'讨论区域':'便签标题'} disabled={busy} onChange={e=>field('title',e.target.value)}/>
