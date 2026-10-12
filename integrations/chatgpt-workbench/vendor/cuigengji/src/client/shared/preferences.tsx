@@ -5,16 +5,17 @@ import manifest from '../../../package.json' with { type: 'json' };
 import aboutSticker from '../assets/haoye.png';
 
 export interface Preferences {
+  theme: 'system' | 'light' | 'dark';
   cardColors: Record<string,string>;
   fontSize: number; leading: number; directory: boolean;
   planningView: 'canvas' | 'list'; memoryView: 'canvas' | 'list'; motion: 'system' | 'reduce';
 }
-export const defaults: Preferences = { cardColors: {...defaultCardColors}, fontSize: 18, leading: 1.95, directory: true, planningView: 'canvas', memoryView: 'list', motion: 'system' };
+export const defaults: Preferences = { theme:'system', cardColors: {...defaultCardColors}, fontSize: 18, leading: 1.95, directory: true, planningView: 'canvas', memoryView: 'list', motion: 'system' };
 const key = 'cuigengji:workbench:preferences:v1';
 function read(): Preferences {
   try {
     const p = JSON.parse(localStorage.getItem(key) || '{}');
-    return {cardColors:normalizeCardColors(p.cardColors),fontSize: [16,18,20,22].includes(p.fontSize) ? p.fontSize : defaults.fontSize,
+    return {theme:['light','dark'].includes(p.theme)?p.theme:'system',cardColors:normalizeCardColors(p.cardColors),fontSize: [16,18,20,22].includes(p.fontSize) ? p.fontSize : defaults.fontSize,
       leading: [1.7,1.95,2.2].includes(p.leading) ? p.leading : defaults.leading,
       directory: typeof p.directory === 'boolean' ? p.directory : defaults.directory,
       planningView: p.planningView === 'list' ? 'list' : 'canvas', memoryView: p.memoryView === 'canvas' ? 'canvas' : 'list',
@@ -25,6 +26,7 @@ const Context = createContext({ preferences: defaults, update: (_: Partial<Prefe
 export const useWorkbenchPreferences = () => useContext(Context);
 export function PreferencesProvider({children}: {children: React.ReactNode}) {
   const [preferences, set] = useState(read), [error, setError] = useState('');
+  useEffect(()=>{document.documentElement.dataset.themePreference=preferences.theme;},[preferences.theme]);
   const update = (next: Partial<Preferences>) => set(previous => {
     const value = {...previous, ...next};
     try {localStorage.setItem(key, JSON.stringify(value)); setError('');}
@@ -45,6 +47,7 @@ export function Modal({title, close, children, className = ''}: {title: string; 
 export function PreferencesDialog({close, novelTitle, onPreset}: {close: () => void; novelTitle?: string; onPreset?: () => void}) {
   const {preferences:p, update, error} = useWorkbenchPreferences();
   return <Modal title="设置" close={close}>
+    <section className="preference-section"><h3>外观</h3><label className="preference-row">夜间模式<select aria-label="夜间模式" value={p.theme} onChange={e=>update({theme:e.target.value as Preferences['theme']})}><option value="system">跟随环境</option><option value="light">浅色</option><option value="dark">深色</option></select></label><p className="muted">立即生效，按设备保存。跟随环境时优先使用聊天宿主主题。</p></section>
     {onPreset && <section className="preference-section"><div className="preference-work-heading"><h3>当前作品</h3><small title={novelTitle}>{novelTitle}</small></div><button className="preference-action" onClick={onPreset} aria-label="写作预设"><span><strong>写作预设</strong><small>叙述风格、表达习惯，以及希望 AI 遵守的写作要求</small></span><span aria-hidden="true">›</span></button></section>}
     <section className="preference-section"><h3>正文显示</h3><div className="split">
     <label>字号<select aria-label="默认正文字号" value={p.fontSize} onChange={e=>update({fontSize:Number(e.target.value)})}>{[16,18,20,22].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
