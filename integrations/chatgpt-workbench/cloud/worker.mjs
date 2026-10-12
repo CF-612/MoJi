@@ -4,17 +4,17 @@ import {z} from 'zod';
 import {QUERY_ACTIONS,EDIT_ACTIONS} from './service.mjs';
 import {authorize,authConfig,requireScope} from './auth.mjs';
 import {runtimeService} from './runtime-client.mjs';
-const uri='ui://cuigengji/cloud-v070';
+const uri='ui://cuigengji/cloud-v071';
 function createServer(service,auth,env){
-  const server=new McpServer({name:'cuigengji-private-cloud',version:'0.7.0-connected-charts'});
+  const server=new McpServer({name:'cuigengji-private-cloud',version:'0.7.1-quiet-refresh'});
   // Keep previously opened conversations readable while new calls use a fresh UI cache key.
-  for(const resourceUri of [uri,'ui://cuigengji/cloud-v060','ui://cuigengji/cloud-v050','ui://cuigengji/cloud-v042','ui://cuigengji/cloud-v041','ui://cuigengji/cloud-v040','ui://cuigengji/cloud-v032','ui://cuigengji/cloud-v031','ui://cuigengji/cloud-v030'])server.registerResource('novel-workbench-'+resourceUri.slice(-4),resourceUri,{mimeType:'text/html;profile=mcp-app'},async()=>({contents:[{uri:resourceUri,mimeType:'text/html;profile=mcp-app',text:(await (await env.ASSETS.fetch('https://assets.invalid/index.html')).text()).replace('<html ','<html data-mcp-app="true" '),_meta:{'openai/ui':{preferredDisplayMode:'inline',availableDisplayModes:['inline','fullscreen']}}}]}));
+  for(const resourceUri of [uri,'ui://cuigengji/cloud-v070','ui://cuigengji/cloud-v060','ui://cuigengji/cloud-v050','ui://cuigengji/cloud-v042','ui://cuigengji/cloud-v041','ui://cuigengji/cloud-v040','ui://cuigengji/cloud-v032','ui://cuigengji/cloud-v031','ui://cuigengji/cloud-v030'])server.registerResource('novel-workbench-'+resourceUri.slice(-4),resourceUri,{mimeType:'text/html;profile=mcp-app'},async()=>({contents:[{uri:resourceUri,mimeType:'text/html;profile=mcp-app',text:(await (await env.ASSETS.fetch('https://assets.invalid/index.html')).text()).replace('<html ','<html data-mcp-app="true" '),_meta:{'openai/ui':{preferredDisplayMode:'inline',availableDisplayModes:['inline','fullscreen']}}}]}));
   const argsSchema=z.record(z.string(),z.unknown()).optional();
   const define=(name,description,inputSchema,read,fn,ui)=>server.registerTool(name,{description,inputSchema,annotations:{readOnlyHint:read,destructiveHint:!read,openWorldHint:false},_meta:{securitySchemes:[{type:'oauth2',scopes:['novel:read',...(read?[]:['novel:write'])]}],...(ui?{ui,'openai/widgetAccessible':true,...(ui.visibility?.includes('app')?{'openai/visibility':'private'}:{}),...(ui.resourceUri?{'openai/outputTemplate':ui.resourceUri}:{})}:{}),...(name==='workbench_open'?{'openai/ui':{entrypoints:[{type:'thread'}]}}:{})}},async args=>{
     try{requireScope(auth,read?'novel:read':'novel:write');const result=await fn(args);return {content:[{type:'text',text:JSON.stringify(result)}],structuredContent:{result}};}
     catch(error){return {isError:true,content:[{type:'text',text:`${error.code||'ERROR'}: ${error.message}`} ]};}
   });
-  define('workbench_open','打开私有小说工作台；返回版本和导入能力。',{contextId:z.string().optional()},true,async a=>({...await service.bootstrap(a.contextId||'cloud'),contextId:a.contextId||'cloud',serviceVersion:'0.7.0-connected-charts',importTools:['workbench_import_preview','workbench_import'],importHint:'若工具列表没有这两个名称，请刷新插件工具信息并在下一轮重新选择插件。导入必须先预览。'}),{resourceUri:uri});
+  define('workbench_open','打开私有小说工作台；返回版本和导入能力。',{contextId:z.string().optional()},true,async a=>({...await service.bootstrap(a.contextId||'cloud'),contextId:a.contextId||'cloud',serviceVersion:'0.7.1-quiet-refresh',importTools:['workbench_import_preview','workbench_import'],importHint:'若工具列表没有这两个名称，请刷新插件工具信息并在下一轮重新选择插件。导入必须先预览。'}),{resourceUri:uri});
   define('workbench_bootstrap','载入作者工作台',{sessionId:z.string()},true,a=>service.bootstrap(a.sessionId),{visibility:['app']});
   define('workbench_ui_rpc','作者工作台操作',{action:z.string(),args:argsSchema,sessionId:z.string()},false,a=>service.rpc(a.action,a.args,a.sessionId,'human'),{visibility:['app']});
   define('workbench_query','按需读取正文、资料、规划和写作要求。writing.* 提供字段、章节出场、统计、伏笔、事件和关系变化历史；writing_context.get 返回本章相关资料，带 novelId/chapterId；可选 eventId 指定关系阶段；事件关联角色不证明出场，maxChars 限量。writing.board.get 提供图表联动投影，不返回整本正文或记录历史。姓名匹配只产生候选。',{action:z.enum(QUERY_ACTIONS),args:argsSchema},true,a=>service.rpc(a.action,a.args,'model','agent'));
@@ -28,7 +28,7 @@ function createServer(service,auth,env){
 async function handleRequest(request,env){
   const url=new URL(request.url);
   try{
-    if(url.pathname==='/health')return Response.json({service:'cuigengji-private-cloud',version:'0.7.0-connected-charts'});
+    if(url.pathname==='/health')return Response.json({service:'cuigengji-private-cloud',version:'0.7.1-quiet-refresh'});
     if(['/.well-known/oauth-protected-resource','/.well-known/oauth-protected-resource/mcp'].includes(url.pathname)){
       const config=authConfig(env);return Response.json({resource:config.resource,authorization_servers:[config.issuer],scopes_supported:['novel:read','novel:write'],bearer_methods_supported:['header']});
     }

@@ -1,7 +1,7 @@
 import React from 'react';
 export function ResourceState({ resource, children }) {
   if (resource.loading && resource.value === null) return <p className="empty" role="status">正在读取…</p>;
-  return <>{resource.refreshing&&<small className="resource-refresh" role="status">正在核对最新资料…</small>}{resource.error&&<div className="notice error" role="alert">{resource.error}<button onClick={resource.retry}>重试</button></div>}{resource.value!==null&&children}</>;
+  return <>{resource.error&&<div className="notice error" role="alert">{resource.error}<button onClick={resource.retry}>重试</button></div>}{resource.value!==null&&children}</>;
 }
 // Deliberately small Markdown reader: React escapes all text, no HTML or unsafe links.
 export function ReadingText({ text = '' }) {
