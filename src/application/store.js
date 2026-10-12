@@ -175,6 +175,13 @@ export class Store extends ProjectStore {
     if (!novelId) fail('NOVEL_REQUIRED', '请先绑定小说或提供 novelId');
     if (actor.kind !== 'human' && binding && binding.novelId !== novelId) fail('NOVEL_MISMATCH', '当前会话已绑定另一本小说');
     const n = get(state.novels, novelId, '小说');
+    if(action==='writing.card.create'){
+      const fields={type:a.type,name:a.name,summary:a.summary||'',content:a.content||'',groupId:a.groupId||null,aliases:a.aliases||[],...(a.position?{position:a.position}:{})};
+      const created=a.connection?this.execute(state,'graph.continue',{novelId:n.id,nodeId:a.connection.id,expectedRevision:a.connection.expectedRevision,side:a.connection.side,value:fields},actor):this.execute(state,'graph.create',{novelId:n.id,...fields},actor);
+      const node=created.node||created;
+      writingAction(n,'writing.card.update',{nodeId:node.id,expectedRevision:0,values:a.values||{},reason:a.reason||'新建资料并保存默认字段'},actor);
+      return created;
+    }
     if(action.startsWith('writing.')||action==='writing_context.get')return writingAction(n,action,a,actor);
     if (action === 'tavern.preview' || action === 'tavern.import') {
       if (actor.kind !== 'human') fail('HUMAN_REQUIRED', '酒馆文件导入需要作者操作');
@@ -312,7 +319,7 @@ export class Store extends ProjectStore {
     }
     if (action === 'graph.list') {
       const q = (a.query || '').toLocaleLowerCase();
-      return Object.values(n.nodes).filter(v => (a.includeDeleted || !v.deleted) && (!a.type || v.type === a.type) && (a.groupId === undefined || (v.groupId ?? null) === a.groupId) && (!q || [v.name, v.summary, v.content, ...v.aliases].join(' ').toLocaleLowerCase().includes(q))).map(({ content, ...v }) => v);
+      return Object.values(n.nodes).filter(v => (a.includeDeleted || !v.deleted) && (!a.type || v.type === a.type) && (a.groupId === undefined || (v.groupId ?? null) === a.groupId) && (!q || [v.name, v.summary, v.content, ...v.aliases].join(' ').toLocaleLowerCase().includes(q))).map(({content,...v})=>{const values=n.writing?.cards[v.id]?.values||{};return {...v,cardTags:v.type==='character_card'?[values['character:gender'],values['character:occupation']].filter(Boolean):[values['world:category']].filter(Boolean)};});
     }
     if (action === 'graph.groups' || action.startsWith('graph.group.') || action === 'graph.move') return memoryGroupAction(n, action, a);
     if (action === 'graph.get') return get(n.nodes, a.nodeId, '节点');

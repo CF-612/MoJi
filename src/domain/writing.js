@@ -1,4 +1,5 @@
 import {randomUUID} from 'node:crypto';
+import {writingBoard} from './writing-board.js';
 import {readEvolution,changeEvolution,validateEvolution,copyEvolution,sliceEvolution,storyEvents,stageRelations} from './story-evolution.js';
 const fail=(message,code='INVALID_WRITING')=>{throw Object.assign(new Error(message),{code});};
 const obj=v=>v&&typeof v==='object'&&!Array.isArray(v);
@@ -59,6 +60,7 @@ function checkedForeshadow(n,v){
 export function writingAction(n,action,a,actor){
  if(n.writing&&n.writing.version!==1)fail('此作品结构版本较新，请更新工作台后再操作','WRITING_VERSION');
  const w=data(n);
+ if(action==='writing.board.get')return writingBoard(n,w,stats(n),active(w.foreshadows).map(f=>foreshadowView(n,f,a.chapterId)),a);
  const evolution=readEvolution(n,w,action,a);if(evolution)return evolution.value;
  if(action==='writing.fields.list')return {character:writingFields(n,'character'),world:writingFields(n,'world')};
  if(action==='writing.card.get')return cardView(n,a.nodeId);
