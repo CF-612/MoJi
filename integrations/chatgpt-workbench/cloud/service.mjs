@@ -3,8 +3,8 @@ import {Store,HUMAN_ACTIONS,TOOL_ACTIONS,isReadAction} from './generated/engine.
 import {createTransfer,WorkData} from './generated/transfer.mjs';
 import {gzipSync} from 'node:zlib';
 import {encodeWorkspace,decodeWorkspace,fragmentIds} from './workspace-storage.mjs';
-export const QUERY_ACTIONS=[...new Set(Object.values(TOOL_ACTIONS).flat().filter(isReadAction)), 'novel.list','preset.get'];
-export const EDIT_ACTIONS=[...new Set(Object.values(TOOL_ACTIONS).flat().filter(a=>!isReadAction(a))), 'preset.set'];
+export const QUERY_ACTIONS=[...new Set(Object.values(TOOL_ACTIONS).flat().filter(isReadAction)), 'novel.list','preset.get','settings.get','transfer.catalog','transfer.inspect','transfer.preview'];
+export const EDIT_ACTIONS=[...new Set(Object.values(TOOL_ACTIONS).flat().filter(a=>!isReadAction(a))), 'preset.set','novel.create','transfer.import'];
 const engine=new Store();
 const hash=s=>createHash('sha256').update(s).digest('hex');
 const fail=(code,message)=>{throw Object.assign(new Error(message),{code});};
@@ -39,8 +39,8 @@ export function createCloudService(db,owner){
   const rpc=async(action,args={},sessionId='cloud',kind='human')=>{
     if(!args||typeof args!=='object'||Array.isArray(args)||typeof sessionId!=='string'||!sessionId||sessionId.length>512)fail('INVALID_INPUT','工作台参数无效');
     if(!(kind==='human'?[...HUMAN_ACTIONS,'transfer.snapshots','transfer.snapshot.get']:[...QUERY_ACTIONS,...EDIT_ACTIONS]).includes(action))fail('NOT_ALLOWED','不允许此操作');
-    if(kind==='agent'&&action!=='novel.list'&&!args.novelId)fail('NOVEL_REQUIRED','请明确提供作品 ID');
-    if(action==='settings.get')return {dataRoot:'私有云端 D1',pluginVersion:'0.4.0-import',host:'ChatGPT MCP Apps'};
+    if(kind==='agent'&&!['novel.list','novel.create','settings.get'].includes(action)&&!action.startsWith('transfer.')&&!args.novelId)fail('NOVEL_REQUIRED','请明确提供作品 ID');
+    if(action==='settings.get')return {dataRoot:'私有云端 D1',pluginVersion:'0.4.1-mobile',host:'ChatGPT MCP Apps'};
     const row=await read(),state=structuredClone(row.state),actor={kind,sessionId:`cloud:${sessionId}`};
     if(action==='workspace.status')return {dataRoot:'D1',novels:Object.keys(state.novels).length,books:Object.values(state.novels),included:['演示作品与完整版本'],excluded:['本地小说','浏览器未保存草稿']};
     if(action==='workspace.export'){
@@ -68,7 +68,7 @@ export function createCloudService(db,owner){
       }
       if(method==='export'&&args.selection?.kind==='workspace')return download({filename:`催更姬云端工作库-${new Date().toISOString().slice(0,10)}.json`,mime:'application/json',content:JSON.stringify(await rpc('workspace.export',{},sessionId),null,2)});
       const result=await transfer[method](args,actor);
-      if(saved)await commit(row,state,{id:randomUUID(),action,actor,reason:args.options?.replaceExisting?'作者从备份恢复':'作者导入作品资料',timestamp:new Date().toISOString()});
+      if(saved)await commit(row,state,{id:randomUUID(),action,actor,novelIds:result.novelIds,novelId:result.novelIds?.length===1?result.novelIds[0]:null,reason:args.reason||(kind==='agent'?'AI 按作者授权导入／恢复作品':args.options?.replaceExisting?'作者从备份恢复':'作者导入作品资料'),timestamp:new Date().toISOString()});
       return method==='export'?download(result):result;
     }
     if(action.startsWith('workspace.')||action.startsWith('transfer.')||action.startsWith('maintenance.')||action==='legacy.preview')fail('NOT_AVAILABLE','此操作未开放；请通过导入／恢复入口校验并预览备份。');

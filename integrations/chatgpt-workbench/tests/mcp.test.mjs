@@ -18,6 +18,11 @@ test('真实 MCP 连接包含 thread 入口、内嵌资源、读写和版本恢�
   try{
     await client.connect(transport);
     const tools=await client.listTools();
+    assert.ok(tools.tools.some(x=>x.name==='workbench_import_preview'));
+    assert.ok(tools.tools.some(x=>x.name==='workbench_import'));
+    const importFile={name:'第1章.txt',text:'　　“原文不改写。”——他说。'},importOptions={mode:'copy',title:'本地 AI 导入验收'};
+    const preview=await client.callTool({name:'workbench_import_preview',arguments:{file:importFile,options:importOptions}});assert.equal(preview.isError,undefined);
+    const imported=await client.callTool({name:'workbench_import',arguments:{file:importFile,options:importOptions,proof:preview.structuredContent.result.proof,requestId:crypto.randomUUID()}});assert.equal(imported.isError,undefined);
     const open=tools.tools.find(x=>x.name==='workbench_open');
     assert.deepEqual(open._meta['openai/ui'].entrypoints,[{type:'thread'}]);
     assert.equal(tools.tools.find(x=>x.name==='chapter_read')._meta?.ui?.resourceUri,undefined);

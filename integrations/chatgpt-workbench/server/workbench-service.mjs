@@ -7,8 +7,8 @@ import {convertLegacyExport} from '../../../src/infrastructure/migrations/legacy
 import {HUMAN_ACTIONS,TOOL_ACTIONS,isReadAction} from '../../../src/contracts/actions.js';
 
 const actions=[...new Set(Object.values(TOOL_ACTIONS).flat())];
-export const QUERY_ACTIONS=[...actions.filter(isReadAction),'novel.list','preset.get'];
-export const EDIT_ACTIONS=[...actions.filter(action=>!isReadAction(action)),'preset.set'];
+export const QUERY_ACTIONS=[...actions.filter(isReadAction),'novel.list','preset.get','settings.get','transfer.catalog','transfer.inspect','transfer.preview'];
+export const EDIT_ACTIONS=[...actions.filter(action=>!isReadAction(action)),'preset.set','novel.create','transfer.import'];
 const fail=(code,message)=>{throw Object.assign(new Error(message),{code});};
 const object=value=>value && typeof value==='object' && !Array.isArray(value);
 const transferMethods={catalog:'catalog',inspect:'inspect',preview:'preview',import:'import',exportPreview:'exportPreview',export:'export',snapshots:'snapshots','snapshot.get':'snapshotGet'};
@@ -46,7 +46,7 @@ export function attachWorkbench(service) {
     const allowed=kind==='human'?[...HUMAN_ACTIONS,'transfer.snapshots','transfer.snapshot.get']:[...QUERY_ACTIONS,...EDIT_ACTIONS];
     if(!allowed.includes(action))fail('NOT_ALLOWED','不允许此操作');
     // Model tools always identify the work explicitly, independent of a panel's binding.
-    if(kind==='agent' && action!=='novel.list' && !args.novelId)fail('NOVEL_REQUIRED','请明确提供作品 ID，不从其他聊天继承选择');
+    if(kind==='agent' && !['novel.list','novel.create','settings.get'].includes(action) && !action.startsWith('transfer.') && !args.novelId)fail('NOVEL_REQUIRED','请明确提供作品 ID，不从其他聊天继承选择');
     const actor={kind,sessionId:kind==='agent'?'native-agent':`native:${sessionId}`};
     if(action==='settings.get')return {dataRoot:store.root,pluginVersion:'0.2.0',host:'Codex native conversation panel'};
     if(action==='legacy.preview')return convertLegacyExport(args.input);

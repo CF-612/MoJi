@@ -95,7 +95,7 @@ export function createTransfer(store,{workData=new WorkData(store),snapshot,capa
     const bump=(item,old)=>{item.revision=Math.max(item.revision,old?.revision||0)+1;item.updatedAt=now;};
     for(const section of ['volumes','chapters','nodes','edges','memoryGroups'])for(const [id,item]of Object.entries(next[section]||{})){
       bump(item,current?.[section]?.[id]);
-      if(section==='chapters')item.versions.push({revision:item.revision,content:item.content,contentHash:item.contentHash,title:item.title,volumeId:item.volumeId,order:item.order,deleted:!!item.deleted,timestamp:now,actor:{kind:'human',sessionId:actor.sessionId||null},reason:'作者从备份恢复'});
+      if(section==='chapters')item.versions.push({revision:item.revision,content:item.content,contentHash:item.contentHash,title:item.title,volumeId:item.volumeId,order:item.order,deleted:!!item.deleted,timestamp:now,actor:{kind:actor.kind==='agent'?'agent':'human',sessionId:actor.sessionId||null},reason:actor.kind==='agent'?'AI 按作者授权从备份恢复':'作者从备份恢复'});
     }
     if(next.preset)bump(next.preset,current?.preset);
     if(next.plan)bump(next.plan,current?.plan);

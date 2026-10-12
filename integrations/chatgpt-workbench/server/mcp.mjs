@@ -38,6 +38,11 @@ export function createMcp(service) {
     ['workbench_edit','修改小说资料','仅在作者明确要求修改或保存时使用。args 必须含 novelId 和目标 ID；更新含 expectedRevision，正文可用 content、append 或唯一匹配 patch；planning.apply 使用带 expectedRevision 的 operations。冲突停止覆盖，保留作者草稿。',{action:z.enum(EDIT_ACTIONS),args:z.record(z.string(),z.unknown()).optional()},false],
     ['workbench_history','查询协作记录','读取指定作品和对象的协作修改来源及修改前快照。章节及规划另有原生 history/revert。',{novelId:z.string(),entityId:z.string().optional(),limit:z.number().optional()},true]
   );
+  const file=z.record(z.string(),z.unknown()),options=z.record(z.string(),z.unknown()).optional();
+  definitions.push(
+    ['workbench_import_preview','预览导入','预览作者指定的文件／批量包。file 为 {name,text/json/gzipBase64}，传文件内容，不传路径。新作品 options 为 {mode:"copy",title:"作品名"}；已有作品明确 targetId。恢复完整备份用 mode:"restore"，替换同 ID 作品需作者明确要求并设置 replaceExisting:true。返回 proof；此工具不保存。',{file,options},true],
+    ['workbench_import','导入作品','仅在作者明确授权后保存；使用预览时相同的 file/options 和 proof，保持 requestId 稳定。版本变化停止写入；保存前自动快照。',{file,options,proof:z.string().min(1),requestId:z.string().min(1),reason:z.string().optional()},false]
+  );
   for (const [name, title, description, inputSchema, readOnlyHint] of definitions) {
     const fromUi = name.endsWith('_from_ui')||['workbench_bootstrap','workbench_ui_rpc'].includes(name);
     server.registerTool(name, {title, description, inputSchema,
@@ -50,6 +55,7 @@ export function createMcp(service) {
           :name==='workbench_ui_rpc'?await service.rpc(args.action,args.args||{},args.sessionId,'human')
           :name==='workbench_query'||name==='workbench_edit'?await service.rpc(args.action,args.args||{},'model','agent')
           :name==='workbench_history'?await service.collaborationHistory(args)
+          :name==='workbench_import_preview'||name==='workbench_import'?await service.rpc(name==='workbench_import'?'transfer.import':'transfer.preview',args,'model','agent')
           :await service.call(fromUi ? name.replace(/_from_ui$/, '') : name, args, fromUi ? 'human' : 'agent');
         return {content: [{type: 'text', text: JSON.stringify(result)}], structuredContent: {result}};
       } catch (error) {

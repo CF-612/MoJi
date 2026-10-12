@@ -38,6 +38,12 @@ test('云端大作品批量导入、预览冲突、快照恢复、旧备份与�
     const saved=await rpc('transfer.snapshot.get',{id:snapshots[0].id});assert.ok((await rpc('transfer.inspect',{file:saved})).restorable);
     assert.deepEqual(await createCloudService(db,'other').rpc('transfer.snapshots',{},'other'),[]);
     await assert.rejects(createCloudService(db,'other').rpc('transfer.snapshot.get',{id:snapshots[0].id},'other'),{code:'NOT_FOUND'});
-    await assert.rejects(service.rpc('transfer.import',args,'ai','agent'),{code:'NOT_ALLOWED'});
+    const aiFile={name:'AI.txt',text:'第1章 作者授权\n\n原文标点：——“保留”。'},aiOptions={mode:'copy',title:'AI 导入验收'};
+    await assert.rejects(service.rpc('transfer.import',{file:aiFile,options:aiOptions,proof:'expired',requestId:crypto.randomUUID()},'ai','agent'),{code:'CONFLICT'});
+    const aiPreview=await service.rpc('transfer.preview',{file:aiFile,options:aiOptions},'ai','agent');
+    const aiArgs={file:aiFile,options:aiOptions,proof:aiPreview.proof,requestId:crypto.randomUUID()};
+    const aiResult=await service.rpc('transfer.import',aiArgs,'ai','agent');assert.equal(aiResult.novelIds.length,1);
+    assert.ok((await service.rpc('transfer.import',aiArgs,'ai','agent')).repeated);
+    const event=JSON.parse((await db.prepare('SELECT event FROM workspaces WHERE owner=?').bind('author').first()).event);assert.equal(event.actor.kind,'agent');
   }finally{await mf.dispose();}
 });

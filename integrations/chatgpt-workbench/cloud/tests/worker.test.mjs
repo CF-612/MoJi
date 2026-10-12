@@ -23,8 +23,10 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
     };
     assert.ok((await call('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'qa',version:'1'}})).capabilities.tools);
     const listing=await call('tools/list');assert.ok(listing.tools.some(t=>t.name==='workbench_edit'));
+    assert.ok(listing.tools.some(t=>t.name==='workbench_import_preview'),'聊天 AI 必须有导入预览工具');
+    assert.ok(listing.tools.some(t=>t.name==='workbench_import'),'聊天 AI 必须有携带预览证明的导入工具');
     const openTool=listing.tools.find(t=>t.name==='workbench_open');
-    assert.equal(openTool._meta.ui.resourceUri,'ui://cuigengji/cloud-v040');
+    assert.equal(openTool._meta.ui.resourceUri,'ui://cuigengji/cloud-v041');
     assert.equal(openTool._meta['openai/outputTemplate'],openTool._meta.ui.resourceUri);
     for(const name of ['workbench_bootstrap','workbench_ui_rpc']){
       const tool=listing.tools.find(t=>t.name===name);
@@ -46,6 +48,12 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
     const runtime=await mf.getDurableObjectNamespace('WORKBENCH_RUNTIME');assert.equal((await runtime.getByName('foreign').invoke('auth0|foreign','rpc',['novel.list',{},'test','human'])).error.code,'FORBIDDEN');
     const resource=await call('resources/read',{uri:'ui://cuigengji/cloud-v030'});assert.match(resource.contents[0].text,/data-mcp-app="true"/);assert.equal(resource.contents[0]._meta['openai/ui'].preferredDisplayMode,'inline');
     const current=await call('resources/read',{uri:openTool._meta.ui.resourceUri});assert.match(current.contents[0].text,/data-mcp-app="true"/);
+    const aiFile={name:'批量.json',json:{format:'cuigengji-batch',version:1,files:[{file:{name:'第1章.txt',text:'　　“无需改写。”——她说。'},kind:'chapters'}]}},aiOptions={mode:'copy',title:'聊天 AI 导入'};
+    const aiPreview=await call('tools/call',{name:'workbench_import_preview',arguments:{file:aiFile,options:aiOptions}});assert.equal(aiPreview.isError,undefined);
+    const aiArgs={file:aiFile,options:aiOptions,proof:aiPreview.structuredContent.result.proof,requestId:crypto.randomUUID()};
+    const imported=await call('tools/call',{name:'workbench_import',arguments:aiArgs});assert.equal(imported.isError,undefined);assert.equal(imported.structuredContent.result.counts.chapters,1);
+    assert.ok((await call('tools/call',{name:'workbench_import',arguments:aiArgs})).structuredContent.result.repeated);
+    const created=await call('tools/call',{name:'workbench_edit',arguments:{action:'novel.create',args:{title:'AI 新建作品',requestId:crypto.randomUUID()}}});assert.equal(created.isError,undefined);
     assert.equal((await mf.dispatchFetch('http://localhost/index.html')).status,404);
   }finally{await mf.dispose();}
 });
