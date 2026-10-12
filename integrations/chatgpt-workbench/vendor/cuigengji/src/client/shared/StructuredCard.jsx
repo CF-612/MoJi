@@ -11,7 +11,7 @@ const serialize=p=>({...p,aliasesText:p.aliases.join(', '),tagTexts:Object.fromE
 export function StructuredCard({call,novelId,nodeId,tick,busy,run,onChapter,onEvent}){
  const [poll,setPoll]=useState(0),[manage,setManage]=useState(false);
  useEffect(()=>{const timer=setInterval(()=>{if(!document.hidden)setPoll(n=>n+1);},5000);return()=>clearInterval(timer);},[]);
- const resource=useResource(()=>Promise.all([call('writing.card.get',{novelId,nodeId}),call('graph.list',{novelId})]),[call,novelId,nodeId,tick,poll]);
+ const resource=useResource(()=>Promise.all([call('writing.card.get',{novelId,nodeId}),call('graph.list',{novelId})]),[call,novelId,nodeId,tick,poll],`${novelId}:card-profile:${nodeId}`);
  return <section className="section-fold"><h3>资料字段与章节关联</h3><ResourceState resource={resource}>{resource.value&&<CardFields key={nodeId} {...{call,novelId,nodeId,busy,run,onChapter,onEvent}} profile={resource.value[0]} nodes={resource.value[1]} refresh={()=>setPoll(n=>n+1)} manage={()=>setManage(true)}/>}</ResourceState>{manage&&resource.value&&<FieldManager {...{call,novelId,busy,run}} profile={resource.value[0]} close={()=>{setManage(false);setPoll(n=>n+1);}}/>}</section>;
 }
 function CardFields({call,novelId,nodeId,busy,run,onChapter,onEvent,profile,nodes,refresh,manage}){

@@ -4,15 +4,16 @@ import {useDraft} from './state.js';
 import {useDialog} from '../dialog.tsx';
 import {GroupSelect, type GroupItem} from './groups.tsx';
 
-export interface DocumentDraft {title: string; summary: string; content: string; groupId: string | null}
+export interface DocumentDraft {title: string; summary: string; content: string; groupId: string | null;values?:Record<string,string>;aliasesText?:string}
 interface Props {
   draftKey: string; label: string; initial: DocumentDraft; groups: GroupItem[];
   busy: boolean; context?: string; chapter?: boolean;
+  nameLabel?:string;extraFields?:(value:DocumentDraft,change:(next:any)=>void)=>React.ReactNode;
   close: () => void; createGroup: (name: string) => Promise<GroupItem | null>;
   save: (value: DocumentDraft, requestId: string) => Promise<boolean | undefined>;
 }
 /** Creation remains local until save. In particular, cancelling a continuation creates no node or edge. */
-export function CreateDocument({draftKey,label,initial,groups,busy,context,chapter,close,createGroup,save}: Props) {
+export function CreateDocument({draftKey,label,initial,groups,busy,context,chapter,close,createGroup,save,nameLabel='标题',extraFields}: Props) {
   const {value,change,accept,dirty,cacheError} = useDraft(draftKey,initial);
   const request = useRef({payload:'',id:''});
   const submit = async () => {
@@ -27,7 +28,7 @@ export function CreateDocument({draftKey,label,initial,groups,busy,context,chapt
     <div className="creation-scroll"><div className="creation-document">{context&&<p className="creation-context">{context}</p>}<div className="creation-settings">
       {chapter?<label>所属卷<select value={value.groupId||''} onChange={e=>set('groupId',e.target.value||null)}><option value="">未分卷</option>{groups.map(g=><option value={g.id} key={g.id}>{g.name}</option>)}</select></label>:<GroupSelect groups={groups} value={value.groupId} onChange={id=>set('groupId',id)}/>}
       <button disabled={busy} onClick={async()=>{const name=await ask(chapter?'新卷名称':'新建分组名称');if(name?.trim()){const g=await createGroup(name);if(g)set('groupId',g.id);}}}>＋ {chapter?'新建卷':'新建分组'}</button></div>
-      <fieldset className="editor-fields document-fields" disabled={busy}><label>标题<input autoFocus placeholder="写一个清晰的标题" value={value.title} onChange={e=>set('title',e.target.value)}/></label>
+      <fieldset className="editor-fields document-fields" disabled={busy}><label>{nameLabel}<input aria-label={nameLabel} autoFocus placeholder={nameLabel==='姓名'?'填写角色姓名':nameLabel==='名称'?'填写地点、组织或物品名称':'写一个清晰的标题'} value={value.title} onChange={e=>set('title',e.target.value)}/></label>{extraFields?.(value,change)}
       {!chapter&&<label><span>摘要 <small>可选</small></span><DocumentTextarea placeholder="用几句话概括，方便之后查找" value={value.summary} onChange={e=>set('summary',e.target.value)}/></label>}
       <label><span>正文 <small>可选</small></span><DocumentTextarea className="prose" placeholder="从这里开始，自由记录内容…" value={value.content} onChange={e=>set('content',e.target.value)}/></label></fieldset>{cacheError&&<p role="alert">{cacheError}</p>}
     </div></div></section>;

@@ -4,6 +4,8 @@
 
 结构资料与主题见 [结构资料说明](STRUCTURED_WRITING.md)，事件与阶段关系见 [时间线说明](STORY_EVOLUTION.md)。
 
+图表联动、默认资料字段与切页改进见 [图表工作台说明](CONNECTED_CHARTS.md)。
+
 ## 本地运行
 
 需要 Node.js 24。执行 `npm ci`、`npm run build`、`npm run build:cloud`、`npm test`。`npm start` 打开仅监听本机的演示服务，数据保存在忽略的 `.data/`。

@@ -1,6 +1,7 @@
 import { draftKey, restoreDraft, persistDraft, rebaseDraft } from './drafts.js';
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import {useWorkbenchRefresh} from './refresh.tsx';
+import {resourceCache,resourceKey} from './resource-cache.js';
 const memoryDrafts = new Map();
 function initialDraft(key, entityKey, initial) {
   if (memoryDrafts.has(key)) return memoryDrafts.get(key);
@@ -64,17 +65,24 @@ export function useDraft(entityKey, initial) {
   const rebase = server => { const next = rebaseDraft(current.current, server); current.current = next; setState(next); persist(next); };
   return { value: state.value, base: state.base, change, accept, rebase, dirty, cacheError };
 }
-export function useResource(loader, deps) {
+export function useResource(loader, deps, cacheName=null) {
+  const scope=useContext(SessionScope),key=resourceKey(scope,cacheName);
   const refreshRevision = useWorkbenchRefresh().revision;
-  const [state, setState] = useState({ value: null, error: '', loading: true });
+  const [state, setState] = useState(()=>({key,value:resourceCache.get(key)?.value??null,error:'',loading:true}));
   const [retry, setRetry] = useState(0);
   useEffect(() => {
     let live = true;
-    setState(s => ({ ...s, loading: true, error: '' }));
-    Promise.resolve().then(loader).then(value => live && setState({ value, loading: false, error: '' }), error => live && setState(s => ({ ...s, loading: false, error: error.message || String(error) })));
+    const epoch=resourceCache.epoch();
+    setState(s => ({key,value:s.key===key?s.value:resourceCache.get(key)?.value??null,loading:true,error:''}));
+    Promise.resolve().then(loader).then(value => {resourceCache.put(key,value,epoch);if(live)setState({key,value,loading:false,error:''});}, error => {
+      if(!live)return;
+      if(['FORBIDDEN','UNAUTHORIZED'].includes(error.code)){resourceCache.remove(key);setState({key,value:null,loading:false,error:error.message});}
+      else setState(s=>({...s,loading:false,error:error.message||String(error)}));
+    });
     return () => { live = false; };
-  }, [...deps, retry, refreshRevision]);
-  return { ...state, retry: () => setRetry(n => n + 1) };
+  }, [...deps, key, retry, refreshRevision]);
+  const current=state.key===key?state:{key,value:resourceCache.get(key)?.value??null,loading:true,error:''};
+  return { ...current, refreshing:current.loading&&current.value!==null, retry: () => setRetry(n => n + 1) };
 }
 
 export function useScrollPosition(name) {

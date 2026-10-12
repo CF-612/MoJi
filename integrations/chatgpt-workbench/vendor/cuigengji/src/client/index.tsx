@@ -1,6 +1,9 @@
 // The workbench is the typed migration boundary; legacy JSX modules are intentionally
 // consumed without declaration generation while they are migrated incrementally.
 // @ts-nocheck
+import {isReadAction} from '../contracts/actions.js';
+import {boardKey} from './features/structure/useBoard.js';
+import {preloadResource,resourceCache} from './shared/resource-cache.js';
 import {Timeline} from './features/structure/Timeline.jsx';
 import {WritingOverview} from './features/structure/Overview.jsx';
 import {cardColorVariables} from './shared/card-colors.js';
@@ -39,7 +42,7 @@ function WorkbenchContent({ sessionId, rpc }) {
   const [transferVisit,setTransferVisit]=useState(0);
   const [error, setError] = useState(''), [busy, setBusy] = useState(false), [tick, setTick] = useState(0);
   const { ask } = useDialog();
-  const call = useCallback((action, args = {}) => rpc(action, args, sessionId), [rpc, sessionId]);
+  const call = useCallback(async(action,args={})=>{const result=await rpc(action,args,sessionId);if(!isReadAction(action)&&!['transfer.catalog','transfer.inspect','transfer.preview','transfer.exportPreview','transfer.export','transfer.snapshots','workspace.export'].includes(action)&&!action.endsWith('.preview'))resourceCache.invalidate();return result;},[rpc,sessionId]);
   const resource = useResource(() => Promise.all([call('novel.list'), call('binding.get')]), [call, tick]);
   const [books = [], binding = null] = resource.value || [];
   const novelId = binding?.novelId, novel = books.find(n => n.id === novelId);
@@ -51,6 +54,7 @@ function WorkbenchContent({ sessionId, rpc }) {
     document.addEventListener('click',activate);document.addEventListener('pointerdown',outside);document.addEventListener('keydown',escape);
     return()=>{document.removeEventListener('click',activate);document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',escape);};
   },[]);
+  useEffect(()=>{if(!novelId)return;const timer=setTimeout(()=>{preloadResource(sessionId,boardKey(novelId),()=>call('writing.board.get',{novelId})).catch(()=>{});},1500);return()=>clearTimeout(timer);},[novelId,call,sessionId]);
   const running = useRef(false);
   const run = async fn => {
     if (running.current) return;
@@ -67,7 +71,7 @@ function WorkbenchContent({ sessionId, rpc }) {
   const returnFromManagement=()=>{setReturnTarget(null);setHomeOpen(managementReturn==='welcome');setTab(['chapters','plan','memory','preset','manage'].includes(managementReturn)?managementReturn:'chapters');};
   const managementBack={onBack:returnFromManagement,backLabel:managementReturn==='welcome'?'返回作品首页':novelId?'返回'+({plan:'规划',memory:'设定',chapters:'正文',preset:'写作预设',manage:'作品与备份'}[managementReturn]||'正文'):'返回作品选择'};
   const jump=(page,key,id)=>{setReturnTarget(tab);try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:${key}`,JSON.stringify(id));}catch{}setTab(page);};
-  const onEvent=id=>jump('timeline','timeline-event',id);
+  const onEvent=(id,create)=>{if(create){try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:timeline-create`,JSON.stringify(true));localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:timeline-new-context`,JSON.stringify(typeof create==='object'?create:null));}catch{}}jump('timeline','timeline-event',id);};
   const onPlanning=id=>run(async()=>{const result=await call('planning.get',{novelId,nodeId:id});try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:planning-page`,JSON.stringify(result.node.pageId||''));localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:planning-area`,JSON.stringify('scenes'));}catch{}jump('plan','planning-selected',id);});
   const onForeshadow=id=>{try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:planning-area`,JSON.stringify('foreshadows'));}catch{}jump('plan','foreshadow-selected',id);};
   return <section className="cuigengji" data-motion={preferences.motion} style={{...cardColorVariables(preferences.cardColors),'--prose-size':`${preferences.fontSize}px`,'--prose-leading':preferences.leading}} aria-label="催更姬小说工作台">
@@ -79,10 +83,10 @@ function WorkbenchContent({ sessionId, rpc }) {
       {homeOpen?<Welcome {...{books,busy}} onOpen={openNovel} onCreate={create} onImport={()=>openTransfer({mode:'import'})} onManage={()=>openManagement('manage')}/>:tab==='data'?<TransferPage key={transferVisit} {...{call,run,busy,novelId}} {...managementBack} initial={transferInitial} onOpen={openNovel}/>:<>
       {!novelId ? (tab==='manage'?<Manage {...{call,run,busy}} {...managementBack} onTransfer={openTransfer}/>:<Welcome {...{books,busy}} onOpen={openNovel} onCreate={create} onImport={()=>openTransfer({mode:'import'})} onManage={()=>openManagement('manage')}/>) : <div className="workbench-body" key={novelId}>{returnTarget&&<div className="return-strip"><button onClick={()=>{setTab(returnTarget);setReturnTarget(null);}}>‹ 返回{({plan:'规划',memory:'设定'})[returnTarget]||'上一页'}</button></div>}
         {tab==='timeline'&&<Timeline {...{call,novelId,tick,run,busy,onPlanning,onForeshadow}} onMemory={id=>jump('memory','memory-selected',id)} onChapter={id=>jump('chapters','chapter',id)}/>}
-        {tab==='overview'&&<WritingOverview {...{call,novelId,tick,run,busy}} onChapter={id=>jump('chapters','chapter',id)}/>}
-        {tab==='chapters' && <Chapters {...{call,novelId,tick,run,busy,onEvent}} onMemory={id=>jump('memory','memory-selected',id)} onTransfer={openTransfer}/>}
-        {tab==='memory' && <Memory {...{call,novelId,tick,run,busy,onEvent}} onTransfer={openTransfer} onChapter={id=>jump('chapters','chapter',id)}/>}
-        {tab==='plan' && <Planning {...{call,novelId,tick,run,busy}} onTransfer={openTransfer} onMemory={id=>jump('memory','memory-selected',id)} onChapter={id=>jump('chapters','chapter',id)}/>}
+        {tab==='overview'&&<WritingOverview {...{call,novelId,tick,run,busy,onForeshadow}} onChapter={id=>jump('chapters','chapter',id)}/>}
+        {tab==='chapters' && <Chapters {...{call,novelId,tick,run,busy,onEvent,onForeshadow}} onMemory={id=>jump('memory','memory-selected',id)} onTransfer={openTransfer}/>}
+        {tab==='memory' && <Memory {...{call,novelId,tick,run,busy,onEvent,onForeshadow,onPlanning}} onTransfer={openTransfer} onChapter={id=>jump('chapters','chapter',id)}/>}
+        {tab==='plan' && <Planning {...{call,novelId,tick,run,busy,onEvent,onPlanning}} onTransfer={openTransfer} onMemory={id=>jump('memory','memory-selected',id)} onChapter={id=>jump('chapters','chapter',id)}/>}
         {tab==='preset' && <Preset {...{call,novelId,run,busy}} {...managementBack} onTransfer={openTransfer}/>}
         {tab==='manage' && <Manage {...{call,novelId,novel,run,busy}} {...managementBack} onTransfer={openTransfer}/>}
       </div>}

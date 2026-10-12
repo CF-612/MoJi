@@ -50,6 +50,8 @@ test('真实本地 D1：双端保存、冲突、人物、规划、预设、历�
     assert.equal((await rpc('writing.relationship.list',{phase:'event',eventId:event.id}))[0].name,'伙伴');
     assert.equal((await rpc('edge.get',{edgeId:edge.id})).name,'陌生人');
     assert.equal((await rpc('writing_context.get',{eventId:event.id})).relationships[0].stageEventId,event.id);
+    const place=await rpc('writing.card.create',{name:'云端邮局',type:'world_entry',values:{'world:category':'地点'}});
+    const board=await rpc('writing.board.get');assert.equal(board.nodes.find(n=>n.id===place.id).category,'地点');assert.equal(board.chapters.find(c=>c.id===chapterId).events[0],event.id);assert.equal(board.stats.goal.versions,undefined);
     const preset=await rpc('preset.set',{expectedRevision:0,preset:{name:'要求',enabled:true,blocks:[{identifier:'voice',name:'文风',content:'保留段落。',enabled:true}]}});
     assert.match((await rpc('preset.read',{},'agent')).content,/保留段落/);
     await assert.rejects(rpc('preset.set',{expectedRevision:0,preset},'agent'),{code:'CONFLICT'});

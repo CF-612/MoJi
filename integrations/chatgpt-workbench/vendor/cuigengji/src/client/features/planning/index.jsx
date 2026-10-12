@@ -1,3 +1,4 @@
+import {ChronologyPanel} from '../structure/ChronologyChart.jsx';
 import {Foreshadows} from '../structure/Foreshadows.jsx';
 import {CardQuickSettings} from '../../shared/CardQuickSettings.tsx';
 import {CardQuickButton,CardLegend} from '../../shared/card-appearance.tsx';
@@ -22,9 +23,10 @@ import {Icon} from '../../shared/icons.tsx';
 const statusNames={idea:'讨论中',selected:'准备采用',written:'已写入正文',dropped:'暂不采用'};
 const scopeNames={long:'长期',phase:'阶段',near:'近期',unspecified:'未指定'};
 const edgeNames={next:'剧情推进',requires:'依赖铺垫',alternative:'备选分支'};
-export function Planning({call,novelId,tick,run,busy,onChapter,onMemory,onTransfer}) {
+export function Planning({call,novelId,tick,run,busy,onChapter,onMemory,onTransfer,onEvent,onPlanning}) {
  const {preferences}=useWorkbenchPreferences();
- const [quick,setQuick]=useState(null),[area,setArea]=usePreference(`${novelId}:planning-area`,'scenes');
+ const [quick,setQuick]=useState(null),[area,setArea]=usePreference(`${novelId}:planning-area`,'narration');
+ const [ledgerOpen,setLedgerOpen]=useState(area==='foreshadows'),[focusForeshadow,setFocusForeshadow]=useState(null);
  const canvas=useRef(null),batchView=useRef(preferences.planningView);
  const [creating,setCreating]=useState(null),[created,setCreated]=useState(null),[batch,setBatch]=useState(false);
  const [parent,setParent]=usePreference(`${novelId}:planning-parent`,null),[selected,setSelected]=usePreference(`${novelId}:planning-selected`,null),[viewChoice,setView]=useState(preferences.planningView),[query,setQuery]=useState(''),[filter,setFilter]=useState(''),[thread,setThread]=useState(''),[group,setGroup]=useState(''),[checked,setChecked]=useState([]),[poll,setPoll]=useState(0),[historyOpen,setHistoryOpen]=useState(false),[changes,setChanges]=useState(null);
@@ -32,7 +34,7 @@ export function Planning({call,novelId,tick,run,busy,onChapter,onMemory,onTransf
  const {ask,confirm}=useDialog();
  const [pageId,setPageId]=usePreference(`${novelId}:planning-page`,'');
  const [decoration,setDecoration]=useState(null);
- const resource=useResource(()=>Promise.all([readPlanningSnapshot(call,novelId,{pageId:pageId||null}),call('planning.groups',{novelId}),call('planning.pages',{novelId}),readDecorations(call,novelId,pageId||null)]).then(values=>[...values,pageId]),[call,novelId,tick,poll,pageId]);
+ const resource=useResource(()=>area==='scenes'?Promise.all([readPlanningSnapshot(call,novelId,{pageId:pageId||null}),call('planning.groups',{novelId}),call('planning.pages',{novelId}),readDecorations(call,novelId,pageId||null)]).then(values=>[...values,pageId]):Promise.resolve(null),[call,novelId,tick,poll,pageId,area],`${novelId}:planning:${pageId}:${area}`);
  useEffect(()=>{const timer=setInterval(()=>{if(!document.hidden)setPoll(n=>n+1);},4000);return()=>clearInterval(timer);},[]);
  const pageReady=resource.value?.[4]===pageId;
  const [written,setWritten]=useState(null);
@@ -99,10 +101,11 @@ export function Planning({call,novelId,tick,run,busy,onChapter,onMemory,onTransf
    }
    await refreshWritten();setQuery('');setFilter('');setThread('');setPoll(n=>n+1);
  });
- if(area==='foreshadows')return <div className="planning-workspace"><button className="quiet-button" onClick={()=>setArea('scenes')}>‹ 返回情节规划</button><Foreshadows {...{call,novelId,busy,run,onChapter,onMemory}}/></div>;
- return <div className="planning-workspace">
+ const navigation=<div className="connected-nav"><button className={area!=='scenes'?'selected':''} onClick={()=>setArea('narration')}>章节叙述图</button><button className={area==='scenes'?'selected':''} onClick={()=>setArea('scenes')}>情节画布</button></div>;
+ if(area!=='scenes')return <div className="planning-workspace connected-workspace">{navigation}<div className="connected-scroll"><ChronologyPanel {...{call,novelId,tick,busy,onChapter,onMemory,onEvent,onPlanning}} onForeshadow={id=>{setFocusForeshadow(id);setLedgerOpen(true);}} mode="narration"/><details className="inline-ledger" open={ledgerOpen} onToggle={e=>setLedgerOpen(e.currentTarget.open)}><summary>伏笔记录 · 与上方章节图共用</summary>{ledgerOpen&&<Foreshadows {...{call,novelId,busy,run,onChapter,onMemory}} focusId={focusForeshadow} onFocused={()=>setFocusForeshadow(null)}/>}</details></div></div>;
+ return <div className="planning-workspace">{navigation}
   <header className="module-heading canvas-heading"><div className="module-toolbar">
-   <button onClick={()=>setArea('foreshadows')}>伏笔台账</button><PlanningPages pages={pages} value={pageId} busy={busy} change={switchPage} create={(name,summary)=>run(async()=>{const page=await call('planning.page.create',{novelId,name,summary,requestId:crypto.randomUUID()});switchPage(page.id);})} update={(page,name,summary)=>run(()=>call('planning.page.update',{novelId,pageId:page.id,expectedRevision:page.revision,name,summary,requestId:crypto.randomUUID()}))} remove={page=>run(async()=>{await call('planning.page.delete',{novelId,pageId:page.id,expectedRevision:page.revision,confirm:true,requestId:crypto.randomUUID()});switchPage('');})}/>
+   <button onClick={()=>{setArea('narration');setLedgerOpen(true);}}>伏笔与章节</button><PlanningPages pages={pages} value={pageId} busy={busy} change={switchPage} create={(name,summary)=>run(async()=>{const page=await call('planning.page.create',{novelId,name,summary,requestId:crypto.randomUUID()});switchPage(page.id);})} update={(page,name,summary)=>run(()=>call('planning.page.update',{novelId,pageId:page.id,expectedRevision:page.revision,name,summary,requestId:crypto.randomUUID()}))} remove={page=>run(async()=>{await call('planning.page.delete',{novelId,pageId:page.id,expectedRevision:page.revision,confirm:true,requestId:crypto.randomUUID()});switchPage('');})}/>
    <Groups {...{groups,busy,call,run,novelId}} prefix="planning" value={group} onChange={value=>{setGroup(value);setChecked([]);}}/>
    <span className="toolbar-spacer"/><SearchControl label="搜索规划" value={query} change={setQuery}/>
    <details className={`menu filter-menu ${filter||thread?'is-active':''}`}><summary aria-label="筛选规划"><Icon name="filter"/>筛选{(filter||thread)&&<small>{Number(Boolean(filter))+Number(Boolean(thread))}</small>}</summary><div className="menu-panel"><label>进展<select aria-label="规划状态" value={filter} onChange={e=>setFilter(e.target.value)}><option value="">全部状态</option>{Object.entries(statusNames).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label><label>故事线<select aria-label="故事线" value={thread} onChange={e=>setThread(e.target.value)}><option value="">全部故事线</option>{[...new Set(nodes.flatMap(n=>n.threads))].sort().map(t=><option key={t} value={t}>{t}</option>)}</select></label><button disabled={!filter&&!thread} onClick={()=>{setFilter('');setThread('');}}>清除筛选</button></div></details>
@@ -126,7 +129,7 @@ export function Planning({call,novelId,tick,run,busy,onChapter,onMemory,onTransf
   {historyOpen&&<div className="planning-history page"><div className="row"><h2 className="grow">规划修改记录</h2><button onClick={()=>setSeen(changes?.sequence||sequence)}>标为已读</button><button onClick={()=>setHistoryOpen(false)}>关闭记录</button></div>{changes?.items.map(t=><details className="card" key={t.id}><summary>{t.actor.kind==='agent'?'AI':'作者'} · {t.reason} · {new Date(t.updatedAt).toLocaleString()} · {t.changes.length} 项</summary>{t.changes.map(c=><div key={`${c.collection}:${c.id}`}><h3>{c.after.title||c.after.name||edgeNames[c.after.type]||(c.collection==='decorations'?'画布批注':'关系')}</h3><p className="muted">{changeSummary(c)}</p><details><summary>比较前后版本</summary><div className="split"><div><h4>修改前</h4><pre>{describe(c.before,nodes)}</pre></div><div><h4>修改后</h4><pre>{describe(c.after,nodes)}</pre></div></div></details>{c.collection==='nodes'&&!c.after.deleted&&<button onClick={()=>{setPageId(c.after.pageId||'');setParent(c.after.parentId||null);open(c.id);setHistoryOpen(false);}}>定位节点</button>}</div>)}<button disabled={busy} onClick={async()=>{if(await confirm('撤销这次变更？若相关对象已有后续修改，将拒绝覆盖。'))run(async()=>{await call('planning.revert',{novelId,transactionId:t.id,requestId:crypto.randomUUID()});setHistoryOpen(false);});}}>撤销这次变更</button></details>)}{changes?.nextOffset!==null&&<button disabled={busy} onClick={()=>run(async()=>{const next=await call('planning.history',{novelId,offset:changes.nextOffset,limit:200});setChanges({...next,items:[...changes.items,...next.items]});})}>加载更多记录</button>}</div>}
  </div>;
 }
-function PlanningDetail(props){const resource=useResource(()=>props.call('planning.get',{novelId:props.novelId,nodeId:props.id}),[props.call,props.novelId,props.id]);return <ResourceState resource={resource}>{resource.value&&<PlanningEditor {...props} initial={resource.value.node}/>}</ResourceState>;}
+function PlanningDetail(props){const resource=useResource(()=>props.call('planning.get',{novelId:props.novelId,nodeId:props.id}),[props.call,props.novelId,props.id],`${props.novelId}:planning-detail:${props.id}`);return <ResourceState resource={resource}>{resource.value&&<PlanningEditor {...props} initial={resource.value.node}/>}</ResourceState>;}
 function PlanningEditor({call,novelId,run,busy,id,initial,latest,nodes,edges,groups,transact,refreshWritten,close,onChapter,onMemory,onEnter,continueFrom,onSelect}){
  const {value,base,change,accept,rebase,dirty,cacheError}=useDraft(`${novelId}:planning:${id}`,initial);const {confirm,ask}=useDialog();
  useEffect(()=>{if(!busy&&!dirty&&initial.revision>base.revision)accept(initial);},[initial,busy,dirty,base.revision]);
