@@ -1,0 +1,28 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdir,mkdtemp} from 'node:fs/promises';
+import {join,resolve} from 'node:path';
+import {createService} from '../server/service.mjs';
+test('快捷属性只修改类型、进展和分组，保留正文引用与位置，过期保存拒绝覆盖',async()=>{
+ const directory=resolve(import.meta.dirname,'../.data/tests');await mkdir(directory,{recursive:true});
+ const s=await createService(await mkdtemp(join(directory,'quick-'))),novelId=s.novelId;
+ const call=(action,args={})=>s.rpc(action,{novelId,...args},'quick-test','human');
+ const group=await call('graph.group.create',{name:'组织'});
+ const person=await call('graph.create',{name:'林照',type:'character_card',summary:'原摘要',content:'**原文**\n\n保留段落。',position:{x:40,y:50}});
+ const world=await call('graph.create',{name:'邮局',type:'world_entry'});
+ const relation=await call('edge.create',{from:person.id,to:world.id,name:'工作于',content:'关系原文'});
+ const changed=await call('graph.update',{nodeId:person.id,expectedRevision:person.revision,type:'world_entry',groupId:group.id});
+ for(const field of ['name','summary','content','position'])assert.deepEqual(changed[field],person[field]);
+ assert.equal(changed.type,'world_entry');assert.equal(changed.groupId,group.id);
+ assert.deepEqual(await call('edge.get',{edgeId:relation.id}),relation);
+ await assert.rejects(call('graph.update',{nodeId:person.id,expectedRevision:person.revision,type:'character_card'}),{code:'CONFLICT'});
+ const created=await call('planning.apply',{requestId:crypto.randomUUID(),operations:[{op:'node.create',ref:'scene',value:{title:'雨夜',content:'规划详述',status:'idea',memoryRefs:[person.id],chapterRefs:[{chapterId:s.chapterId,revision:1}],position:{x:90,y:150}}}]});
+ const nodeId=created.mapping.scene,before=(await call('planning.get',{nodeId})).node;
+ const planningGroup=await call('planning.group.create',{name:'开场',requestId:crypto.randomUUID()});
+ await call('planning.apply',{requestId:crypto.randomUUID(),reason:'快捷进展',operations:[{op:'node.update',id:nodeId,expectedRevision:before.revision,value:{status:'selected',groupId:planningGroup.id}}]});
+ const after=(await call('planning.get',{nodeId})).node;
+ for(const field of ['title','content','position','memoryRefs','chapterRefs'])assert.deepEqual(after[field],before[field]);
+ assert.equal(after.status,'selected');assert.equal(after.groupId,planningGroup.id);
+ await assert.rejects(call('planning.apply',{requestId:crypto.randomUUID(),operations:[{op:'node.update',id:nodeId,expectedRevision:before.revision,value:{status:'written'}}]}),{code:'CONFLICT'});
+ assert.equal((await call('planning.get',{nodeId})).node.status,'selected');
+});

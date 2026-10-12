@@ -1,3 +1,4 @@
+import {CardQuickButton} from '../../shared/card-appearance.tsx';
 import React,{useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
 import {useGraph,curve,CARD_WIDTH,CARD_HEIGHT,PORT_Y,GraphControls} from '../../shared/graph.tsx';
 import type {GraphContext} from '../../shared/graph.tsx';
@@ -10,7 +11,7 @@ interface Node {id:string;revision:number;name:string;summary:string;type:string
 interface Edge {id:string;from:string;to:string;name?:string;content?:string;revision:number}
 interface Props {
   nodes:Node[];allNodes:Node[];edges:Edge[];groups:PlanningGroup[];scopeKey:string;busy:boolean;
-  onSelect:(id:string)=>void;onNew:(point:Point,connection?:{id:string;side:'in'|'out'},type?:'character_card'|'world_entry')=>void;
+  onQuick:(id:string)=>void;onSelect:(id:string)=>void;onNew:(point:Point,connection?:{id:string;side:'in'|'out'},type?:'character_card'|'world_entry')=>void;
   onConnect:(from:string,to:string)=>Promise<boolean|undefined>;
   onLayout:(points:Record<string,Point>,revisions?:Record<string,number>,requestId?:string)=>Promise<boolean|undefined>;
   onEdit:(edge:Edge)=>void;onDelete:(edges:Edge[])=>Promise<boolean|undefined>;
@@ -44,7 +45,7 @@ export function RelationCanvas(props:Props){
   const edge=menu?.hit.kind==='edge'?edges.find(e=>e.id===menu.hit.id):null;
   const ports=menu?.hit.kind==='port'?edges.filter(e=>menu.hit.side==='out'?e.from===menu.hit.id:e.to===menu.hit.id):[];
   const moveItem:MenuItem={label:'移入分组',children:[{label:'未分组',action:()=>props.onMove(currentIds,null)},...groups.map(g=>({label:g.name,action:()=>props.onMove(currentIds,g.id)}))]};
-  const items:MenuItem[]=edge?[{label:'编辑关系',action:()=>onEdit(edge)},{label:'断开连线',action:()=>{void onDelete([edge]);},danger:true}]:menu?.hit.kind==='port'?[{label:'断开此连接点的连线',disabled:!ports.length,action:()=>{void onDelete(ports);},danger:true}]:menu?.hit.kind==='node'?[...(currentIds.length===1?[{label:'打开内容',action:()=>onSelect(menu.hit.id!)}]:[]),moveItem,{label:'复制卡片',action:()=>props.onDuplicate(currentIds,points)},{label:currentIds.length>1?`删除 ${currentIds.length} 张卡片`:'删除卡片',action:()=>props.onRemove(currentIds),danger:true}]:[{label:`新建角色卡${menu?.connection?'并连接':''}`,action:()=>props.onNew(menu!.point,menu!.connection,'character_card')},{label:`新建世界书${menu?.connection?'并连接':''}`,action:()=>props.onNew(menu!.point,menu!.connection,'world_entry')}];
+  const items:MenuItem[]=edge?[{label:'编辑关系',action:()=>onEdit(edge)},{label:'断开连线',action:()=>{void onDelete([edge]);},danger:true}]:menu?.hit.kind==='port'?[{label:'断开此连接点的连线',disabled:!ports.length,action:()=>{void onDelete(ports);},danger:true}]:menu?.hit.kind==='node'?[...(currentIds.length===1?[{label:'快捷设置',action:()=>props.onQuick(menu!.hit.id!)},{label:'打开内容',action:()=>onSelect(menu.hit.id!)}]:[]),moveItem,{label:'复制卡片',action:()=>props.onDuplicate(currentIds,points)},{label:currentIds.length>1?`删除 ${currentIds.length} 张卡片`:'删除卡片',action:()=>props.onRemove(currentIds),danger:true}]:[{label:`新建角色卡${menu?.connection?'并连接':''}`,action:()=>props.onNew(menu!.point,menu!.connection,'character_card')},{label:`新建世界书${menu?.connection?'并连接':''}`,action:()=>props.onNew(menu!.point,menu!.connection,'world_entry')}];
   return <><div ref={graph.scroll} className={`planning-canvas-scroll ${graph.dragging?'graph-dragging':''} ${zoom<.6?'graph-overview':''}`} style={graph.viewportStyle} {...graph.scrollProps} onKeyDown={e=>{if(['Delete','Backspace'].includes(e.key)&&!busy&&!graph.saving&&!graph.failed&&!graph.wire&&!(e.target as HTMLElement).closest('input,textarea,select,[contenteditable=true],summary,.graph-view-controls,.graph-help,.graph-status,[role=menu]')){e.preventDefault();const active=edges.find(v=>v.id===graph.selectedEdge);if(active)void onDelete([active]);else if(graph.selected.length)props.onRemove(graph.selected);}}}>
     <div ref={graph.surface} className="planning-canvas relation-canvas" style={graph.worldStyle}>
       <svg className="planning-lines" style={{left,top,width:right-left,height:bottom-top}} width={right-left} height={bottom-top} viewBox={`${left} ${top} ${right-left} ${bottom-top}`} aria-label="设定关系"><defs><marker id={marker} viewBox="0 0 8 8" markerWidth="6" markerHeight="6" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="currentColor"/></marker></defs>
@@ -52,7 +53,7 @@ export function RelationCanvas(props:Props){
         {graph.preview&&<path className="graph-preview" d={graph.preview}/>}
       </svg>
       {routes.filter(r=>r.edge.name||r.edge.content).map(({edge,x,y,width})=><EdgeLabel key={edge.id} {...{edge,x,y,width}} choose={()=>graph.setSelectedEdge(edge.id)} edit={()=>onEdit(edge)}/>)}
-      {nodes.map(n=><section key={n.id} data-node-id={n.id} aria-label={n.name} {...graph.cardProps(n.id,()=>onSelect(n.id))} className={`planning-card setting-card kind-${n.type==='character_card'?'character':'world'} ${graph.selected.includes(n.id)?'selected':''}`} style={{left:points[n.id].x,top:points[n.id].y}}><button {...graph.portProps(n.id,'in',n.name)}/><button {...graph.portProps(n.id,'out',n.name)}/><small className="graph-card-kind"><Icon name={n.type==='character_card'?'person':'world'}/>{n.type==='character_card'?'角色':'世界'}</small><button className="planning-title" title={n.name}>{n.name}</button><p title={n.summary}>{n.summary||'双击查看设定'}</p></section>)}
+      {nodes.map(n=><section key={n.id} data-node-id={n.id} aria-label={n.name} {...graph.cardProps(n.id,()=>onSelect(n.id))} className={`planning-card setting-card kind-${n.type==='character_card'?'character':'world'} ${graph.selected.includes(n.id)?'selected':''}`} style={{left:points[n.id].x,top:points[n.id].y}}><CardQuickButton title={n.name} open={()=>props.onQuick(n.id)} disabled={busy||graph.saving||graph.failed}/><button {...graph.portProps(n.id,'in',n.name)}/><button {...graph.portProps(n.id,'out',n.name)}/><small className="graph-card-kind"><Icon name={n.type==='character_card'?'person':'world'}/>{n.type==='character_card'?'角色':'世界'}</small><button className="planning-title" title={n.name}>{n.name}</button><p title={n.summary}>{n.summary||'双击查看设定'}</p></section>)}
     </div>
     {!nodes.length&&<p className="canvas-empty">右键新建角色卡或世界书</p>}
     {graph.lasso&&<div className="graph-lasso" style={{left:graph.lasso.x,top:graph.lasso.y,width:graph.lasso.width,height:graph.lasso.height}}/>}
