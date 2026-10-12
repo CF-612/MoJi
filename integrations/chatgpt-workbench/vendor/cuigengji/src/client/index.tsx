@@ -1,6 +1,7 @@
 // The workbench is the typed migration boundary; legacy JSX modules are intentionally
 // consumed without declaration generation while they are migrated incrementally.
 // @ts-nocheck
+import {Timeline} from './features/structure/Timeline.jsx';
 import {WritingOverview} from './features/structure/Overview.jsx';
 import {cardColorVariables} from './shared/card-colors.js';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -66,6 +67,9 @@ function WorkbenchContent({ sessionId, rpc }) {
   const returnFromManagement=()=>{setReturnTarget(null);setHomeOpen(managementReturn==='welcome');setTab(['chapters','plan','memory','preset','manage'].includes(managementReturn)?managementReturn:'chapters');};
   const managementBack={onBack:returnFromManagement,backLabel:managementReturn==='welcome'?'返回作品首页':novelId?'返回'+({plan:'规划',memory:'设定',chapters:'正文',preset:'写作预设',manage:'作品与备份'}[managementReturn]||'正文'):'返回作品选择'};
   const jump=(page,key,id)=>{setReturnTarget(tab);try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:${key}`,JSON.stringify(id));}catch{}setTab(page);};
+  const onEvent=id=>jump('timeline','timeline-event',id);
+  const onPlanning=id=>run(async()=>{const result=await call('planning.get',{novelId,nodeId:id});try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:planning-page`,JSON.stringify(result.node.pageId||''));localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:planning-area`,JSON.stringify('scenes'));}catch{}jump('plan','planning-selected',id);});
+  const onForeshadow=id=>{try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:planning-area`,JSON.stringify('foreshadows'));}catch{}jump('plan','foreshadow-selected',id);};
   return <section className="cuigengji" data-motion={preferences.motion} style={{...cardColorVariables(preferences.cardColors),'--prose-size':`${preferences.fontSize}px`,'--prose-leading':preferences.leading}} aria-label="催更姬小说工作台">
     <style>{styles}</style>
     <WorkbenchHeader home={showHome} novelTitle={novel?.title} tab={tab} busy={busy} refreshing={resource.loading} onHome={()=>{setHomeOpen(true);setReturnTarget(null);}} onTab={page=>{setReturnTarget(null);setTab(page);}} onRefresh={refresh} onSettings={()=>setUtility('settings')} onAbout={()=>setUtility('about')}/>
@@ -74,9 +78,10 @@ function WorkbenchContent({ sessionId, rpc }) {
     <ResourceState resource={resource}>
       {homeOpen?<Welcome {...{books,busy}} onOpen={openNovel} onCreate={create} onImport={()=>openTransfer({mode:'import'})} onManage={()=>openManagement('manage')}/>:tab==='data'?<TransferPage key={transferVisit} {...{call,run,busy,novelId}} {...managementBack} initial={transferInitial} onOpen={openNovel}/>:<>
       {!novelId ? (tab==='manage'?<Manage {...{call,run,busy}} {...managementBack} onTransfer={openTransfer}/>:<Welcome {...{books,busy}} onOpen={openNovel} onCreate={create} onImport={()=>openTransfer({mode:'import'})} onManage={()=>openManagement('manage')}/>) : <div className="workbench-body" key={novelId}>{returnTarget&&<div className="return-strip"><button onClick={()=>{setTab(returnTarget);setReturnTarget(null);}}>‹ 返回{({plan:'规划',memory:'设定'})[returnTarget]||'上一页'}</button></div>}
+        {tab==='timeline'&&<Timeline {...{call,novelId,tick,run,busy,onPlanning,onForeshadow}} onMemory={id=>jump('memory','memory-selected',id)} onChapter={id=>jump('chapters','chapter',id)}/>}
         {tab==='overview'&&<WritingOverview {...{call,novelId,tick,run,busy}} onChapter={id=>jump('chapters','chapter',id)}/>}
-        {tab==='chapters' && <Chapters {...{call,novelId,tick,run,busy}} onMemory={id=>jump('memory','memory-selected',id)} onTransfer={openTransfer}/>}
-        {tab==='memory' && <Memory {...{call,novelId,tick,run,busy}} onTransfer={openTransfer} onChapter={id=>jump('chapters','chapter',id)}/>}
+        {tab==='chapters' && <Chapters {...{call,novelId,tick,run,busy,onEvent}} onMemory={id=>jump('memory','memory-selected',id)} onTransfer={openTransfer}/>}
+        {tab==='memory' && <Memory {...{call,novelId,tick,run,busy,onEvent}} onTransfer={openTransfer} onChapter={id=>jump('chapters','chapter',id)}/>}
         {tab==='plan' && <Planning {...{call,novelId,tick,run,busy}} onTransfer={openTransfer} onMemory={id=>jump('memory','memory-selected',id)} onChapter={id=>jump('chapters','chapter',id)}/>}
         {tab==='preset' && <Preset {...{call,novelId,run,busy}} {...managementBack} onTransfer={openTransfer}/>}
         {tab==='manage' && <Manage {...{call,novelId,novel,run,busy}} {...managementBack} onTransfer={openTransfer}/>}

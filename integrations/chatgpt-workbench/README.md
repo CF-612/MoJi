@@ -2,6 +2,8 @@
 
 基于 mistnest 的 MIT 催更姬，保留聊天侧栏协作、正文、设定与规划。
 
+结构资料与主题见 [结构资料说明](STRUCTURED_WRITING.md)，事件与阶段关系见 [时间线说明](STORY_EVOLUTION.md)。
+
 ## 本地运行
 
 需要 Node.js 24。执行 `npm ci`、`npm run build`、`npm run build:cloud`、`npm test`。`npm start` 打开仅监听本机的演示服务，数据保存在忽略的 `.data/`。

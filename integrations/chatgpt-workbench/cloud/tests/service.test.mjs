@@ -43,6 +43,13 @@ test('真实本地 D1：双端保存、冲突、人物、规划、预设、历�
     const page=await rpc('planning.page.create',{name:'手机规划',requestId:crypto.randomUUID()});
     const tx=await rpc('planning.apply',{requestId:crypto.randomUUID(),operations:[{op:'node.create',ref:'a',value:{title:'收到来信',pageId:page.id}}]},'agent');
     assert.equal((await rpc('planning.get',{nodeId:tx.mapping.a})).node.title,'收到来信');
+    const companion=await rpc('graph.create',{name:'同伴',type:'character_card'});
+    const edge=await rpc('edge.create',{from:person.id,to:companion.id,name:'陌生人'});
+    const event=await rpc('writing.event.create',{confirmed:true,value:{title:'收到来信',storyTime:'雨夜',order:10,narrativeKind:'linear',memoryRefs:[person.id],planningRefs:[tx.mapping.a],foreshadowRefs:[foreshadow.id],chapterRefs:[{chapterId,revision:writingChapter.revision,evidence:'手机保存。'}]}});
+    await rpc('writing.relationshipChange.create',{confirmed:true,value:{edgeId:edge.id,eventId:event.id,value:{name:'伙伴',category:'partner'}}},'agent');
+    assert.equal((await rpc('writing.relationship.list',{phase:'event',eventId:event.id}))[0].name,'伙伴');
+    assert.equal((await rpc('edge.get',{edgeId:edge.id})).name,'陌生人');
+    assert.equal((await rpc('writing_context.get',{eventId:event.id})).relationships[0].stageEventId,event.id);
     const preset=await rpc('preset.set',{expectedRevision:0,preset:{name:'要求',enabled:true,blocks:[{identifier:'voice',name:'文风',content:'保留段落。',enabled:true}]}});
     assert.match((await rpc('preset.read',{},'agent')).content,/保留段落/);
     await assert.rejects(rpc('preset.set',{expectedRevision:0,preset},'agent'),{code:'CONFLICT'});

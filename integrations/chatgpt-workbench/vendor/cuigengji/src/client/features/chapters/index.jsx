@@ -27,7 +27,7 @@ async function readChapter(call, novelId, chapterId) {
   }
   return { ...first, content };
 }
-export function Chapters({ call, novelId, tick, run, busy, onTransfer, onMemory }) {
+export function Chapters({ call, novelId, tick, run, busy, onTransfer, onMemory, onEvent }) {
   const scope=useContext(SessionScope);
   const [undo,setUndo]=useState(null);
   const {preferences}=useWorkbenchPreferences();
@@ -91,7 +91,7 @@ export function Chapters({ call, novelId, tick, run, busy, onTransfer, onMemory 
   return <div ref={workspace} className={`chapter-workspace ${directory?'show-directory':'show-editor'} ${directoryCollapsed?'directory-collapsed':''}`}>
     {narrow ? directory&&<DirectoryDrawer close={()=>setDirectory(false)}>{directoryContent}</DirectoryDrawer> : directoryContent}
     <main className="chapter-main">
-      {id ? <ChapterLoader key={id} {...{call,novelId,tick,run,busy,volumes,onTransfer,onMemory}} onSaved={()=>setPoll(n=>n+1)} chapterId={id} latest={chapters.find(c=>c.id===id)} back={()=>setDirectory(true)}/> : <div className="empty"><h2>选择一章，继续写作</h2><p>从目录打开章节，或新建一章。</p><button onClick={()=>setDirectory(true)}>打开目录</button></div>}
+      {id ? <ChapterLoader key={id} {...{call,novelId,tick,run,busy,volumes,onTransfer,onMemory,onEvent}} onSaved={()=>setPoll(n=>n+1)} chapterId={id} latest={chapters.find(c=>c.id===id)} back={()=>setDirectory(true)}/> : <div className="empty"><h2>选择一章，继续写作</h2><p>从目录打开章节，或新建一章。</p><button onClick={()=>setDirectory(true)}>打开目录</button></div>}
     </main>
   </div>;
 }
@@ -111,7 +111,7 @@ function ChapterLoader(props) {
   const resource=useResource(()=>readChapter(props.call,props.novelId,props.chapterId),[props.call,props.novelId,props.chapterId]);
   return <>{!resource.value&&<button className="directory-back" onClick={props.back}>‹ 返回目录</button>}<ResourceState resource={resource}>{resource.value&&<ChapterEditor {...props} initial={resource.value}/>}</ResourceState></>;
 }
-function ChapterEditor({call,novelId,chapterId,latest,tick,run,busy,volumes,back,initial,onSaved,onTransfer,onMemory}) {
+function ChapterEditor({call,novelId,chapterId,latest,tick,run,busy,volumes,back,initial,onSaved,onTransfer,onMemory,onEvent}) {
   const {value:draft,base,change,accept,rebase,dirty,cacheError,phase,error:saveError,remote,notice:syncNotice,save,composition}=useChapterSync({novelId,chapterId,initial,latest,onSaved,read:()=>readChapter(call,novelId,chapterId),write:(value,base,requestId)=>call('chapter.update',{novelId,chapterId,requestId,...chapterChanges(value,base),expectedRevision:base.revision,expectedHash:base.contentHash,reason:'作者自动保存'})});
   const manuscript=useManuscriptTextarea(draft.content),textareaRef=manuscript.ref;
   const [materials,setMaterials]=useState(null);
@@ -134,7 +134,7 @@ function ChapterEditor({call,novelId,chapterId,latest,tick,run,busy,volumes,back
     <header className="editor-heading"><div className="row compact chapter-title-row"><button className="directory-back" onClick={back}>‹ 目录</button><div className="grow chapter-title"><label className="chapter-volume"><select aria-label="章节所属卷" disabled={busy||base.deleted} value={draft.volumeId||''} onChange={e=>set('volumeId',e.target.value||null)}><option value="">未分卷</option>{volumes.map(v=><option key={v.id} value={v.id}>{v.title}</option>)}</select></label><InlineTitle value={draft.title} label="修改章节标题" disabled={busy||base.deleted} commit={title=>set('title',title)}/></div><details className="menu"><summary aria-label="章节设置" title="章节操作">···</summary><div className="menu-panel chapter-settings-panel"><button disabled={busy||base.deleted||dirty||phase==='saving'} title={dirty?'等待正文自动保存后导出':undefined} onClick={()=>onTransfer({mode:'export',selection:{kind:'chapters',novelId,chapterIds:[chapterId]}})}>导出本章</button>
       <button type="button" onClick={e=>{setHistoryOpen(true);e.currentTarget.closest('details').open=false;}}>版本历史</button>
     </div></details></div>
-    <div className="chapter-toolbar"><button disabled={busy||base.deleted} onClick={()=>{const el=textareaRef.current;setMaterials(el?el.value.slice(el.selectionStart,el.selectionEnd).slice(0,2000):'');}}>本章资料</button><ReferenceButton reference={{kind:'chapter',novelId,id:chapterId,title:draft.title,revision:base.revision,dirty}}/><div className="prose-tools"><button type="button" className="format-button" disabled={busy||base.deleted||!draft.content.trim()} onClick={format}>自动排版</button>{formatUndo&&formatUndo.after===draft.content&&<button className="icon-button" aria-label="撤销排版" disabled={busy||base.deleted} onClick={()=>{set('content',formatUndo.before);setFormatUndo(null);}}>↶</button>}</div><ProseDisplay/></div>{materials!==null&&<ChapterMaterials {...{call,novelId,busy,run,dirty,onMemory}} chapter={{...base,id:chapterId}} selection={materials} close={()=>setMaterials(null)}/>}
+    <div className="chapter-toolbar"><button disabled={busy||base.deleted} onClick={()=>{const el=textareaRef.current;setMaterials(el?el.value.slice(el.selectionStart,el.selectionEnd).slice(0,2000):'');}}>本章资料</button><ReferenceButton reference={{kind:'chapter',novelId,id:chapterId,title:draft.title,revision:base.revision,dirty}}/><div className="prose-tools"><button type="button" className="format-button" disabled={busy||base.deleted||!draft.content.trim()} onClick={format}>自动排版</button>{formatUndo&&formatUndo.after===draft.content&&<button className="icon-button" aria-label="撤销排版" disabled={busy||base.deleted} onClick={()=>{set('content',formatUndo.before);setFormatUndo(null);}}>↶</button>}</div><ProseDisplay/></div>{materials!==null&&<ChapterMaterials {...{call,novelId,busy,run,dirty,onMemory,onEvent}} chapter={{...base,id:chapterId}} selection={materials} close={()=>setMaterials(null)}/>}
     </header>
     <div className="editor-scroll is-editing" ref={scrollRef}>
       {conflict&&<div className="notice">你与 AI 或其他窗口修改了同一处，双方内容均已保留。<button disabled={busy} onClick={()=>setComparison(remote)}>比较最新正文</button><button disabled={busy||phase==='saving'} onClick={reload}>放弃草稿并读取最新</button></div>}

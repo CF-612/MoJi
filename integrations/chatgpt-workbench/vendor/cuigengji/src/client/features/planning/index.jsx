@@ -24,7 +24,7 @@ const scopeNames={long:'长期',phase:'阶段',near:'近期',unspecified:'未指
 const edgeNames={next:'剧情推进',requires:'依赖铺垫',alternative:'备选分支'};
 export function Planning({call,novelId,tick,run,busy,onChapter,onMemory,onTransfer}) {
  const {preferences}=useWorkbenchPreferences();
- const [quick,setQuick]=useState(null),[area,setArea]=useState('scenes');
+ const [quick,setQuick]=useState(null),[area,setArea]=usePreference(`${novelId}:planning-area`,'scenes');
  const canvas=useRef(null),batchView=useRef(preferences.planningView);
  const [creating,setCreating]=useState(null),[created,setCreated]=useState(null),[batch,setBatch]=useState(false);
  const [parent,setParent]=usePreference(`${novelId}:planning-parent`,null),[selected,setSelected]=usePreference(`${novelId}:planning-selected`,null),[viewChoice,setView]=useState(preferences.planningView),[query,setQuery]=useState(''),[filter,setFilter]=useState(''),[thread,setThread]=useState(''),[group,setGroup]=useState(''),[checked,setChecked]=useState([]),[poll,setPoll]=useState(0),[historyOpen,setHistoryOpen]=useState(false),[changes,setChanges]=useState(null);

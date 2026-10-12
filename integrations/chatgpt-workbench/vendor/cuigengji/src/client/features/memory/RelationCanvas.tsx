@@ -1,3 +1,4 @@
+import {relationColors} from '../structure/Timeline.jsx';
 import {CardQuickButton} from '../../shared/card-appearance.tsx';
 import React,{useEffect,useId,useLayoutEffect,useRef,useState} from 'react';
 import {useGraph,curve,CARD_WIDTH,CARD_HEIGHT,PORT_Y,GraphControls} from '../../shared/graph.tsx';
@@ -8,7 +9,7 @@ import type {Point,PlanningGroup} from '../../../contracts/planning.ts';
 import {CanvasSelectionTools} from '../../shared/CanvasSelectionTools.tsx';
 import {Icon} from '../../shared/icons.tsx';
 interface Node {id:string;revision:number;name:string;summary:string;type:string;groupId?:string|null;position?:Point|null}
-interface Edge {id:string;from:string;to:string;name?:string;content?:string;revision:number}
+interface Edge {id:string;from:string;to:string;name?:string;content?:string;revision:number;category?:string;style?:string}
 interface Props {
   nodes:Node[];allNodes:Node[];edges:Edge[];groups:PlanningGroup[];scopeKey:string;busy:boolean;
   onQuick:(id:string)=>void;onSelect:(id:string)=>void;onNew:(point:Point,connection?:{id:string;side:'in'|'out'},type?:'character_card'|'world_entry')=>void;
@@ -49,7 +50,7 @@ export function RelationCanvas(props:Props){
   return <><div ref={graph.scroll} className={`planning-canvas-scroll ${graph.dragging?'graph-dragging':''} ${zoom<.6?'graph-overview':''}`} style={graph.viewportStyle} {...graph.scrollProps} onKeyDown={e=>{if(['Delete','Backspace'].includes(e.key)&&!busy&&!graph.saving&&!graph.failed&&!graph.wire&&!(e.target as HTMLElement).closest('input,textarea,select,[contenteditable=true],summary,.graph-view-controls,.graph-help,.graph-status,[role=menu]')){e.preventDefault();const active=edges.find(v=>v.id===graph.selectedEdge);if(active)void onDelete([active]);else if(graph.selected.length)props.onRemove(graph.selected);}}}>
     <div ref={graph.surface} className="planning-canvas relation-canvas" style={graph.worldStyle}>
       <svg className="planning-lines" style={{left,top,width:right-left,height:bottom-top}} width={right-left} height={bottom-top} viewBox={`${left} ${top} ${right-left} ${bottom-top}`} aria-label="设定关系"><defs><marker id={marker} viewBox="0 0 8 8" markerWidth="6" markerHeight="6" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="currentColor"/></marker></defs>
-        {routes.map(({edge,path})=><g key={edge.id} className={graph.selectedEdge===edge.id?'edge-selected':''}><path className="graph-line" d={path} markerEnd={`url(#${marker})`}/><path data-edge-id={edge.id} className="edge-hit" d={path} tabIndex={0} role="button" aria-label={`关系：${nodes.find(n=>n.id===edge.from)?.name} → ${nodes.find(n=>n.id===edge.to)?.name}`} aria-pressed={graph.selectedEdge===edge.id} onClick={()=>graph.setSelectedEdge(edge.id)} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();graph.setSelectedEdge(edge.id);}}}/></g>)}
+        {routes.map(({edge,path})=><g key={edge.id} style={{color:relationColors[edge.category||'other']}} className={graph.selectedEdge===edge.id?'edge-selected':''}><path className="graph-line" style={{stroke:relationColors[edge.category||'other'],strokeDasharray:edge.style==='dashed'?'8 5':edge.style==='dotted'?'2 5':undefined}} d={path} markerEnd={`url(#${marker})`}/><path data-edge-id={edge.id} className="edge-hit" d={path} tabIndex={0} role="button" aria-label={`关系：${nodes.find(n=>n.id===edge.from)?.name} → ${nodes.find(n=>n.id===edge.to)?.name}`} aria-pressed={graph.selectedEdge===edge.id} onClick={()=>graph.setSelectedEdge(edge.id)} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();graph.setSelectedEdge(edge.id);}}}/></g>)}
         {graph.preview&&<path className="graph-preview" d={graph.preview}/>}
       </svg>
       {routes.filter(r=>r.edge.name||r.edge.content).map(({edge,x,y,width})=><EdgeLabel key={edge.id} {...{edge,x,y,width}} choose={()=>graph.setSelectedEdge(edge.id)} edit={()=>onEdit(edge)}/>)}
