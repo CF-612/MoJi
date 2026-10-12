@@ -1,17 +1,20 @@
+import {normalizeCardColors,defaultCardColors} from './card-colors.js';
+import {CardColorFields} from './card-appearance.tsx';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import manifest from '../../../package.json' with { type: 'json' };
 import aboutSticker from '../assets/haoye.png';
 
 export interface Preferences {
+  cardColors: Record<string,string>;
   fontSize: number; leading: number; directory: boolean;
   planningView: 'canvas' | 'list'; memoryView: 'canvas' | 'list'; motion: 'system' | 'reduce';
 }
-export const defaults: Preferences = { fontSize: 18, leading: 1.95, directory: true, planningView: 'canvas', memoryView: 'list', motion: 'system' };
+export const defaults: Preferences = { cardColors: {...defaultCardColors}, fontSize: 18, leading: 1.95, directory: true, planningView: 'canvas', memoryView: 'list', motion: 'system' };
 const key = 'cuigengji:workbench:preferences:v1';
 function read(): Preferences {
   try {
     const p = JSON.parse(localStorage.getItem(key) || '{}');
-    return {fontSize: [16,18,20,22].includes(p.fontSize) ? p.fontSize : defaults.fontSize,
+    return {cardColors:normalizeCardColors(p.cardColors),fontSize: [16,18,20,22].includes(p.fontSize) ? p.fontSize : defaults.fontSize,
       leading: [1.7,1.95,2.2].includes(p.leading) ? p.leading : defaults.leading,
       directory: typeof p.directory === 'boolean' ? p.directory : defaults.directory,
       planningView: p.planningView === 'list' ? 'list' : 'canvas', memoryView: p.memoryView === 'canvas' ? 'canvas' : 'list',
@@ -47,6 +50,7 @@ export function PreferencesDialog({close, novelTitle, onPreset}: {close: () => v
     <label>字号<select aria-label="默认正文字号" value={p.fontSize} onChange={e=>update({fontSize:Number(e.target.value)})}>{[16,18,20,22].map(n=><option key={n} value={n}>{n}</option>)}</select></label>
     <label>行距<select aria-label="正文行距" value={p.leading} onChange={e=>update({leading:Number(e.target.value)})}><option value={1.7}>紧凑</option><option value={1.95}>适中</option><option value={2.2}>宽松</option></select></label></div>
     <div className="reading-preview"><small>阅读预览</small><p style={{fontSize:p.fontSize,lineHeight:p.leading}}>雨停以后，街道重新安静下来。窗边的灯仍亮着，故事还在继续。</p></div></section>
+    <section className="preference-section"><h3>卡片颜色</h3><CardColorFields/></section>
     <section className="preference-section"><h3>打开工作台时</h3><label className="preference-row">默认展开目录<input type="checkbox" checked={p.directory} onChange={e=>update({directory:e.target.checked})}/></label>
       <label className="preference-row">规划默认视图<select value={p.planningView} onChange={e=>update({planningView:e.target.value as Preferences['planningView']})}><option value="canvas">流程图</option><option value="list">列表</option></select></label>
       <label className="preference-row">设定默认视图<select value={p.memoryView} onChange={e=>update({memoryView:e.target.value as Preferences['memoryView']})}><option value="list">列表</option><option value="canvas">关系图</option></select></label><p className="muted">下次进入对应页面时生效。</p></section>
