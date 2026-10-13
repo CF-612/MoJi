@@ -26,7 +26,7 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
     assert.ok(listing.tools.some(t=>t.name==='workbench_import_preview'),'聊天 AI 必须有导入预览工具');
     assert.ok(listing.tools.some(t=>t.name==='workbench_import'),'聊天 AI 必须有携带预览证明的导入工具');
     const openTool=listing.tools.find(t=>t.name==='workbench_open');
-    assert.equal(openTool._meta.ui.resourceUri,'ui://cuigengji/cloud-v086');
+    assert.equal(openTool._meta.ui.resourceUri,'ui://cuigengji/cloud-v087');
     assert.equal(openTool._meta['openai/outputTemplate'],openTool._meta.ui.resourceUri);
     for(const name of ['workbench_bootstrap','workbench_ui_rpc']){
       const tool=listing.tools.find(t=>t.name===name);
