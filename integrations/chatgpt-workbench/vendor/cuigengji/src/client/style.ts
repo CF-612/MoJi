@@ -1,3 +1,4 @@
+import {markdownStyles} from './shared/markdown-style.ts';
 import {structureStyles} from './structure-style.ts';
 import {storyStageStyles} from './features/structure/story-stage-style.ts';
 import {cardStyles} from './card-style.ts';
@@ -277,4 +278,4 @@ export const styles = `
  .cuigengji .chapter-main .manuscript {padding-left:8px;padding-right:8px;}
  .cuigengji .chapter-toolbar {gap:8px;}
 }
-` + visualStyles + selectStyles + graphStyles + managementStyles + transferStyles + welcomeStyles + batchStyles + navigationStyles + mobileStyles + cardStyles + structureStyles + storyStageStyles;
+` + visualStyles + selectStyles + graphStyles + managementStyles + transferStyles + welcomeStyles + batchStyles + navigationStyles + mobileStyles + cardStyles + structureStyles + storyStageStyles + markdownStyles;

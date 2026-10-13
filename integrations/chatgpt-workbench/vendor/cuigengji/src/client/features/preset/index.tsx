@@ -1,3 +1,4 @@
+import {MarkdownText,MarkdownField} from '../../shared/MarkdownText.jsx';
 import {ReferenceButton} from '../../shared/collaboration.tsx';
 import React, {useEffect, useState} from 'react';
 import {useDraft, useResource, usePreference} from '../../shared/state.js';
@@ -62,7 +63,7 @@ function PresetEditor({call, novelId, run, busy, initial, onTransfer, onBack, ba
           <button className="prompt-list-back" onClick={() => setSelected(null)}>‹ 条目列表</button>
           <header className="prompt-document-head"><label className="prompt-title-field">条目名称<input aria-label="条目名称" disabled={busy} value={block.name} onChange={event => update(index, {name: event.target.value})}/></label><label className="switch-control"><input type="checkbox" disabled={busy || !!presetBlockReason(block)} checked={block.enabled} onChange={event => update(index, {enabled: event.target.checked})}/>启用条目</label><details className="menu"><summary aria-label="提示词条目操作">···</summary><div className="menu-panel"><button disabled={busy || index === 0} onClick={() => move(index, -1)}>上移</button><button disabled={busy || index === value.blocks.length - 1} onClick={() => move(index, 1)}>下移</button><button className="danger" disabled={busy} onClick={() => {change({...value, blocks: value.blocks.filter((_, i) => i !== index)}); setSelected(value.blocks.length > 1 ? Math.min(index, value.blocks.length - 2) : null);}}>移除条目</button></div></details></header>
           {presetBlockNotice(block) && <p className="notice">{presetBlockNotice(block)}</p>}
-          <label className="prompt-content-field"><span>提示词内容</span><textarea aria-label="提示词内容" placeholder="写下这条要求的具体内容…" disabled={busy} value={block.content} onChange={event => {const content = event.target.value; update(index, {content, enabled: block.enabled && !presetBlockReason({...block, content})});}}/></label>
+          <MarkdownField key={block.identifier} label="提示词内容" fieldClassName="prompt-content-field" placeholder="写下这条要求的具体内容…" disabled={busy} value={block.content} onChange={event => {const content = event.target.value; update(index, {content, enabled: block.enabled && !presetBlockReason({...block, content})});}}/>
         </> : '从左侧选择一条提示词，开始编辑。'}
       </main>
     </div>
@@ -73,6 +74,6 @@ function PresetEditor({call, novelId, run, busy, initial, onTransfer, onBack, ba
       {value.raw !== undefined && !value.importFormat && <p>旧版导入的停用状态已保留；重新导入原文件可按新的内容优先规则解析。</p>}
       {!!warnings.length && <details><summary>导入说明 · {warnings.length} 项</summary>{warnings.map((warning, i) => <p key={i}>{warning}</p>)}</details>}
     </details>
-    <details className="management-disclosure"><summary>当前草稿的生效文本预览 · {preview.length} 字符</summary><pre>{preview || '预设未启用或没有启用的文本条目。'}</pre><p>讨论或创作时，AI 通过工作台工具读取已保存且启用的要求。酒馆的触发、角色与装填规则不执行，宏保留为原文。</p></details>
+    <details className="management-disclosure"><summary>当前草稿的生效文本预览 · {preview.length} 字符</summary><MarkdownText text={preview || '预设未启用或没有启用的文本条目。'}/><details><summary>查看生效源码</summary><pre>{preview}</pre></details><p>讨论或创作时，AI 通过工作台工具读取已保存且启用的要求。酒馆的触发、角色与装填规则不执行，宏保留为原文。</p></details>
   </ManagementPage>;
 }
