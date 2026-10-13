@@ -6,12 +6,21 @@ export function calendarDate(value){
 }
 export function ageAt(birth,now){const b=calendarDate(birth),t=calendarDate(now);if(!b||!t||now<birth)return null;return t.y-b.y-(t.m<b.m||t.m===b.m&&t.d<b.d?1:0);}
 export function dateLabel(value){const d=calendarDate(value);return d?`${d.y}年${d.m}月${d.d}日`:value||'';}
+export function narrationCompare(a,b,chapterId=null){
+ const value=e=>chapterId?(e.chapterOrders?.[chapterId]??e.narrationOrder??e.order):(e.narrationOrder??Infinity);
+ return value(a)-value(b)||a.order-b.order||a.id.localeCompare(b.id);
+}
+export function timelineOrderScope(board,mode,chapterId=null){
+ const events=board.events.filter(e=>!e.deleted),chapters=new Set(board.chapters.map(c=>c.id));
+ if(mode==='story')return [...events].sort((a,b)=>a.order-b.order||a.id.localeCompare(b.id));
+ return events.filter(e=>chapterId?e.chapterRefs.some(r=>!r.excluded&&r.chapterId===chapterId):!e.chapterRefs.some(r=>!r.excluded&&chapters.has(r.chapterId))).sort((a,b)=>narrationCompare(a,b,chapterId));
+}
 export function timelineNodes(board,mode='narration'){
  const events=board.events.filter(e=>!e.deleted),rank=new Map(board.chapters.map((c,i)=>[c.id,i]));
  if(mode==='story')return [...events].sort((a,b)=>a.order-b.order||a.id.localeCompare(b.id)).map(e=>({key:e.id,eventId:e.id,event:e,chapterId:e.chapterRefs.find(r=>!r.excluded&&rank.has(r.chapterId))?.chapterId||null}));
- const rows=board.chapters.flatMap(c=>{const linked=events.filter(e=>e.chapterRefs.some(r=>!r.excluded&&r.chapterId===c.id)).sort((a,b)=>a.order-b.order||a.id.localeCompare(b.id));return linked.length?linked.map(e=>({key:`${c.id}:${e.id}`,eventId:e.id,event:e,chapterId:c.id})):[{key:`chapter:${c.id}`,eventId:null,event:null,chapterId:c.id}];});
+ const rows=board.chapters.flatMap(c=>{const linked=timelineOrderScope(board,'narration',c.id);return linked.length?linked.map(e=>({key:`${c.id}:${e.id}`,eventId:e.id,event:e,chapterId:c.id})):[{key:`chapter:${c.id}`,eventId:null,event:null,chapterId:c.id}];});
  // Unwritten planning locations never create empty manuscript chapters.
- return [...rows,...events.filter(e=>!e.chapterRefs.some(r=>!r.excluded&&rank.has(r.chapterId))).sort((a,b)=>(a.narrationOrder??Infinity)-(b.narrationOrder??Infinity)||a.order-b.order||a.id.localeCompare(b.id)).map(e=>({key:e.id,eventId:e.id,event:e,chapterId:null}))];
+ return [...rows,...timelineOrderScope(board,'narration').map(e=>({key:e.id,eventId:e.id,event:e,chapterId:null}))];
 }
 export function chapterLabel(board,id){const ch=board.chapters.find(c=>c.id===id);if(!ch)return '';const volume=board.stats.volumes.find(v=>(v.id||null)===(ch.volumeId||null));return `${volume?.title||'未分卷'} · ${ch.title}`;}
 export function projectStage(board,eventId,{complete=false,chapterId=null}={}){

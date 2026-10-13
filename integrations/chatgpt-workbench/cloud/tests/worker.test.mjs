@@ -26,7 +26,7 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
     assert.ok(listing.tools.some(t=>t.name==='workbench_import_preview'),'聊天 AI 必须有导入预览工具');
     assert.ok(listing.tools.some(t=>t.name==='workbench_import'),'聊天 AI 必须有携带预览证明的导入工具');
     const openTool=listing.tools.find(t=>t.name==='workbench_open');
-    assert.equal(openTool._meta.ui.resourceUri,'ui://cuigengji/cloud-v084');
+    assert.equal(openTool._meta.ui.resourceUri,'ui://cuigengji/cloud-v085');
     assert.equal(openTool._meta['openai/outputTemplate'],openTool._meta.ui.resourceUri);
     for(const name of ['workbench_bootstrap','workbench_ui_rpc']){
       const tool=listing.tools.find(t=>t.name===name);
@@ -51,6 +51,9 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
     assert.ok((await ui('writing.board.get',{novelId})).chapters[0].planning.includes(chapterPlan.nodeId));
     const shadow=await edit('writing.timelineForeshadow.create',{eventId:event.id,expectedEventRevision:event.revision,confirmed:true,value:{title:'钥匙',status:'planned',memoryRefs:[],evidence:[],targetChapterId:null,abandonReason:''}});
     const shadowQuery=await call('tools/call',{name:'workbench_query',arguments:{action:'writing.foreshadow.get',args:{novelId,id:shadow.foreshadowId}}});assert.equal(shadowQuery.isError,undefined);assert.equal(shadowQuery.structuredContent.result.status,'planned');assert.ok((await ui('writing.event.get',{novelId,id:event.id})).foreshadowRefs.includes(shadow.foreshadowId));
+    const later=await edit('writing.event.create',{confirmed:true,value:{title:'再次来信',order:2,narrativeKind:'linear'}}),beforeOrder=await ui('writing.board.get',{novelId});
+    const moved=await edit('writing.event.move',{id:later.id,view:'story',direction:'up',confirmed:true,expectedOrder:beforeOrder.events.map(e=>({id:e.id,revision:e.revision}))});
+    assert.deepEqual(moved.order,[later.id,event.id]);const reordered=await ui('writing.board.get',{novelId});assert.equal(reordered.events[0].id,later.id);assert.equal(reordered.events.find(e=>e.id===event.id).foreshadowRefs[0],shadow.foreshadowId);assert.equal(reordered.events.find(e=>e.id===event.id).narrationOrder,10);
     const manuscript=Array.from({length:60},(_,i)=>`## 第${i+1}章 来信\n\n`+'　　“雨停了。”——她说。\n\n'.repeat(1200)).join('\n\n');
     const file={name:'batch.json',json:{format:'cuigengji-batch',version:1,files:[{file:{name:'长篇.md',gzipBase64:gzipSync(manuscript).toString('base64')},kind:'chapters'}]}},options={mode:'copy',targetId:novelId};
     const preview=await ui('transfer.preview',{file,options});assert.ok(preview.valid);assert.equal(preview.counts.chapters,60);

@@ -1,4 +1,4 @@
-import {calendarDate} from './story-workspace.js';
+import {calendarDate,narrationCompare} from './story-workspace.js';
 // Canonical story records. Graph projections never modify the underlying edges.
 const clone=structuredClone;
 const fail=(message,code='INVALID_WRITING')=>{throw Object.assign(new Error(message),{code});};
@@ -18,7 +18,11 @@ function checkedEvent(n,w,v){
  if(!['linear','flashback','insert','background'].includes(v.narrativeKind))fail('叙述类型无效');
  if(!Array.isArray(v.chapterRefs)||v.chapterRefs.length>200)fail('事件章节引用无效');
  const chapterRefs=v.chapterRefs.map(r=>{if(!object(r))fail('事件章节引用无效');const ch=get(n.chapters,r.chapterId,'章节'),version=ch.versions.find(x=>x.revision===r.revision);if(!version)fail('章节版本不存在');const quote=text(r.evidence||'','事件正文依据');if(quote.length>2000||quote&&!version.content.includes(quote))fail('事件依据不在指定的已保存正文中');return {chapterId:ch.id,revision:version.revision,evidence:quote};});
- return {title:text(v.title,'事件名称',true),storyTime:text(v.storyTime||'','故事时间'),storyDate:v.storyDate||'',plannedChapter:text(v.plannedChapter||'','计划卷章'),narrationOrder:v.narrationOrder??null,planned:!!v.planned,enteringRefs:refs(v.enteringRefs||[],n.nodes,'进入故事资料'),order:v.order,narrativeKind:v.narrativeKind,content:text(v.content||'','事件说明'),chapterRefs,memoryRefs:refs(v.memoryRefs||[],n.nodes,'关联资料'),planningRefs:refs(v.planningRefs||[],n.planning?.nodes||n.plan?.nodes,'关联规划'),foreshadowRefs:refs(v.foreshadowRefs||[],w.foreshadows,'关联伏笔'),deleted:!!v.deleted};
+ const chapterOrders=v.chapterOrders??{};
+ if(!object(chapterOrders)||Object.keys(chapterOrders).length>200)fail('章节内事件排序无效');
+ for(const [id,order]of Object.entries(chapterOrders)){get(n.chapters,id,'排序章节');if(!chapterRefs.some(r=>r.chapterId===id)||!Number.isFinite(order))fail('章节内事件排序需要明确数字和章节呈现');}
+ const keptOrders=Object.fromEntries(Object.entries(chapterOrders).filter(([id])=>chapterRefs.some(r=>r.chapterId===id)));
+ return {title:text(v.title,'事件名称',true),storyTime:text(v.storyTime||'','故事时间'),storyDate:v.storyDate||'',plannedChapter:text(v.plannedChapter||'','计划卷章'),narrationOrder:v.narrationOrder??null,chapterOrders:keptOrders,planned:!!v.planned,enteringRefs:refs(v.enteringRefs||[],n.nodes,'进入故事资料'),order:v.order,narrativeKind:v.narrativeKind,content:text(v.content||'','事件说明'),chapterRefs,memoryRefs:refs(v.memoryRefs||[],n.nodes,'关联资料'),planningRefs:refs(v.planningRefs||[],n.planning?.nodes||n.plan?.nodes,'关联规划'),foreshadowRefs:refs(v.foreshadowRefs||[],w.foreshadows,'关联伏笔'),deleted:!!v.deleted};
 }
 function refView(n,r){const ch=n.chapters[r.chapterId],version=ch?.versions.find(v=>v.revision===r.revision);return {...r,title:ch?.title||'缺失章节',excluded:!!ch?.deleted,review:!!ch&&!ch.deleted&&ch.contentHash!==version?.contentHash};}
 export function eventView(n,e){const {versions,...current}=e;return {...clone(current),chapterRefs:e.chapterRefs.map(r=>refView(n,r)),review:e.chapterRefs.some(r=>refView(n,r).review)};}
@@ -26,7 +30,7 @@ export function storyEvents(n,w,args={}){
  const ranks=chapterRanks(n),items=(args.includeDeleted?Object.values(w.events||{}):active(w.events)).filter(e=>(!args.nodeId||e.memoryRefs.includes(args.nodeId))&&(!args.chapterId||e.chapterRefs.some(r=>r.chapterId===args.chapterId&&!n.chapters[r.chapterId]?.deleted)));
  if(args.view==='narration'){
   const rows=items.flatMap(e=>{const kept=e.chapterRefs.filter(r=>ranks.has(r.chapterId));return kept.length?kept.map(r=>({...eventView(n,e),narratedIn:refView(n,r)})):[{...eventView(n,e),narratedIn:null}];});
-  return rows.sort((a,b)=>(ranks.get(a.narratedIn?.chapterId)??Infinity)-(ranks.get(b.narratedIn?.chapterId)??Infinity)||eventOrder(a,b));
+  return rows.sort((a,b)=>(ranks.get(a.narratedIn?.chapterId)??Infinity)-(ranks.get(b.narratedIn?.chapterId)??Infinity)||narrationCompare(a,b,a.narratedIn?.chapterId));
  }
  return items.sort(eventOrder).map(e=>eventView(n,e));
 }
@@ -62,6 +66,7 @@ export function changeEvolution(n,w,action,a,source,reason,save,cas,uuid){
  const old=operation==='create'?null:get(w[collection],a.id,event?'事件':'关系变化');cas(old,a.expectedRevision??(operation==='create'?0:undefined));
  if(a.confirmed!==true)fail('事件与关系事实需要作者确认','CONFIRM_REQUIRED');
  const value=operation==='delete'?{...old,deleted:true}:{...old,...a.value};
+ if(event&&operation==='update'&&Array.isArray(a.value?.chapterRefs))value.chapterOrders=Object.fromEntries(Object.entries(value.chapterOrders||{}).filter(([id])=>value.chapterRefs.some(r=>r.chapterId===id)));
  if(operation!=='delete'){
   if(event){
    for(const id of [...value.memoryRefs||[],...value.enteringRefs||[]])if(get(n.nodes,id,'资料').deleted&&![...old?.memoryRefs||[],...old?.enteringRefs||[]].includes(id))fail('不能新关联已删除资料');
@@ -90,7 +95,7 @@ export function validateEvolution(n,w){
 export function copyEvolution(w,to,maps,uuid,foreshadowIds){
  const eventIds=new Map(Object.keys(w.events||{}).map(id=>[id,uuid()]));to.events??={};to.relationshipChanges??={};
  const record=(r,convert)=>({...convert(clone(r)),versions:r.versions.map(v=>({...v,value:convert(clone(v.value))}))});
- for(const e of Object.values(w.events||{})){const id=eventIds.get(e.id);to.events[id]=record(e,v=>({...v,id,enteringRefs:(v.enteringRefs||[]).map(id=>maps.nodes.get(id)),memoryRefs:v.memoryRefs.map(id=>maps.nodes.get(id)),chapterRefs:v.chapterRefs.map(r=>({...r,chapterId:maps.chapters.get(r.chapterId)})),planningRefs:v.planningRefs.map(id=>maps.planning.get(id)),foreshadowRefs:v.foreshadowRefs.map(id=>foreshadowIds.get(id))}));}
+ for(const e of Object.values(w.events||{})){const id=eventIds.get(e.id);to.events[id]=record(e,v=>({...v,id,chapterOrders:Object.fromEntries(Object.entries(v.chapterOrders||{}).map(([id,order])=>[maps.chapters.get(id),order])),enteringRefs:(v.enteringRefs||[]).map(id=>maps.nodes.get(id)),memoryRefs:v.memoryRefs.map(id=>maps.nodes.get(id)),chapterRefs:v.chapterRefs.map(r=>({...r,chapterId:maps.chapters.get(r.chapterId)})),planningRefs:v.planningRefs.map(id=>maps.planning.get(id)),foreshadowRefs:v.foreshadowRefs.map(id=>foreshadowIds.get(id))}));}
  for(const c of Object.values(w.relationshipChanges||{})){const id=uuid();to.relationshipChanges[id]=record(c,v=>({...v,id,eventId:eventIds.get(v.eventId),edgeId:maps.edges.get(v.edgeId)}));}
 }
 export function sliceEvolution(w,target){

@@ -1,8 +1,9 @@
 import {randomUUID} from 'node:crypto';
 import {writingBoard} from './writing-board.js';
 import {projectStage} from './story-workspace.js';
+import {moveEventOrder} from './event-order.js';
 import {planningAction} from './planning/index.ts';
-import {readEvolution,changeEvolution,validateEvolution,copyEvolution,sliceEvolution,storyEvents,stageRelations} from './story-evolution.js';
+import {readEvolution,changeEvolution,validateEvolution,copyEvolution,sliceEvolution,storyEvents,stageRelations,eventView} from './story-evolution.js';
 const fail=(message,code='INVALID_WRITING')=>{throw Object.assign(new Error(message),{code});};
 const obj=v=>v&&typeof v==='object'&&!Array.isArray(v);
 const safe=id=>typeof id==='string'&&id.length>0&&id.length<160&&!['__proto__','constructor','prototype'].includes(id);
@@ -66,6 +67,10 @@ export function writingAction(n,action,a,actor){
  if(action==='writing.stage.get'){
   if(a.eventId&&!active(w.events).some(e=>e.id===a.eventId))fail('请选择有效事件');
   return projectStage(writingBoard(n,w,stats(n),active(w.foreshadows).map(f=>foreshadowView(n,f,a.chapterId))),a.eventId,{complete:!!a.complete,chapterId:a.chapterId});
+ }
+ if(action==='writing.event.move'){
+  const draft=clone(w),result=moveEventOrder(n,draft,a,(old,value)=>eventView(n,changeEvolution(n,draft,'writing.event.update',{id:old.id,expectedRevision:old.revision,confirmed:true,value},actor,a.reason||'作者调整时间节点顺序',save,cas,randomUUID).value),cas);
+  n.writing=draft;return result;
  }
  if(action==='writing.timelinePlan.create'){
   if(a.confirmed!==true)fail('请确认规划写入','CONFIRM_REQUIRED');
