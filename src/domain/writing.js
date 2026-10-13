@@ -74,6 +74,19 @@ export function writingAction(n,action,a,actor){
   const saved=changeEvolution(n,w,'writing.event.update',{id:e.id,expectedRevision:e.revision,confirmed:true,value:{planningRefs:[...e.planningRefs,result.mapping.plan]}},actor,a.reason,save,cas,randomUUID);
   n.writing=w;return {...result,eventRevision:saved.value.revision,nodeId:result.mapping.plan};
  }
+ if(action==='writing.chapterPlan.create'){
+  if(a.confirmed!==true)fail('请确认本章规划写入','CONFIRM_REQUIRED');
+  const ch=get(n.chapters,a.chapterId,'章节');cas(ch,a.expectedChapterRevision);if(ch.deleted)fail('章节已删除');
+  const result=planningAction(n,'planning.apply',{requestId:a.requestId,reason:a.reason||'从章节时间节点新建规划',operations:[{op:'node.create',ref:'plan',value:{...a.value,chapterRefs:[{chapterId:ch.id,revision:ch.revision}]}}]},actor);
+  return {...result,nodeId:result.mapping.plan,chapterRevision:ch.revision};
+ }
+ if(action==='writing.timelineForeshadow.create'){
+  if(a.confirmed!==true)fail('请确认伏笔写入','CONFIRM_REQUIRED');
+  const e=get(w.events,a.eventId,'事件');cas(e,a.expectedEventRevision);if(e.deleted)fail('事件已删除');
+  const shadow=writingAction(n,'writing.foreshadow.create',{value:a.value,confirmed:true,reason:a.reason||'从事件节点新建伏笔'},actor);
+  const updated=writingAction(n,'writing.event.update',{id:e.id,expectedRevision:e.revision,confirmed:true,value:{foreshadowRefs:[...e.foreshadowRefs,shadow.id]},reason:a.reason||'将新伏笔关联到当前事件'},actor);
+  return {foreshadowId:shadow.id,eventRevision:updated.revision};
+ }
  if(action==='writing.timelinePlan.move'){
   if(a.confirmed!==true)fail('请确认规划安排','CONFIRM_REQUIRED');
   const plan=get(n.planning?.nodes,a.nodeId,'规划');cas(plan,a.expectedRevision);if(plan.deleted)fail('规划已删除');
@@ -86,6 +99,7 @@ export function writingAction(n,action,a,actor){
  const evolution=readEvolution(n,w,action,a);if(evolution)return evolution.value;
  if(action==='writing.fields.list')return {character:writingFields(n,'character'),world:writingFields(n,'world')};
  if(action==='writing.card.get')return cardView(n,a.nodeId);
+ if(action==='writing.foreshadow.get'){const {versions,...record}=get(w.foreshadows,a.id,'伏笔');return foreshadowView(n,record,a.chapterId);}
  if(action==='writing.link.list')return active(w.links).filter(l=>(!a.nodeId||l.nodeId===a.nodeId)&&(!a.chapterId||l.chapterId===a.chapterId)).map(l=>linkView(n,l));
  if(action==='writing.link.candidates'){
   const ch=get(n.chapters,a.chapterId,'章节');if(ch.deleted)fail('章节已删除');const hits=[];
