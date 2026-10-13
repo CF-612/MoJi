@@ -57,6 +57,10 @@ test('真实本地 D1：双端保存、冲突、人物、规划、预设、历�
     await assert.rejects(rpc('preset.set',{expectedRevision:0,preset},'agent'),{code:'CONFLICT'});
     await assert.rejects(ai.rpc('chapter.get',{chapterId},'model','agent'),{code:'NOVEL_REQUIRED'});
     const reopened=createCloudService(db,'author');assert.equal((await reopened.bootstrap('mobile')).books[0].id,novelId);
+    const reviewInput={chapterId,expectedChapterRevision:writingChapter.revision,title:'云端候选',items:[{id:'mention',kind:'link',nodeId:companion.id,linkKind:'mention',evidence:'手机保存。',reason:'虚构测试候选'}]},preview=await rpc('writing.review.preview',reviewInput,'agent');
+    const review=await rpc('writing.review.submit',{...reviewInput,proof:preview.proof,requestId:'cloud-review'},'agent');assert.equal(review.actor.kind,'agent');assert.equal((await rpc('writing.link.list',{nodeId:companion.id})).length,0);
+    assert.equal((await reopened.rpc('writing.review.get',{novelId,id:review.id},'desktop','human')).items[0].state,'pending');
+    await rpc('writing.review.apply',{id:review.id,expectedRevision:review.revision,itemIds:['mention'],confirmed:true,requestId:'cloud-review-apply'});assert.equal((await rpc('writing.card.get',{nodeId:companion.id})).firstAppearance,null);assert.equal((await rpc('writing.card.get',{nodeId:companion.id})).firstMention.chapterId,chapterId);
     const backup=await rpc('workspace.export');assert.equal(backup.payload.state.novels[novelId].chapters[chapterId].content,(await rpc('chapter.get',{chapterId})).content);
     assert.ok(backup.payload.history.length>=5);
     // Force two services to read the same database revision before either commits.

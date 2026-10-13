@@ -97,6 +97,7 @@ export function copyEvolution(w,to,maps,uuid,foreshadowIds){
  const record=(r,convert)=>({...convert(clone(r)),versions:r.versions.map(v=>({...v,value:convert(clone(v.value))}))});
  for(const e of Object.values(w.events||{})){const id=eventIds.get(e.id);to.events[id]=record(e,v=>({...v,id,chapterOrders:Object.fromEntries(Object.entries(v.chapterOrders||{}).map(([id,order])=>[maps.chapters.get(id),order])),enteringRefs:(v.enteringRefs||[]).map(id=>maps.nodes.get(id)),memoryRefs:v.memoryRefs.map(id=>maps.nodes.get(id)),chapterRefs:v.chapterRefs.map(r=>({...r,chapterId:maps.chapters.get(r.chapterId)})),planningRefs:v.planningRefs.map(id=>maps.planning.get(id)),foreshadowRefs:v.foreshadowRefs.map(id=>foreshadowIds.get(id))}));}
  for(const c of Object.values(w.relationshipChanges||{})){const id=uuid();to.relationshipChanges[id]=record(c,v=>({...v,id,eventId:eventIds.get(v.eventId),edgeId:maps.edges.get(v.edgeId)}));}
+ return eventIds;
 }
 export function sliceEvolution(w,target){
  let omitted=0;const complete=e=>[...e.memoryRefs,...e.enteringRefs||[]].every(id=>Object.hasOwn(target.nodes,id))&&e.chapterRefs.every(r=>Object.hasOwn(target.chapters,r.chapterId))&&e.planningRefs.every(id=>Object.hasOwn(target.planning?.nodes||{},id))&&e.foreshadowRefs.every(id=>Object.hasOwn(w.foreshadows,id));

@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {writingBoard} from './writing-board.js';
 import {projectStage} from './story-workspace.js';
 import {moveEventOrder} from './event-order.js';
+import {validateReviews,copyReviews,sliceReviews} from './writing-review.js';
 import {planningAction} from './planning/index.ts';
 import {readEvolution,changeEvolution,validateEvolution,copyEvolution,sliceEvolution,storyEvents,stageRelations,eventView} from './story-evolution.js';
 const fail=(message,code='INVALID_WRITING')=>{throw Object.assign(new Error(message),{code});};
@@ -61,7 +62,7 @@ function checkedForeshadow(n,v){
  return {title,status,content:text(v.content||'','说明',true),memoryRefs:nodeIds(n,v.memoryRefs),targetChapterId:v.targetChapterId||null,evidence:refs,abandonReason:text(v.abandonReason||'','放弃原因',true)};
 }
 export function writingAction(n,action,a,actor){
- if(n.writing&&n.writing.version!==1)fail('此作品结构版本较新，请更新工作台后再操作','WRITING_VERSION');
+ if(n.writing&&![1,2].includes(n.writing.version))fail('此作品结构版本较新，请更新工作台后再操作','WRITING_VERSION');
  const w=data(n);
  if(action==='writing.board.get')return writingBoard(n,w,stats(n),active(w.foreshadows).map(f=>foreshadowView(n,f,a.chapterId)),a);
  if(action==='writing.stage.get'){
@@ -162,7 +163,7 @@ export function writingAction(n,action,a,actor){
  n.revision++;n.updatedAt=new Date().toISOString();return clone(result);
 }
 export function validateWriting(n){
- if(!n.writing)return;const w=n.writing;if(!obj(w)||w.version!==1||!['fields','cards','links','foreshadows'].every(k=>obj(w[k])))fail('结构资料格式无效','INVALID_BACKUP');
+ if(!n.writing)return;const w=n.writing;if(!obj(w)||![1,2].includes(w.version)||!['fields','cards','links','foreshadows'].every(k=>obj(w[k])))fail('结构资料格式无效','INVALID_BACKUP');
  for(const key of ['fields','cards','links','foreshadows'])for(const [id,r]of Object.entries(w[key]))if(!safe(id)||!obj(r)||r.id!==id||!Number.isSafeInteger(r.revision)||r.revision<1||!Array.isArray(r.versions))fail('结构记录 ID、版本或历史无效','INVALID_BACKUP');
  for(const f of Object.values(w.fields))if(!['character','world'].includes(f.kind)||!['short','long','number','tags','reference'].includes(f.type)||typeof f.archived!=='boolean'||!f.label?.trim())fail('字段定义无效','INVALID_BACKUP');
  const fields=[...writingFields(n,'character'),...writingFields(n,'world')];
@@ -170,6 +171,7 @@ export function validateWriting(n){
  for(const l of Object.values(w.links)){get(n.nodes,l.nodeId,'关联资料');evidence(n,{chapterId:l.chapterId,revision:l.chapterRevision,evidence:l.evidence});if(!['appearance','mention','reference'].includes(l.kind)||typeof l.deleted!=='boolean')fail('章节关联无效','INVALID_BACKUP');}
  for(const f of Object.values(w.foreshadows))checkedForeshadow(n,f);
  validateEvolution(n,w);
+ validateReviews(n);
  if(w.goal&&(!Number.isSafeInteger(w.goal.revision)||w.goal.target!==null&&(!Number.isSafeInteger(w.goal.target)||w.goal.target<1)))fail('写作目标无效','INVALID_BACKUP');
 }
 
@@ -180,9 +182,10 @@ export function copyWriting(source,target,maps){
  const foreshadowIds=new Map(Object.keys(w.foreshadows).map(id=>[id,randomUUID()]));
  for(const f of Object.values(w.fields)){const id=fieldIds.get(f.id);to.fields[id]=mapRecord(f,v=>({...v,id}));}
  for(const r of Object.values(w.cards)){const id=maps.nodes.get(r.id);to.cards[id]=mapRecord(r,v=>({...v,id,values:remapValues(v.values)}));}
- for(const l of Object.values(w.links)){const id=randomUUID();to.links[id]=mapRecord(l,v=>({...v,id,nodeId:maps.nodes.get(v.nodeId),chapterId:maps.chapters.get(v.chapterId)}));}
+ const linkIds=new Map();for(const l of Object.values(w.links)){const id=randomUUID();linkIds.set(l.id,id);to.links[id]=mapRecord(l,v=>({...v,id,nodeId:maps.nodes.get(v.nodeId),chapterId:maps.chapters.get(v.chapterId)}));}
  for(const f of Object.values(w.foreshadows)){const id=foreshadowIds.get(f.id);to.foreshadows[id]=mapRecord(f,v=>({...v,id,memoryRefs:v.memoryRefs.map(id=>maps.nodes.get(id)),targetChapterId:v.targetChapterId?maps.chapters.get(v.targetChapterId):null,evidence:v.evidence.map(e=>({...e,chapterId:maps.chapters.get(e.chapterId)}))}));}
- copyEvolution(w,to,maps,randomUUID,foreshadowIds);
+ const eventIds=copyEvolution(w,to,maps,randomUUID,foreshadowIds);
+ copyReviews(source,target,maps,foreshadowIds,eventIds,linkIds);
  if(!to.goal)to.goal=clone(w.goal);validateWriting(target);
 }
 
@@ -196,5 +199,5 @@ export function sliceWriting(source,target){
  w.links=Object.fromEntries(Object.entries(w.links).filter(([,r])=>{const keep=inScope(r)&&r.versions.every(v=>inScope(v.value));if(!keep)omitted++;return keep;}));
  const complete=f=>f.memoryRefs.every(id=>Object.hasOwn(target.nodes,id))&&(!f.targetChapterId||Object.hasOwn(target.chapters,f.targetChapterId))&&f.evidence.every(e=>Object.hasOwn(target.chapters,e.chapterId));
  w.foreshadows=Object.fromEntries(Object.entries(w.foreshadows).filter(([,r])=>{const keep=complete(r)&&r.versions.every(v=>complete(v.value));if(!keep)omitted++;return keep;}));
- omitted+=sliceEvolution(w,target);w.goal=null;target.writing=w;validateWriting(target);return {omitted};
+ omitted+=sliceEvolution(w,target);omitted+=sliceReviews(w,target);w.goal=null;target.writing=w;validateWriting(target);return {omitted};
 }

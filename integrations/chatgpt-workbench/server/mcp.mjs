@@ -34,8 +34,8 @@ export function createMcp(service) {
   definitions.push(
     ['workbench_bootstrap','载入作品选择','初始化作者工作台，不向模型自动加载正文。',{sessionId:z.string()},true],
     ['workbench_ui_rpc','作者工作台操作','仅供作者界面调用，读写同一业务服务。',{action:z.string(),args:z.record(z.string(),z.unknown()).optional(),sessionId:z.string()},false],
-    ['workbench_query','查询小说资料','按需读取目录、搜索、章节、人物、世界、规划及写作要求；必须使用明确的 novelId。创作前读取 preset.read；正文 get 支持 start/maxChars 分页；不默认加载全书。',{action:z.enum(QUERY_ACTIONS),args:z.record(z.string(),z.unknown()).optional()},true],
-    ['workbench_edit','修改小说资料','仅在作者明确要求修改或保存时使用。args 必须含 novelId 和目标 ID；更新含 expectedRevision，正文可用 content、append 或唯一匹配 patch；planning.apply 使用带 expectedRevision 的 operations。冲突停止覆盖，保留作者草稿。',{action:z.enum(EDIT_ACTIONS),args:z.record(z.string(),z.unknown()).optional()},false],
+    ['workbench_query','查询小说资料','writing.review.preview 预览本章候选，参数 chapterId/expectedChapterRevision/title/items，每项 id/kind(link,event,foreshadow)/reason；link 用 nodeId/linkKind/evidence，event 用 value/evidence，伏笔用 value，更新已有伏笔用 targetId/expectedRevision。返回 proof，不写事实；writing.review.list/get 查询清单。按需读取目录、搜索、章节、人物、世界、规划及写作要求；必须使用明确的 novelId。创作前读取 preset.read；正文 get 支持 start/maxChars 分页；不默认加载全书。',{action:z.enum(QUERY_ACTIONS),args:z.record(z.string(),z.unknown()).optional()},true],
+    ['workbench_edit','修改小说资料','仅在作者明确要求修改或保存时使用。writing.review.submit 用 preview 相同参数/proof/requestId 保存待确认候选；明确授权后 writing.review.apply 或 dismiss 用 id/expectedRevision/itemIds/confirmed:true/requestId，过期候选重新预览。args 必须含 novelId 和目标 ID；更新含 expectedRevision，正文可用 content、append 或唯一匹配 patch；planning.apply 使用带 expectedRevision 的 operations。冲突停止覆盖，保留作者草稿。',{action:z.enum(EDIT_ACTIONS),args:z.record(z.string(),z.unknown()).optional()},false],
     ['workbench_history','查询协作记录','读取指定作品和对象的协作修改来源及修改前快照。章节及规划另有原生 history/revert。',{novelId:z.string(),entityId:z.string().optional(),limit:z.number().optional()},true]
   );
   const file=z.record(z.string(),z.unknown()),options=z.record(z.string(),z.unknown()).optional();

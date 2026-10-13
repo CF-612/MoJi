@@ -1,5 +1,6 @@
 import { memoryGroupAction, groupId, validateMemoryGroups } from '../domain/memory/groups.ts';
 import {writingAction,validateWriting} from '../domain/writing.js';
+import {reviewAction} from '../domain/writing-review.js';
 import {cardRelations,setAffiliations,createCardRelationship,organizations} from '../domain/card-relations.js';
 import { ensurePlanning, planningAction, validatePlanning } from '../domain/planning/index.ts';
 import { selectReference } from './queries/context.js';
@@ -184,7 +185,7 @@ export class Store extends ProjectStore {
     if (!novelId) fail('NOVEL_REQUIRED', '请先绑定小说或提供 novelId');
     if (actor.kind !== 'human' && binding && binding.novelId !== novelId) fail('NOVEL_MISMATCH', '当前会话已绑定另一本小说');
     const n = get(state.novels, novelId, '小说');
-    if(action.startsWith('writing.')&&n.writing&&n.writing.version!==1)fail('WRITING_VERSION','此作品结构版本较新，请更新工作台后再操作');
+    if(action.startsWith('writing.')&&n.writing&&![1,2].includes(n.writing.version))fail('WRITING_VERSION','此作品结构版本较新，请更新工作台后再操作');
     const execute=(op,args)=>this.execute(state,op,{...args,novelId:n.id},actor);
     if(action==='writing.organizations.list')return organizations(n);
     if(action==='writing.cardRelations.get')return cardRelations(n,a.nodeId);
@@ -198,6 +199,7 @@ export class Store extends ProjectStore {
       if(a.organizationIds?.length)setAffiliations(n,{nodeId:node.id,expectedNodeRevision:node.revision,organizationIds:a.organizationIds,organizationRevisions:a.organizationRevisions,edgeRevisions:{},confirmed:true},execute);
       return created;
     }
+    if(action.startsWith('writing.review.'))return reviewAction(n,action,a,actor,(book,op,args)=>this.execute({...state,novels:{...state.novels,[n.id]:book}},op,{...args,novelId:n.id},actor));
     if(action.startsWith('writing.')||action==='writing_context.get')return writingAction(n,action,a,actor);
     if (action === 'tavern.preview' || action === 'tavern.import') {
       if (actor.kind !== 'human') fail('HUMAN_REQUIRED', '酒馆文件导入需要作者操作');
