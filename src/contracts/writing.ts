@@ -9,4 +9,14 @@ export interface WritingLink extends WritingRecord {nodeId:string;chapterId:stri
 export interface Foreshadow extends WritingRecord {title:string;status:'planned'|'planted'|'developing'|'recovered'|'abandoned';content:string;memoryRefs:string[];targetChapterId:string|null;abandonReason:string;evidence:{kind:'plant'|'progress'|'recover';chapterId:string;revision:number;evidence:string}[]}
 export interface StoryEvent extends WritingRecord {title:string;storyTime:string;storyDate?:string;plannedChapter?:string;narrationOrder?:number|null;planned?:boolean;enteringRefs?:string[];order:number;narrativeKind:'linear'|'flashback'|'insert'|'background';content:string;chapterRefs:{chapterId:string;revision:number;evidence:string}[];memoryRefs:string[];planningRefs:string[];foreshadowRefs:string[];deleted:boolean}
 export interface RelationshipChange extends WritingRecord {edgeId:string;eventId:string;value:{name:string;content:string;category:'other'|'family'|'partner'|'enemy'|'mentor'|'affiliation';style:'solid'|'dashed'|'dotted';active:boolean};deleted:boolean}
+export interface RelationshipBase {
+ id:string;revision:number;from:string;to:string;name:string;content:string;deleted:boolean;
+ category?:RelationshipChange['value']['category'];style?:RelationshipChange['value']['style'];
+ baseActive?:boolean;timing?:'base'|'event'|'undated';
+}
+export interface AffiliationSelection {
+ nodeId:string;expectedNodeRevision:number;organizationIds:string[];
+ organizationRevisions:Record<string,number>;edgeRevisions:Record<string,number>;
+ confirmed:true;requestId:string;
+}
 export interface WritingState {version:1;fields:Record<string,WritingField>;cards:Record<string,WritingCard>;links:Record<string,WritingLink>;foreshadows:Record<string,Foreshadow>;goal:(WritingRecord&{target:number|null})|null;events?:Record<string,StoryEvent>;relationshipChanges?:Record<string,RelationshipChange>}

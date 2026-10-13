@@ -1,5 +1,6 @@
 import { memoryGroupAction, groupId, validateMemoryGroups } from '../domain/memory/groups.ts';
 import {writingAction,validateWriting} from '../domain/writing.js';
+import {cardRelations,setAffiliations,createCardRelationship,organizations} from '../domain/card-relations.js';
 import { ensurePlanning, planningAction, validatePlanning } from '../domain/planning/index.ts';
 import { selectReference } from './queries/context.js';
 import { createHandoff } from './queries/handoff.js';
@@ -77,6 +78,14 @@ function nodePosition(args) {
 }
 function memoryFields(args, novel, creating = false, optionalName = false) {
   const result = {};
+  if(optionalName){
+    for(const [field,allowed,fallback] of [['category',['other','family','partner','enemy','mentor','affiliation'],'other'],['style',['solid','dashed','dotted'],'solid'],['timing',['base','event','undated'],'base']]){
+      if(args[field]!==undefined&&!allowed.includes(args[field]))fail('INVALID_INPUT',`${field}无效`);
+      if(creating||args[field]!==undefined)result[field]=args[field]??fallback;
+    }
+    if(args.baseActive!==undefined&&typeof args.baseActive!=='boolean')fail('INVALID_INPUT','baseActive 必须是布尔值');
+    if(creating||args.baseActive!==undefined)result.baseActive=args.baseActive!==false;
+  }
   for (const field of ['name', 'summary', 'content', 'storyTime']) {
     if (args[field] !== undefined) result[field] = text(args[field], field, field !== 'name' || optionalName);
     else if (creating) result[field] = field === 'name' && !optionalName ? text(args[field], field) : '';
@@ -175,11 +184,18 @@ export class Store extends ProjectStore {
     if (!novelId) fail('NOVEL_REQUIRED', '请先绑定小说或提供 novelId');
     if (actor.kind !== 'human' && binding && binding.novelId !== novelId) fail('NOVEL_MISMATCH', '当前会话已绑定另一本小说');
     const n = get(state.novels, novelId, '小说');
+    if(action.startsWith('writing.')&&n.writing&&n.writing.version!==1)fail('WRITING_VERSION','此作品结构版本较新，请更新工作台后再操作');
+    const execute=(op,args)=>this.execute(state,op,{...args,novelId:n.id},actor);
+    if(action==='writing.organizations.list')return organizations(n);
+    if(action==='writing.cardRelations.get')return cardRelations(n,a.nodeId);
+    if(action==='writing.affiliation.set')return setAffiliations(n,a,execute);
+    if(action==='writing.relationship.create')return createCardRelationship(n,a,execute);
     if(action==='writing.card.create'){
       const fields={type:a.type,name:a.name,summary:a.summary||'',content:a.content||'',groupId:a.groupId||null,aliases:a.aliases||[],...(a.position?{position:a.position}:{})};
       const created=a.connection?this.execute(state,'graph.continue',{novelId:n.id,nodeId:a.connection.id,expectedRevision:a.connection.expectedRevision,side:a.connection.side,value:fields},actor):this.execute(state,'graph.create',{novelId:n.id,...fields},actor);
       const node=created.node||created;
       writingAction(n,'writing.card.update',{nodeId:node.id,expectedRevision:0,values:a.values||{},reason:a.reason||'新建资料并保存默认字段'},actor);
+      if(a.organizationIds?.length)setAffiliations(n,{nodeId:node.id,expectedNodeRevision:node.revision,organizationIds:a.organizationIds,organizationRevisions:a.organizationRevisions,edgeRevisions:{},confirmed:true},execute);
       return created;
     }
     if(action.startsWith('writing.')||action==='writing_context.get')return writingAction(n,action,a,actor);

@@ -43,7 +43,7 @@ export function stageRelations(n,w,args={}){
  const changes=active(w.relationshipChanges).filter(c=>rank.has(c.eventId)&&(w.events[args.eventId]?.planned||!w.events[c.eventId].planned)).sort((a,b)=>rank.get(a.eventId)-rank.get(b.eventId)||a.id.localeCompare(b.id));
  return active(n.edges).filter(e=>!n.nodes[e.from]?.deleted&&!n.nodes[e.to]?.deleted&&(!args.nodeId||[e.from,e.to].includes(args.nodeId))).map(e=>{
   const applied=phase==='base'?[]:changes.filter(c=>c.edgeId===e.id&&(phase==='latest'||rank.get(c.eventId)<=rank.get(args.eventId)));
-  const last=applied.at(-1);return {...clone(e),category:'other',style:'solid',active:true,...last?.value,stageEventId:last?.eventId||null,stageChangeId:last?.id||null,baseRevision:e.revision};
+  const last=applied.at(-1);return {...clone(e),category:e.category||'other',style:e.style||'solid',active:e.baseActive!==false,...last?.value,stageEventId:last?.eventId||null,stageChangeId:last?.id||null,baseRevision:e.revision};
  });
 }
 export function changeView(n,w,c){const edge=n.edges[c.edgeId],event=w.events?.[c.eventId],{versions,...current}=c;return {...clone(current),eventTitle:event?.title||'缺失事件',storyTime:event?.storyTime||'',order:event?.order,from:edge?.from,to:edge?.to,excluded:!!edge?.deleted||!!event?.deleted||!!n.nodes[edge?.from]?.deleted||!!n.nodes[edge?.to]?.deleted};}
