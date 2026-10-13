@@ -26,7 +26,7 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
     assert.ok(listing.tools.some(t=>t.name==='workbench_import_preview'),'聊天 AI 必须有导入预览工具');
     assert.ok(listing.tools.some(t=>t.name==='workbench_import'),'聊天 AI 必须有携带预览证明的导入工具');
     const openTool=listing.tools.find(t=>t.name==='workbench_open');
-    assert.equal(openTool._meta.ui.resourceUri,'ui://cuigengji/cloud-v082');
+    assert.equal(openTool._meta.ui.resourceUri,'ui://cuigengji/cloud-v083');
     assert.equal(openTool._meta['openai/outputTemplate'],openTool._meta.ui.resourceUri);
     for(const name of ['workbench_bootstrap','workbench_ui_rpc']){
       const tool=listing.tools.find(t=>t.name===name);
@@ -46,6 +46,11 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
     const relation=await edit('writing.relationship.create',{nodeId:actor.id,targetId:other.id,expectedNodeRevision:actor.revision,expectedTargetRevision:other.revision,name:'伙伴',category:'partner',timing:'event',eventId:event.id,expectedEventRevision:event.revision,confirmed:true});
     assert.equal(relation.edge.baseActive,false);assert.equal((await ui('writing.cardRelations.get',{novelId,nodeId:actor.id})).affiliations[0].to,organization.id);
     const query=await call('tools/call',{name:'workbench_query',arguments:{action:'writing.cardRelations.get',args:{novelId,nodeId:actor.id}}});assert.equal(query.isError,undefined);assert.equal(query.structuredContent.result.changes[0].eventId,event.id);
+    const chapter=chapters.structuredContent.result[0];
+    const chapterPlan=await edit('writing.chapterPlan.create',{chapterId:chapter.id,expectedChapterRevision:chapter.revision,confirmed:true,value:{title:'本章直接规划'}});
+    assert.ok((await ui('writing.board.get',{novelId})).chapters[0].planning.includes(chapterPlan.nodeId));
+    const shadow=await edit('writing.timelineForeshadow.create',{eventId:event.id,expectedEventRevision:event.revision,confirmed:true,value:{title:'钥匙',status:'planned',memoryRefs:[],evidence:[],targetChapterId:null,abandonReason:''}});
+    const shadowQuery=await call('tools/call',{name:'workbench_query',arguments:{action:'writing.foreshadow.get',args:{novelId,id:shadow.foreshadowId}}});assert.equal(shadowQuery.isError,undefined);assert.equal(shadowQuery.structuredContent.result.status,'planned');assert.ok((await ui('writing.event.get',{novelId,id:event.id})).foreshadowRefs.includes(shadow.foreshadowId));
     const manuscript=Array.from({length:60},(_,i)=>`## 第${i+1}章 来信\n\n`+'　　“雨停了。”——她说。\n\n'.repeat(1200)).join('\n\n');
     const file={name:'batch.json',json:{format:'cuigengji-batch',version:1,files:[{file:{name:'长篇.md',gzipBase64:gzipSync(manuscript).toString('base64')},kind:'chapters'}]}},options={mode:'copy',targetId:novelId};
     const preview=await ui('transfer.preview',{file,options});assert.ok(preview.valid);assert.equal(preview.counts.chapters,60);

@@ -1,0 +1,12 @@
+import React,{useState} from 'react';
+import {useDraft} from '../../shared/state.js';
+import {Modal} from '../../shared/preferences.tsx';
+import {SaveBar} from '../../shared/ui.jsx';
+import {useWritingRequest} from '../../shared/writing-request.js';
+export function StageLinksEditor({call,novelId,board,event,run,busy,close,saved}){
+ const initial={revision:event.revision,memoryRefs:event.memoryRefs,foreshadowRefs:event.foreshadowRefs},write=useWritingRequest(call),{value:v,base,change,accept,dirty,cacheError}=useDraft(`${novelId}:stage-links:${event.id}`,initial),[query,setQuery]=useState(''),[error,setError]=useState('');
+ const toggle=(key,id,checked)=>change(old=>({...old,[key]:checked?[...old[key],id]:old[key].filter(x=>x!==id)}));
+ const save=()=>run(async()=>{setError('');try{const updated=await write('writing.event.update',{novelId,id:event.id,expectedRevision:base.revision,confirmed:true,value:{memoryRefs:v.memoryRefs,foreshadowRefs:v.foreshadowRefs},reason:'作者在当前时间节点关联资料与伏笔'});accept({revision:updated.revision,memoryRefs:updated.memoryRefs,foreshadowRefs:updated.foreshadowRefs});saved();}catch(e){setError(e.message);throw e;}});
+ const match=item=>!query.trim()||`${item.name||item.title} ${(item.aliases||[]).join(' ')}`.toLowerCase().includes(query.trim().toLowerCase());
+ return <Modal title="关联当前节点资料" className="chapter-materials-modal" close={close}><p>{event.title} · 只保存事件关联，不自动确认角色出场或伏笔回收。</p><input aria-label="搜索节点关联资料" value={query} placeholder="搜索人物、世界或伏笔" onChange={e=>setQuery(e.target.value)}/>{[['角色',board.nodes.filter(n=>n.type==='character_card'),'memoryRefs'],['世界',board.nodes.filter(n=>n.type!=='character_card'),'memoryRefs'],['伏笔',board.foreshadows,'foreshadowRefs']].map(([title,items,key])=><section className="stage-link-options" key={title}><h3>{title}</h3>{items.filter(match).map(item=><label key={item.id}><input type="checkbox" checked={v[key].includes(item.id)} onChange={e=>toggle(key,item.id,e.target.checked)}/><span>{item.name||item.title}</span></label>)}{!items.filter(match).length&&<p className="muted">没有匹配条目。</p>}</section>)}<SaveBar {...{dirty,busy}} error={error||cacheError} onSave={save} label="保存节点关联"/>{error&&<button disabled={busy} onClick={()=>run(async()=>{const latest=await call('writing.event.get',{novelId,id:event.id});accept({revision:latest.revision,memoryRefs:latest.memoryRefs,foreshadowRefs:latest.foreshadowRefs});setError('');})}>放弃本次选择并重新读取</button>}</Modal>;
+}

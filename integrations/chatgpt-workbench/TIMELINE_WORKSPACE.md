@@ -35,4 +35,25 @@
 
 发布前保留源码 bundle、稳定 HTML、Cloudflare SQL 备份，备份完整性及 3 作品／9 正文章读取通过。界面回退使用新业务层配旧界面的兼容构建，避免旧引擎覆盖新事件字段；不恢复或覆盖最新作品。
 
-组织选择器、角色卡关系行、时间待定关系与拖拽节点改排序尚未在本批实现；本批用事件编辑明确排序，规划移动有专用入口。
+组织选择器、角色卡关系行、时间未定关系在 0.8.2 完成。节点改排序目前使用事件编辑中的明确排序；尚未提供拖拽改序。Markdown 延后。
+
+
+## 0.8.3 节点联动
+
+- 无事件的章节节点可直接「＋本章规划」，不制造空白事件或章节。新卡在原网格中仍使用同一 ID，关联指定已保存章节版本，默认保持讨论中，不自动改成已写入正文。
+- 当前节点可搜索勾选人物、世界和已有伏笔。事件参与、首次进入故事、已确认实际出场、仅被提及分开显示；正文改写的依据提示待复核。
+- 事件旁可就地创建伏笔，与事件关联一次原子保存；已有伏笔在时间线上编辑相同台账记录。回收仍需要已保存原文，不因事件关联而自动发生。
+- 无生效事件的关系列入折叠的「待安排关系」，选择具体事件后通过原关系变化编辑器安排「在此生效」。计划情境规则保持。
+- 新建草稿记录开始填写时的事件／章节版本。遇到冲突保留内容，作者可明确核对最新节点版本再创建；已存在的卡片仍校验自身版本。
+
+新增共用接口（带 novelId、confirmed:true、requestId）：
+
+| 操作 | 必需参数／返回 |
+| --- | --- |
+| writing.chapterPlan.create | chapterId、expectedChapterRevision、value；返回 nodeId、chapterRevision |
+| writing.timelineForeshadow.create | eventId、expectedEventRevision、value（沿用伏笔规格）；返回 foreshadowId、eventRevision |
+| writing.foreshadow.get（只读） | id；返回当前伏笔及依据复核信息，历史按 writing.history 读取 |
+
+writing.stage.get 增加 materials（participating/entering/prose）及 unplacedRelationships。writing.board.get 的 chapters.references 增加正式正文关联的稳定 ID、角色 ID、kind、版本和复核信息，不包含正文全文。全部继续使用已有记录结构和完整备份／复制映射。
+
+手机编辑修复：文字工具栏隐藏时保留占位，避免文本框失焦后按钮移动、第一次点击保存落空。390px 预览中已验证鼠标第一次点击保存、章节规划创建、带正文依据的伏笔创建、联合资料选择、未定关系安排及深色显示。安卓实机仍需作者使用确认。
