@@ -1,3 +1,4 @@
+import {searchStyles} from './shared/WorkSearch.jsx';
 import {reviewStyles} from './shared/ReviewInbox.jsx';
 import {diffStyles} from './shared/TextDiff.jsx';
 import {markdownStyles} from './shared/markdown-style.ts';
@@ -280,4 +281,4 @@ export const styles = `
  .cuigengji .chapter-main .manuscript {padding-left:8px;padding-right:8px;}
  .cuigengji .chapter-toolbar {gap:8px;}
 }
-` + visualStyles + selectStyles + graphStyles + managementStyles + transferStyles + welcomeStyles + batchStyles + navigationStyles + mobileStyles + cardStyles + structureStyles + storyStageStyles + markdownStyles + diffStyles + reviewStyles;
+` + visualStyles + selectStyles + graphStyles + managementStyles + transferStyles + welcomeStyles + batchStyles + navigationStyles + mobileStyles + cardStyles + structureStyles + storyStageStyles + markdownStyles + diffStyles + reviewStyles + searchStyles;

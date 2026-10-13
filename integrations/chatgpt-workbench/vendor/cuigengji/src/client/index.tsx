@@ -1,3 +1,4 @@
+import {WorkSearch} from './shared/WorkSearch.jsx';
 // The workbench is the typed migration boundary; legacy JSX modules are intentionally
 // consumed without declaration generation while they are migrated incrementally.
 // @ts-nocheck
@@ -32,7 +33,7 @@ export function Workbench(props) {
 function WorkbenchContent({ sessionId, rpc }) {
   const {preferences}=useWorkbenchPreferences();
   const {refresh}=useWorkbenchRefresh();
-  const [utility,setUtility]=useState(null);
+  const [utility,setUtility]=useState(null);const [searchVisit,setSearchVisit]=useState(0);
   const [homeOpen,setHomeOpen]=useState(false);
   const [tab, setTab] = usePreference('page', 'chapters');
   const [managementReturn, setManagementReturn] = usePreference('management-return', 'chapters');
@@ -73,15 +74,16 @@ function WorkbenchContent({ sessionId, rpc }) {
   const jump=(page,key,id)=>{setReturnTarget(tab);try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:${key}`,JSON.stringify(id));}catch{}setTab(page);};
   const onEvent=(id,create)=>{if(create){try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:timeline-create`,JSON.stringify(true));localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:timeline-new-context`,JSON.stringify(typeof create==='object'?create:null));}catch{}}jump('timeline','timeline-event',id);};
   const onPlanning=id=>run(async()=>{const result=await call('planning.get',{novelId,nodeId:id});try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:planning-page`,JSON.stringify(result.node.pageId||''));localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:planning-area`,JSON.stringify('scenes'));}catch{}jump('plan','planning-selected',id);});
+  useEffect(()=>{const openSearch=e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'&&!e.isComposing&&novelId&&!showHome&&!busy&&!utility){e.preventDefault();setUtility('search');}};document.addEventListener('keydown',openSearch);return()=>document.removeEventListener('keydown',openSearch);},[novelId,showHome,busy,utility]);
   const onForeshadow=id=>{try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:planning-area`,JSON.stringify('foreshadows'));}catch{}jump('plan','foreshadow-selected',id);};
   return <section className="cuigengji" data-motion={preferences.motion} style={{...cardColorVariables(preferences.cardColors),'--prose-size':`${preferences.fontSize}px`,'--prose-leading':preferences.leading}} aria-label="催更姬小说工作台">
     <style>{styles}</style>
-    <WorkbenchHeader home={showHome} novelTitle={novel?.title} tab={tab} busy={busy} refreshing={resource.loading} onHome={()=>{setHomeOpen(true);setReturnTarget(null);}} onTab={page=>{setReturnTarget(null);setTab(page);}} onRefresh={refresh} onSettings={()=>setUtility('settings')} onAbout={()=>setUtility('about')}/>
+    <WorkbenchHeader home={showHome} novelTitle={novel?.title} tab={tab} busy={busy} refreshing={resource.loading} onHome={()=>{setHomeOpen(true);setReturnTarget(null);}} onTab={page=>{setReturnTarget(null);setTab(page);}} onRefresh={refresh} onSettings={()=>setUtility('settings')} onAbout={()=>setUtility('about')} onSearch={()=>setUtility('search')}/>
     {error && <div className="notice error" role="alert">{error}<button onClick={()=>setError('')}>关闭提示</button></div>}
 
     <ResourceState resource={resource}>
       {homeOpen?<Welcome {...{books,busy}} onOpen={openNovel} onCreate={create} onImport={()=>openTransfer({mode:'import'})} onManage={()=>openManagement('manage')}/>:tab==='data'?<TransferPage key={transferVisit} {...{call,run,busy,novelId}} {...managementBack} initial={transferInitial} onOpen={openNovel}/>:<>
-      {!novelId ? (tab==='manage'?<Manage {...{call,run,busy}} {...managementBack} onTransfer={openTransfer}/>:<Welcome {...{books,busy}} onOpen={openNovel} onCreate={create} onImport={()=>openTransfer({mode:'import'})} onManage={()=>openManagement('manage')}/>) : <div className="workbench-body" key={novelId}>{returnTarget&&<div className="return-strip"><button onClick={()=>{setTab(returnTarget);setReturnTarget(null);}}>‹ 返回{({plan:'规划',memory:'设定'})[returnTarget]||'上一页'}</button></div>}
+      {!novelId ? (tab==='manage'?<Manage {...{call,run,busy}} {...managementBack} onTransfer={openTransfer}/>:<Welcome {...{books,busy}} onOpen={openNovel} onCreate={create} onImport={()=>openTransfer({mode:'import'})} onManage={()=>openManagement('manage')}/>) : <div className="workbench-body" key={`${novelId}:${searchVisit}`}>{returnTarget&&<div className="return-strip"><button onClick={()=>{setTab(returnTarget);setReturnTarget(null);}}>‹ 返回{({plan:'规划',memory:'设定'})[returnTarget]||'上一页'}</button></div>}
         {tab==='timeline'&&<Timeline {...{call,novelId,tick,run,busy,onPlanning,onForeshadow}} onMemory={id=>jump('memory','memory-selected',id)} onChapter={id=>jump('chapters','chapter',id)}/>}
         {tab==='overview'&&<WritingOverview {...{call,novelId,tick,run,busy,onForeshadow}} onChapter={id=>jump('chapters','chapter',id)}/>}
         {tab==='chapters' && <Chapters {...{call,novelId,tick,run,busy,onEvent,onForeshadow}} onMemory={id=>jump('memory','memory-selected',id)} onTransfer={openTransfer}/>}
@@ -92,6 +94,7 @@ function WorkbenchContent({ sessionId, rpc }) {
       </div>}
       </>}
     </ResourceState>
+    {utility==='search'&&novelId&&<WorkSearch key={novelId} {...{call,novelId,busy}} novelTitle={novel?.title} close={()=>setUtility(null)} onOpen={async hit=>{if(hit.kind==='planning'){if(!await onPlanning(hit.id))return;}else if(hit.kind==='chapter')jump('chapters','chapter',hit.id);else if(['character','world'].includes(hit.kind))jump('memory','memory-selected',hit.id);else if(hit.kind==='event')onEvent(hit.id);else if(hit.kind==='foreshadow')onForeshadow(hit.id);else setTab('preset');const destination={chapter:'chapters',character:'memory',world:'memory',planning:'plan',event:'timeline',foreshadow:'plan',requirements:'preset'}[hit.kind];if(destination===tab)setReturnTarget(null);setUtility(null);setSearchVisit(n=>n+1);}}/>}
     {utility==='settings'&&<PreferencesDialog close={()=>setUtility(null)} novelTitle={novel?.title} onPreset={novelId?()=>{setUtility(null);openManagement('preset');}:undefined}/>}
     {utility==='about'&&<AboutDialog close={()=>setUtility(null)}/>}
   </section>;

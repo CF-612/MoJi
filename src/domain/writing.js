@@ -3,6 +3,7 @@ import {writingBoard} from './writing-board.js';
 import {projectStage} from './story-workspace.js';
 import {moveEventOrder} from './event-order.js';
 import {validateReviews,copyReviews,sliceReviews} from './writing-review.js';
+import {workSearch} from './work-search.js';
 import {planningAction} from './planning/index.ts';
 import {readEvolution,changeEvolution,validateEvolution,copyEvolution,sliceEvolution,storyEvents,stageRelations,eventView} from './story-evolution.js';
 const fail=(message,code='INVALID_WRITING')=>{throw Object.assign(new Error(message),{code});};
@@ -64,6 +65,7 @@ function checkedForeshadow(n,v){
 export function writingAction(n,action,a,actor){
  if(n.writing&&![1,2].includes(n.writing.version))fail('此作品结构版本较新，请更新工作台后再操作','WRITING_VERSION');
  const w=data(n);
+ if(action==='writing.search')return workSearch(n,a,{character:writingFields(n,'character'),world:writingFields(n,'world')},{includeInactive:actor.kind==='human'&&a.includeInactiveRequirements===true});
  if(action==='writing.board.get')return writingBoard(n,w,stats(n),active(w.foreshadows).map(f=>foreshadowView(n,f,a.chapterId)),a);
  if(action==='writing.stage.get'){
   if(a.eventId&&!active(w.events).some(e=>e.id===a.eventId))fail('请选择有效事件');

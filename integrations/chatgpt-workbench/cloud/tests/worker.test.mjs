@@ -26,7 +26,7 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
     assert.ok(listing.tools.some(t=>t.name==='workbench_import_preview'),'聊天 AI 必须有导入预览工具');
     assert.ok(listing.tools.some(t=>t.name==='workbench_import'),'聊天 AI 必须有携带预览证明的导入工具');
     const openTool=listing.tools.find(t=>t.name==='workbench_open');
-    assert.equal(openTool._meta.ui.resourceUri,'ui://cuigengji/cloud-v088');
+    assert.equal(openTool._meta.ui.resourceUri,'ui://cuigengji/cloud-v089');
     assert.equal(openTool._meta['openai/outputTemplate'],openTool._meta.ui.resourceUri);
     for(const name of ['workbench_bootstrap','workbench_ui_rpc']){
       const tool=listing.tools.find(t=>t.name===name);
@@ -36,6 +36,11 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
     }
     const opened=await call('tools/call',{name:'workbench_open',arguments:{contextId:'mobile-qa'}});assert.equal(opened.isError,undefined);
     const novelId=opened.structuredContent.result.books[0].id;
+    assert.ok(opened.structuredContent.result.capabilities.queryActions.includes('writing.search'));
+    assert.ok(opened.structuredContent.result.capabilities.editActions.includes('writing.review.submit'));
+    const badQuery=await call('tools/call',{name:'workbench_query',arguments:{action:'chapter.create',args:{novelId,title:'禁止通过查询创建'}}});assert.equal(badQuery.isError,true);assert.match(badQuery.content[0].text,/NOT_ALLOWED/);
+    const badEdit=await call('tools/call',{name:'workbench_edit',arguments:{action:'chapter.get',args:{novelId}}});assert.equal(badEdit.isError,true);assert.match(badEdit.content[0].text,/NOT_ALLOWED/);
+    const unknown=await call('tools/call',{name:'workbench_query',arguments:{action:'unknown.action',args:{novelId}}});assert.equal(unknown.isError,true);
     const chapters=await call('tools/call',{name:'workbench_query',arguments:{action:'chapter.list',args:{novelId}}});assert.equal(chapters.structuredContent.result.length,1);
     const ui=async(action,args={})=>{const result=await call('tools/call',{name:'workbench_ui_rpc',arguments:{action,args,sessionId:'mobile-qa'}});assert.equal(result.isError,undefined,JSON.stringify(result.content));return result.structuredContent.result;};
     const edit=async(action,args)=>{const result=await call('tools/call',{name:'workbench_edit',arguments:{action,args:{novelId,requestId:crypto.randomUUID(),...args}}});assert.equal(result.isError,undefined,JSON.stringify(result.content));return result.structuredContent.result;};

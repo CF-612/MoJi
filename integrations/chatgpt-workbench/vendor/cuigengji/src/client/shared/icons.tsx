@@ -1,7 +1,8 @@
 import React from 'react';
 
-export type IconName = 'home' | 'refresh' | 'settings' | 'filter' | 'edit' | 'about' | 'person' | 'world';
+export type IconName = 'home' | 'refresh' | 'settings' | 'filter' | 'edit' | 'about' | 'person' | 'world' | 'search';
 const paths: Record<IconName, React.ReactNode> = {
+  search: <><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></>,
   home: <><path d="m3 10 9-7 9 7"/><path d="M5 9v11h5v-6h4v6h5V9"/></>,
   refresh: <><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.5 6.5A8 8 0 0 1 20 12M4 12a8 8 0 0 0 13.5 5.5"/></>,
   settings: <><path d="m9 3-1 3-3 1 .3 3L3 12l2.3 2-.3 3 3 1 1 3h6l1-3 3-1-.3-3 2.3-2-2.3-2 .3-3-3-1-1-3Z"/><circle cx="12" cy="12" r="3"/></>,
