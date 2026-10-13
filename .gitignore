@@ -11,6 +11,7 @@ runtime/
 /novel-data/
 /data/
 /backups/
+/.data/
 /migration/
 /releases/
 *.cuigengji.json

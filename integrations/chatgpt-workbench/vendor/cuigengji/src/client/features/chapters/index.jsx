@@ -3,6 +3,7 @@ import {ChapterRibbon} from '../../shared/ChapterRibbon.jsx';
 import {ReviewDialog} from '../../shared/ReviewInbox.jsx';
 import {ChapterMaterials} from '../../shared/ChapterMaterials.jsx';
 import {ReferenceButton} from '../../shared/collaboration.tsx';
+import {nextNumberedTitle,nextChapterTitle} from '../../../domain/title-numbering.js';
 import {CreateDocument} from '../../shared/creation.tsx';
 import {ProseDisplay, useWorkbenchPreferences} from '../../shared/preferences.tsx';
 import React, { useEffect, useState, useRef, useLayoutEffect, useContext } from 'react';
@@ -30,6 +31,7 @@ async function readChapter(call, novelId, chapterId) {
   }
   return { ...first, content };
 }
+const chaptersVolume=(chapters,id)=>chapters.find(c=>c.id===id)?.volumeId||null;
 export function Chapters({ call, novelId, tick, run, busy, onTransfer, onMemory, onEvent, onForeshadow }) {
   const scope=useContext(SessionScope);
   const [undo,setUndo]=useState(null);
@@ -43,9 +45,10 @@ export function Chapters({ call, novelId, tick, run, busy, onTransfer, onMemory,
   const [collapsed,setCollapsed]=usePreference(`${novelId}:collapsed-volumes`,{});
   const [poll,setPoll] = useState(0);
   const { ask,confirm } = useDialog();
-  const resource = useResource(() => Promise.all([call('chapter.list',{novelId,includeDeleted:true}),call('volume.list',{novelId})]),[call,novelId,tick,poll],`${novelId}:chapter-directory`);
+  const resource = useResource(() => Promise.all([call('chapter.list',{novelId,includeDeleted:true}),call('volume.list',{novelId,includeDeleted:true})]),[call,novelId,tick,poll],`${novelId}:chapter-directory`);
   useEffect(()=>{const timer=setInterval(()=>setPoll(n=>n+1),5000);return ()=>clearInterval(timer);},[]);
-  const [savedChapters=[],volumes=[]] = resource.value || [];
+  const [savedChapters=[],savedVolumes=[]] = resource.value || [];
+  const volumes=savedVolumes.filter(v=>!v.deleted),creationVolume=chaptersVolume(savedChapters,id),defaultChapter=nextChapterTitle(savedChapters,creationVolume);
   const reorder=useChapterReorder({chapters:savedChapters,volumes,call,novelId,busy,onMoved:volumeId=>{setPoll(n=>n+1);setCollapsed(old=>({...old,[volumeId||'none']:false}));}});
   const chapters=reorder.chapters;
   const live=chapters.filter(c=>!c.deleted),trash=chapters.filter(c=>c.deleted);
@@ -68,11 +71,11 @@ export function Chapters({ call, novelId, tick, run, busy, onTransfer, onMemory,
   });
   const select = chapter => { setId(chapter.id); setDirectory(false); };
   const create = () => setCreating(true);
-  if(creating)return <CreateDocument chapter draftKey={`${novelId}:chapter-create`} label="新建章节" initial={{title:'',summary:'',content:'',groupId:chapters.find(c=>c.id===id)?.volumeId||null}} groups={volumes.map(v=>({...v,name:v.title}))} busy={busy} close={()=>setCreating(false)} createGroup={async title=>{let result;await run(async()=>{const v=await call('volume.create',{novelId,title});result={...v,name:v.title};});return result;}} save={(value,requestId)=>run(async()=>{const c=await call('chapter.create',{novelId,requestId,title:value.title,content:value.content,volumeId:value.groupId});select(c);})}/>;
+  if(creating)return <CreateDocument chapter draftKey={`${novelId}:chapter-create`} label="新建章节" newGroupTitle={nextNumberedTitle(savedVolumes,'卷')} chapterTitle={volumeId=>nextChapterTitle(chapters,volumeId)} initial={{title:defaultChapter,generatedTitle:defaultChapter,summary:'',content:'',groupId:creationVolume}} groups={volumes.map(v=>({...v,name:v.title}))} busy={busy} close={()=>setCreating(false)} createGroup={async title=>{let result;await run(async()=>{const v=await call('volume.create',{novelId,title});result={...v,name:v.title};});return result;}} save={(value,requestId)=>run(async()=>{const c=await call('chapter.create',{novelId,requestId,title:value.title,content:value.content,volumeId:value.groupId});select(c);})}/>;
   const groups = [...volumes, {id:null,title:'未分卷'}];
   const directoryContent=<aside ref={reorder.directoryRef} className="chapter-directory" aria-label="章节目录" data-reordering={reorder.saving||!!reorder.drag} onClickCapture={reorder.onClickCapture} onPointerDownCapture={reorder.onPointerDownCapture}>
       <div className="row directory-heading">{deleted&&<button className="icon-button" aria-label="返回章节目录" onClick={()=>setDeleted(false)}>‹</button>}<h2 className="grow">{deleted?'回收站':'目录'}</h2><button className="icon-button" aria-label={directoryCollapsed?'展开章节目录':'收起章节目录'} title={directoryCollapsed?'展开章节目录':'收起章节目录'} onClick={()=>setDirectoryCollapsed(v=>!v)}>{directoryCollapsed?'›':'‹'}</button>{!deleted&&<button className="primary" onClick={create} disabled={busy}>＋ 章节</button>}</div>
-      <div className="directory-search"><input className="search" aria-label="搜索章节" placeholder="搜索章节名称" value={query} onChange={e=>setQuery(e.target.value)}/>{!deleted&&<button className="directory-new-volume" disabled={busy} aria-label="新建卷" onClick={async()=>{const title=await ask('新卷名称');if(title)run(()=>call('volume.create',{novelId,title}));}}>＋ 卷</button>}</div>
+      <div className="directory-search"><input className="search" aria-label="搜索章节" placeholder="搜索章节名称" value={query} onChange={e=>setQuery(e.target.value)}/>{!deleted&&<button className="directory-new-volume" disabled={busy} aria-label="新建卷" onClick={async()=>{const title=await ask('新卷名称',nextNumberedTitle(savedVolumes,'卷'));if(title)run(()=>call('volume.create',{novelId,title}));}}>＋ 卷</button>}</div>
       <ResourceState resource={resource}>
         {!(deleted?trash:live).length && <p className="empty">{deleted?'回收站是空的':'还没有章节。新建一章，开始你的故事。'}</p>}
         {query && !(deleted?trash:live).some(c=>c.title.includes(query)) && <p className="empty">没有匹配的章节</p>}

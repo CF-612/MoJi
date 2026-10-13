@@ -1,3 +1,4 @@
+import {nextNumberedTitle,nextChapterTitle,numberedTitle} from '../domain/title-numbering.js';
 import { memoryGroupAction, groupId, validateMemoryGroups } from '../domain/memory/groups.ts';
 import {writingAction,validateWriting} from '../domain/writing.js';
 import {reviewAction} from '../domain/writing-review.js';
@@ -245,7 +246,8 @@ export class Store extends ProjectStore {
     }
     if (action === 'volume.list') return Object.values(n.volumes).filter(v => a.includeDeleted || !v.deleted).sort((x, y) => x.order - y.order);
     if (action === 'volume.create') {
-      const v = record({ title: text(a.title, 'title'), order: ordering(a.order ?? Object.keys(n.volumes).length), deleted: false });
+      if(a.autoNumber!==undefined&&typeof a.autoNumber!=='boolean')fail('INVALID_INPUT','autoNumber 必须为布尔值');
+      const v = record({ title: text(numberedTitle(a.title,nextNumberedTitle(n.volumes,'卷'),a.autoNumber), 'title'), order: ordering(a.order ?? Object.keys(n.volumes).length), deleted: false });
       n.volumes[v.id] = v; touch(n); return v;
     }
     if (action === 'volume.update' || action === 'volume.delete') {
@@ -283,8 +285,9 @@ export class Store extends ProjectStore {
       return matches;
     }
     if (action === 'chapter.create') {
+      if(a.autoNumber!==undefined&&typeof a.autoNumber!=='boolean')fail('INVALID_INPUT','autoNumber 必须为布尔值');
       if (a.volumeId && get(n.volumes, a.volumeId, '卷').deleted) fail('DELETED', '卷已删除');
-      const c = record({ title: text(a.title, 'title'), volumeId: a.volumeId || null, order: ordering(a.order ?? Object.keys(n.chapters).length), content: text(a.content ?? '', 'content', true), deleted: false, versions: [] });
+      const c = record({ title: text(numberedTitle(a.title,nextChapterTitle(n.chapters,a.volumeId),a.autoNumber), 'title'), volumeId: a.volumeId || null, order: ordering(a.order ?? Object.keys(n.chapters).length), content: text(a.content ?? '', 'content', true), deleted: false, versions: [] });
       version(c, actor, a.reason); n.chapters[c.id] = c; touch(n); return meta(c);
     }
     if (action === 'chapter.move') {
