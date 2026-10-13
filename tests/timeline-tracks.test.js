@@ -1,0 +1,17 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {timelineTracks,trackSelections} from '../src/domain/timeline-tracks.js';
+const fixture=()=>({stats:{volumes:[{id:'v',title:'第一卷'}]},chapters:['a','b','c','d'].map((id,i)=>({id,title:`第${i+1}章`,volumeId:'v',references:i===1?[{nodeId:'p',kind:'mention',review:true}]:i===2?[{nodeId:'p',kind:'appearance'}]:[]})),nodes:[{id:'p',name:'林照',type:'character_card'}],events:[{id:'long',title:'寻找来信',order:20,chapterRefs:[{chapterId:'a'},{chapterId:'c'}],memoryRefs:['p'],enteringRefs:[],planningRefs:[],foreshadowRefs:['f']},{id:'flash',title:'过去',storyTime:'1938年',order:10,chapterRefs:[{chapterId:'b'}],memoryRefs:[],planningRefs:[],foreshadowRefs:[]},{id:'waiting',title:'明天',order:30,planned:true,chapterRefs:[{chapterId:'d',excluded:true}],memoryRefs:[],planningRefs:[],foreshadowRefs:[]}],planning:[{id:'plan',title:'本章计划',status:'idea',chapterRefs:[{chapterId:'b'}]}],foreshadows:[{id:'f',title:'印章',status:'recovered',evidence:[{kind:'plant',chapterId:'a'},{kind:'recover',chapterId:'c'}]},{id:'future',title:'旧钥匙',status:'planned',evidence:[],targetChapterId:'d'},{id:'unplaced',title:'未来线索',status:'planned',evidence:[]}]});
+test('跨章事件只显示一次，不把跨度内空章写成事件引用；各章展示自己的规划和空标题',()=>{
+ const b=fixture(),before=structuredClone(b),t=timelineTracks(b),long=t.markers.find(m=>m.id==='long');assert.equal(t.markers.filter(m=>m.id==='long').length,1);assert.deepEqual([long.start,long.end,long.members],[0,2,[0,2]]);assert.equal(t.slots[1].plans[0].id,'plan');assert.equal(t.slots[3].title,'第4章');assert.equal(t.slots[3].event,null);assert.equal(t.slots.at(-1).eventId,'waiting');assert.deepEqual(b,before);
+ const selections=trackSelections(b);assert.equal(selections.filter(r=>r.eventId==='long').length,1);assert.equal(selections.find(r=>r.chapterId==='d').eventId,null);assert.equal(selections.find(r=>r.key==='chapter:c').stageEvent.id,'flash');assert.equal(selections.find(r=>r.key==='chapter:d').stageEvent.id,'flash');
+});
+test('筛选共用原始记录，人物出场不由事件参与推断；伏笔区分依据和计划位置',()=>{
+ const b=fixture(),p=timelineTracks(b,'narration','person');assert.deepEqual(p.markers.map(m=>[m.start,m.referenceKind]),[[1,'mention'],[2,'appearance']]);assert.equal(p.markers[0].review,true);assert.equal(p.waiting.length,0);
+ const f=timelineTracks(b,'narration','foreshadow');assert.deepEqual(f.markers.find(m=>m.id==='f').members,[0,2]);assert.equal(f.markers.find(m=>m.id==='future').plannedEnd,true);assert.equal(f.waiting[0].id,'unplaced');assert.equal(f.slots.length,timelineTracks(b).slots.length);
+ const story=timelineTracks(b,'story');assert.deepEqual(story.slots.map(s=>s.eventId),['flash','long','waiting']);assert.equal(story.markers.find(m=>m.kind==='person').referenceKind,'participating');assert.equal(story.markers.find(m=>m.kind==='foreshadow').linkedOnly,true);assert.equal(story.waiting.some(m=>m.id==='future'),true);
+});
+test('重叠范围分轨；章节调序与删除后重算，不修改记录',()=>{
+ const b=fixture(),t=timelineTracks(b);for(const m of t.markers)for(const n of t.markers)if(m!==n&&m.lane===n.lane)assert.ok(m.end<n.start||n.end<m.start);
+ b.chapters=[b.chapters[2],b.chapters[1],b.chapters[0],b.chapters[3]];assert.deepEqual(timelineTracks(b,'narration','event').markers.find(m=>m.id==='long').members,[0,2]);b.chapters=b.chapters.filter(c=>c.id!=='a');const m=timelineTracks(b,'narration','event').markers.find(m=>m.id==='long');assert.equal(m.start,m.end);assert.equal(m.members.length,1);
+});
