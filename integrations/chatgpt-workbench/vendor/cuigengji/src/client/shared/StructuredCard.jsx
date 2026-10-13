@@ -1,3 +1,4 @@
+import {CardRelations} from './CardRelations.jsx';
 import {useWritingRequest} from './writing-request.js';
 import {WritingHistory} from './WritingHistory.jsx';
 import React,{useEffect,useState} from 'react';
@@ -11,14 +12,14 @@ const serialize=p=>({...p,aliasesText:p.aliases.join(', '),tagTexts:Object.fromE
 export function StructuredCard({call,novelId,nodeId,tick,busy,run,onChapter,onEvent}){
  const [poll,setPoll]=useState(0),[manage,setManage]=useState(false);
  useEffect(()=>{const timer=setInterval(()=>{if(!document.hidden)setPoll(n=>n+1);},5000);return()=>clearInterval(timer);},[]);
- const resource=useResource(()=>Promise.all([call('writing.card.get',{novelId,nodeId}),call('graph.list',{novelId})]),[call,novelId,nodeId,tick,poll],`${novelId}:card-profile:${nodeId}`);
- return <section className="section-fold"><h3>资料字段与章节关联</h3><ResourceState resource={resource}>{resource.value&&<CardFields key={nodeId} {...{call,novelId,nodeId,busy,run,onChapter,onEvent}} profile={resource.value[0]} nodes={resource.value[1]} refresh={()=>setPoll(n=>n+1)} manage={()=>setManage(true)}/>}</ResourceState>{manage&&resource.value&&<FieldManager {...{call,novelId,busy,run}} profile={resource.value[0]} close={()=>{setManage(false);setPoll(n=>n+1);}}/>}</section>;
+ const resource=useResource(()=>Promise.all([call('writing.card.get',{novelId,nodeId}),call('graph.list',{novelId}),call('writing.cardRelations.get',{novelId,nodeId})]),[call,novelId,nodeId,tick,poll],`${novelId}:card-profile:${nodeId}`);
+ return <section className="section-fold"><h3>资料字段与章节关联</h3><ResourceState resource={resource}>{resource.value&&<CardFields key={nodeId} {...{call,novelId,nodeId,busy,run,onChapter,onEvent}} profile={resource.value[0]} nodes={resource.value[1]} relations={resource.value[2]} refresh={()=>setPoll(n=>n+1)} manage={()=>setManage(true)}/>}</ResourceState>{manage&&resource.value&&<FieldManager {...{call,novelId,busy,run}} profile={resource.value[0]} close={()=>{setManage(false);setPoll(n=>n+1);}}/>}</section>;
 }
-function CardFields({call,novelId,nodeId,busy,run,onChapter,onEvent,profile,nodes,refresh,manage}){
+function CardFields({call,novelId,nodeId,busy,run,onChapter,onEvent,profile,nodes,relations,refresh,manage}){
  const write=useWritingRequest(call);
  const {value,base,change,accept,dirty,cacheError}=useDraft(`${novelId}:structured-card:${nodeId}`,serialize(profile)),[editing,setEditing]=useState(dirty),[serverError,setServerError]=useState('');
  useEffect(()=>{if(!dirty&&(profile.revision!==base.revision||profile.nodeRevision!==base.nodeRevision))accept(serialize(profile));},[profile,dirty]);
- const fields=profile.fields.filter(f=>!f.archived),noRegion=profile.kind==='world'&&['区域','组织'].includes(String(value.values['world:category']||'').trim()),set=(id,v)=>change(old=>({...old,values:{...old.values,[id]:v}}));
+ const fields=profile.fields.filter(f=>!f.archived&&(f.id!=='character:organization'||profile.values[f.id])).map(f=>f.id==='character:organization'?{...f,label:'原所属组织文字（保留）'}:f),noRegion=profile.kind==='world'&&['区域','组织'].includes(String(value.values['world:category']||'').trim()),set=(id,v)=>change(old=>({...old,values:{...old.values,[id]:v}}));
  const show=v=>Array.isArray(v)?v.map(id=>nodes.find(n=>n.id===id)?.name||id).join('、'):String(v??'');
  const save=()=>run(async()=>{setServerError('');try{await write('writing.card.update',{novelId,nodeId,expectedRevision:base.revision,expectedNodeRevision:base.nodeRevision,values:value.values,aliases:value.aliasesText.split(/[,，\n]/).map(s=>s.trim()).filter(Boolean),reason:'作者保存资料可选字段'});accept(serialize(await call('writing.card.get',{novelId,nodeId})));setEditing(false);refresh();}catch(e){setServerError(e.message);throw e;}});
  return <><div className="row"><button onClick={()=>setEditing(!editing)}>{editing?'查看字段':'编辑可选字段'}</button><button onClick={manage}>管理字段模板</button><button disabled={busy} onClick={refresh}>检查最新</button></div>
@@ -27,6 +28,7 @@ function CardFields({call,novelId,nodeId,busy,run,onChapter,onEvent,profile,node
  {(editing||dirty)&&<SaveBar {...{dirty,busy}} error={serverError||cacheError} onSave={save} label="保存资料字段"/>}
  {Object.keys(profile.values).some(id=>!fields.some(f=>f.id===id))&&<details><summary>已归档或其他类型的字段值</summary><dl className="structured-values">{Object.entries(profile.values).filter(([id])=>!fields.some(f=>f.id===id)).map(([id,v])=><React.Fragment key={id}><dt>{profile.fields.find(f=>f.id===id)?.label||id}</dt><dd>{show(v)}</dd></React.Fragment>)}</dl></details>}
  {profile.revision>0&&<WritingHistory {...{call,novelId,busy,run,dirty}} labels={Object.fromEntries(profile.fields.map(f=>[f.id,f.label]))} nodes={nodes} collection="cards" id={nodeId} revision={base.revision} nodeRevision={base.nodeRevision} restored={refresh}/>}
+ {profile.kind==='character'&&<CardRelations {...{call,novelId,nodeId,busy,run,refresh,onEvent}} data={relations}/>}
  <h4>关联事件历程</h4><p className="muted">按故事顺序排列；参与事件不自动计入正式出场。</p>{profile.events.map(e=><div key={e.id} className="structure-entry"><button onClick={()=>onEvent?.(e.id)}>{e.title}</button><small> · {e.storyTime||'时间未注明'} · 排序 {e.order}</small><p>{e.content}</p>{e.review&&<small>正文已改写，需复核</small>}</div>)}
  <h4>章节记录</h4><p>首次实际出场：{profile.firstAppearance?<button onClick={()=>onChapter?.(profile.firstAppearance.chapterId)}>{profile.firstAppearance.chapterTitle}</button>:'尚未确认'}　首次提及：{profile.firstMention?<button onClick={()=>onChapter?.(profile.firstMention.chapterId)}>{profile.firstMention.chapterTitle}</button>:'尚未确认'}</p>
  {profile.links.map(l=><div className="structure-entry" key={l.id}><button onClick={()=>onChapter?.(l.chapterId)}>{l.chapterTitle}</button> · {{appearance:'实际出场',mention:'仅被提及',reference:'资料关联'}[l.kind]}<small> · 版本 {l.chapterRevision}{l.excluded?' · 已移出当前汇总':l.review?' · 正文已改写，需复核':''}</small><blockquote>{l.evidence}</blockquote></div>)}
