@@ -26,7 +26,7 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
     assert.ok(listing.tools.some(t=>t.name==='workbench_import_preview'),'聊天 AI 必须有导入预览工具');
     assert.ok(listing.tools.some(t=>t.name==='workbench_import'),'聊天 AI 必须有携带预览证明的导入工具');
     const openTool=listing.tools.find(t=>t.name==='workbench_open');
-    assert.equal(openTool._meta.ui.resourceUri,'ui://cuigengji/cloud-v085');
+    assert.equal(openTool._meta.ui.resourceUri,'ui://cuigengji/cloud-v086');
     assert.equal(openTool._meta['openai/outputTemplate'],openTool._meta.ui.resourceUri);
     for(const name of ['workbench_bootstrap','workbench_ui_rpc']){
       const tool=listing.tools.find(t=>t.name===name);
@@ -45,6 +45,7 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
     const event=await edit('writing.event.create',{confirmed:true,value:{title:'相识',order:1,narrativeKind:'linear'}});
     const relation=await edit('writing.relationship.create',{nodeId:actor.id,targetId:other.id,expectedNodeRevision:actor.revision,expectedTargetRevision:other.revision,name:'伙伴',category:'partner',timing:'event',eventId:event.id,expectedEventRevision:event.revision,confirmed:true});
     assert.equal(relation.edge.baseActive,false);assert.equal((await ui('writing.cardRelations.get',{novelId,nodeId:actor.id})).affiliations[0].to,organization.id);
+    assert.ok((await ui('writing.stage.get',{novelId,eventId:event.id})).changes.relationships.some(r=>r.edgeId===relation.edge.id&&r.kind==='added'));
     const query=await call('tools/call',{name:'workbench_query',arguments:{action:'writing.cardRelations.get',args:{novelId,nodeId:actor.id}}});assert.equal(query.isError,undefined);assert.equal(query.structuredContent.result.changes[0].eventId,event.id);
     const chapter=chapters.structuredContent.result[0];
     const chapterPlan=await edit('writing.chapterPlan.create',{chapterId:chapter.id,expectedChapterRevision:chapter.revision,confirmed:true,value:{title:'本章直接规划'}});

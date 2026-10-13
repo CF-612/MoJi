@@ -1,3 +1,4 @@
+import {storyChanges} from './story-changes.js';
 // Shared, pure projection: changing the cursor never writes or fetches records.
 export function calendarDate(value){
  if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value))return null;
@@ -33,5 +34,5 @@ export function projectStage(board,eventId,{complete=false,chapterId=null}={}){
  const foreshadows=board.foreshadows.filter(f=>event?.foreshadowRefs.includes(f.id)||f.evidence.some(r=>r.chapterId===selectedChapter)||f.targetChapterId===selectedChapter).map(f=>{const evidence=f.evidence.filter(r=>cr!==undefined&&chapterRank.has(r.chapterId)&&chapterRank.get(r.chapterId)<=cr);return {...f,stageStatus:evidence.some(r=>r.kind==='recover')?'已回收':evidence.some(r=>r.kind==='progress')?'推进中':evidence.some(r=>r.kind==='plant')?'已埋设':'计划',due:cr!==undefined&&chapterRank.has(f.targetChapterId)&&cr>=chapterRank.get(f.targetChapterId)&&!evidence.some(r=>r.kind==='recover')&&f.status!=='abandoned'};});
  const chapter=board.chapters.find(c=>c.id===selectedChapter),materials={participating:(event?.memoryRefs||[]).map(id=>board.nodes.find(n=>n.id===id)).filter(Boolean),entering:(event?.enteringRefs||[]).map(id=>board.nodes.find(n=>n.id===id)).filter(Boolean),prose:(chapter?.references||[]).map(r=>({...r,node:board.nodes.find(n=>n.id===r.nodeId)})).filter(r=>r.node)};
  const unplacedRelationships=(board.edges||[]).filter(e=>e.baseActive===false&&!(board.relationshipChanges||[]).some(c=>!c.deleted&&!c.excluded&&c.edgeId===e.id&&rank.has(c.eventId)&&c.value.active));
- return {event:event||null,nodes,edges,materials,unplacedRelationships,foreshadows,planning:board.planning.filter(p=>event?.planningRefs.includes(p.id)||p.chapterRefs.some(r=>r.chapterId===selectedChapter)),policy:'未指定进入位置的资料保留可见；事件参与不自动确认出场。计划情境不等于已确认正文。'};
+ return {event:event||null,nodes,edges,materials,changes:storyChanges(board,ordered,event,selectedChapter,nodes),unplacedRelationships,foreshadows,planning:board.planning.filter(p=>event?.planningRefs.includes(p.id)||p.chapterRefs.some(r=>r.chapterId===selectedChapter)),policy:'未指定进入位置的资料保留可见；事件参与不自动确认出场。计划情境不等于已确认正文。'};
 }
