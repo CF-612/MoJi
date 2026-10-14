@@ -1,3 +1,4 @@
+import {useModules} from '../../modules/context.tsx';
 import React,{useEffect,useRef} from 'react';
 import {EditableEventBar} from './EditableEventBar.jsx';
 import {useTimelineDrag} from './useTimelineDrag.js';
@@ -8,14 +9,17 @@ const statuses={idea:'讨论中',selected:'考虑采用',written:'已写入正�
 const shadows={planned:'计划',planted:'已埋设',developing:'推进中',recovered:'已回收',abandoned:'已放弃'};
 const refs={appearance:'实际出场',mention:'仅被提及',entering:'进入故事',participating:'参与事件'};
 export function TimelineTracks({board,novelId,mode,current,choose,onPlan,onEvent,onMemory,onShadow,onPlace,busy}){
- const [filter,setFilter]=usePreference(`${novelId}:timeline-filter`,'all'),baseTrack=timelineTracks(board,mode,filter),selections=trackSelections(board,mode),scroll=useRef(null);
+ const modules=useModules();
+ const [filter,setFilter]=usePreference(`${novelId}:timeline-filter`,'all');
+ const safeFilter=!modules.foreshadow&&filter==='foreshadow'?'all':filter,shownBoard=modules.foreshadow?board:{...board,foreshadows:[]};
+ const baseTrack=timelineTracks(shownBoard,mode,safeFilter),selections=trackSelections(board,mode),scroll=useRef(null);
  const drag=useTimelineDrag({board,track:baseTrack,mode,scroll,onPlace,busy}),track=drag.drag?.track||baseTrack;
  const selectSlot=s=>choose(selections.find(r=>r.key===s.key)||s);
  const selectMarker=m=>{const slot=track.slots[m.start];if(m.kind==='event')choose({key:m.eventId,eventId:m.eventId,event:m.event,chapterId:slot.chapterId});else {selectSlot(slot);if(m.kind==='person')onMemory(m.id);else onShadow(m.id);}};
  const currentSlot=track.slots.find(s=>s.chapterId&&s.chapterId===current?.chapterId||s.eventId&&s.eventId===current?.eventId);
  useEffect(()=>{const el=scroll.current;if(!el||!currentSlot||drag.drag)return;const top=currentSlot.top;if(top<el.scrollTop+44||top+currentSlot.height>el.scrollTop+el.clientHeight)el.scrollTo({top:Math.max(0,top-44),behavior:'smooth'});},[current?.key,currentSlot?.top,!!drag.drag]);
  const jump=()=>{const m=track.allMarkers.find(m=>m.eventId===current?.eventId),slot=m?track.slots[m.start]:track.slots.find(s=>s.chapterId===current?.chapterId);if(slot)scroll.current?.scrollTo({top:Math.max(0,slot.top-20),behavior:'smooth'});};
- return <section className="timeline-tracks" aria-label="连续时间线"><div className="track-filter" role="group" aria-label="时间线内容筛选">{Object.entries(kinds).map(([id,label])=><button key={id} aria-pressed={filter===id} className={filter===id?'selected':''} disabled={!!drag.drag} onClick={()=>setFilter(id)}>{label}</button>)}<button className="track-locate" onClick={jump}>定位当前</button></div>
+ return <section className="timeline-tracks" aria-label="连续时间线"><div className="track-filter" role="group" aria-label="时间线内容筛选">{Object.entries(kinds).filter(([id])=>modules.foreshadow||id!=='foreshadow').map(([id,label])=><button key={id} aria-pressed={filter===id} className={filter===id?'selected':''} disabled={!!drag.drag} onClick={()=>setFilter(id)}>{label}</button>)}<button className="track-locate" onClick={jump}>定位当前</button></div>
  <div className="track-scroll" ref={scroll} tabIndex={0} aria-label="时间线轨道，可上下及左右滚动"><div className="track-world" style={{'--track-lanes':track.lanes,height:track.height}}>
  <div className="track-heading"><span>{mode==='story'?'故事时间':'卷章 / 规划'}</span><span>事件与标记</span></div>
  {track.slots.map((s,i)=><React.Fragment key={s.key}><div className={`track-row-line ${current?.chapterId&&s.chapterId===current.chapterId||current?.key===s.key?'is-current':''}`} style={{top:s.top,height:s.height}}/>

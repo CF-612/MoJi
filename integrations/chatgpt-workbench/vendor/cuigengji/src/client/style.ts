@@ -43,7 +43,7 @@ export const styles = `
 .cuigengji svg { width:100%; max-height:300px; border:1px solid var(--dsw-alias-border-l1,#8886); border-radius:5px; }
 .cuigengji svg text { fill:currentColor; font-size:11px; }
 .cuigengji svg line { stroke:var(--dsw-alias-border-l1,#999); stroke-width:2; }
-.cuigengji svg circle { fill:var(--dsw-alias-button-floating-fill,#777); stroke:var(--dsw-alias-state-business-primary,#4d6bfe); stroke-width:2; }
+.cuigengji svg circle:not([data-chart-segment]) { fill:var(--dsw-alias-button-floating-fill,#777); stroke:var(--dsw-alias-state-business-primary,#4d6bfe); stroke-width:2; }
 .cuigengji svg g { cursor:pointer; }
 .cuigengji summary { cursor:pointer; padding:8px 0; }
 .cuigengji .grow { flex:1; }

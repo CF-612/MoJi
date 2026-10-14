@@ -1,5 +1,7 @@
 const dark=`color-scheme:dark;--dsw-alias-bg-base:#202624;--dsw-alias-label-primary:#e6e8e1;--dsw-alias-label-secondary:#b1b8ae;--dsw-alias-border-l1:#414a44;--dsw-alias-button-floating-fill:#29312d;--dsw-alias-state-business-primary:#7098ff;--dsw-alias-label-on-color:#fff;`;
 export const structureStyles=`
+.cuigengji .story-workspace.without-evolution{grid-template-columns:minmax(0,1fr);}
+.cuigengji .module-preference small{display:block;color:var(--cg-muted);font-size:12px;margin-top:4px;}
 .cuigengji .dashboard svg,.cuigengji .chronology-scroll svg{max-height:none;max-width:none;border:0;border-radius:0;}
 .cuigengji .chronology-scroll svg,.cuigengji .chart-scroll svg{width:auto;height:auto;}
 .cuigengji .chart-scroll .responsive-chart{width:100%;min-width:690px;height:auto;}

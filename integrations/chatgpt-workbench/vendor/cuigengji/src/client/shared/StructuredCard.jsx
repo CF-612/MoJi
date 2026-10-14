@@ -2,6 +2,7 @@ import {MarkdownText,MarkdownField} from './MarkdownText.jsx';
 import {CardRelations} from './CardRelations.jsx';
 import {useWritingRequest} from './writing-request.js';
 import {WritingHistory} from './WritingHistory.jsx';
+import {useModules} from '../modules/context.tsx';
 import React,{useEffect,useState} from 'react';
 import {useDraft,useResource} from './state.js';
 import {ResourceState,SaveBar} from './ui.jsx';
@@ -16,6 +17,7 @@ export function StructuredCard({call,novelId,nodeId,tick,busy,run,onChapter,onEv
  return <section className="section-fold"><h3>资料字段与章节关联</h3><ResourceState resource={resource}>{resource.value&&<CardFields key={nodeId} {...{call,novelId,nodeId,busy,run,onChapter,onEvent}} profile={resource.value[0]} nodes={resource.value[1]} relations={resource.value[2]} refresh={()=>setPoll(n=>n+1)} manage={()=>setManage(true)}/>}</ResourceState>{manage&&resource.value&&<FieldManager {...{call,novelId,busy,run}} profile={resource.value[0]} close={()=>{setManage(false);setPoll(n=>n+1);}}/>}</section>;
 }
 function CardFields({call,novelId,nodeId,busy,run,onChapter,onEvent,profile,nodes,relations,refresh,manage}){
+ const modules=useModules();
  const write=useWritingRequest(call);
  const {value,base,change,accept,dirty,cacheError}=useDraft(`${novelId}:structured-card:${nodeId}`,serialize(profile)),[editing,setEditing]=useState(dirty),[serverError,setServerError]=useState('');
  useEffect(()=>{if(!dirty&&(profile.revision!==base.revision||profile.nodeRevision!==base.nodeRevision))accept(serialize(profile));},[profile,dirty]);
@@ -29,10 +31,10 @@ function CardFields({call,novelId,nodeId,busy,run,onChapter,onEvent,profile,node
  {Object.keys(profile.values).some(id=>!fields.some(f=>f.id===id))&&<details><summary>已归档或其他类型的字段值</summary><dl className="structured-values">{Object.entries(profile.values).filter(([id])=>!fields.some(f=>f.id===id)).map(([id,v])=><React.Fragment key={id}><dt>{profile.fields.find(f=>f.id===id)?.label||id}</dt><dd>{show(v)}</dd></React.Fragment>)}</dl></details>}
  {profile.revision>0&&<WritingHistory current={{values:value.values,aliases:value.aliasesText.split(/[,，\n]/).map(s=>s.trim()).filter(Boolean)}} {...{call,novelId,busy,run,dirty}} labels={Object.fromEntries(profile.fields.map(f=>[f.id,f.label]))} nodes={nodes} collection="cards" id={nodeId} revision={base.revision} nodeRevision={base.nodeRevision} restored={refresh}/>}
  {profile.kind==='character'&&<CardRelations {...{call,novelId,nodeId,busy,run,refresh,onEvent}} data={relations}/>}
- <h4>关联事件历程</h4><p className="muted">按故事顺序排列；参与事件不自动计入正式出场。</p>{profile.events.map(e=><div key={e.id} className="structure-entry"><button onClick={()=>onEvent?.(e.id)}>{e.title}</button><small> · {e.storyTime||'时间未注明'} · 排序 {e.order}</small><p>{e.content}</p>{e.review&&<small>正文已改写，需复核</small>}</div>)}
+ {modules.timeline&&<><h4>关联事件历程</h4><p className="muted">按故事顺序排列；参与事件不自动计入正式出场。</p>{profile.events.map(e=><div key={e.id} className="structure-entry"><button onClick={()=>onEvent?.(e.id)}>{e.title}</button><small> · {e.storyTime||'时间未注明'} · 排序 {e.order}</small><p>{e.content}</p>{e.review&&<small>正文已改写，需复核</small>}</div>)}</>}
  <h4>章节记录</h4><p>首次实际出场：{profile.firstAppearance?<button onClick={()=>onChapter?.(profile.firstAppearance.chapterId)}>{profile.firstAppearance.chapterTitle}</button>:'尚未确认'}　首次提及：{profile.firstMention?<button onClick={()=>onChapter?.(profile.firstMention.chapterId)}>{profile.firstMention.chapterTitle}</button>:'尚未确认'}</p>
  {profile.links.map(l=><div className="structure-entry" key={l.id}><button onClick={()=>onChapter?.(l.chapterId)}>{l.chapterTitle}</button> · {{appearance:'实际出场',mention:'仅被提及',reference:'资料关联'}[l.kind]}<small> · 版本 {l.chapterRevision}{l.excluded?' · 已移出当前汇总':l.review?' · 正文已改写，需复核':''}</small><blockquote>{l.evidence}</blockquote></div>)}
- {profile.foreshadows.length>0&&<><h4>关联伏笔</h4>{profile.foreshadows.map(f=><p key={f.id}>{f.title} · {{planned:'计划',planted:'已埋设',developing:'推进中',recovered:'已回收',abandoned:'已放弃'}[f.status]}</p>)}</>}
+ {modules.foreshadow&&profile.foreshadows.length>0&&<><h4>关联伏笔</h4>{profile.foreshadows.map(f=><p key={f.id}>{f.title} · {{planned:'计划',planted:'已埋设',developing:'推进中',recovered:'已回收',abandoned:'已放弃'}[f.status]}</p>)}</>}
  </>;
 }
 function FieldManager({call,novelId,busy,run,profile,close}){

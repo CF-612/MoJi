@@ -1,0 +1,9 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import React from 'react';import {renderToStaticMarkup} from 'react-dom/server';
+import {mkdir,mkdtemp,readFile} from 'node:fs/promises';import {resolve,join} from 'node:path';import {pathToFileURL} from 'node:url';import {build} from 'esbuild';
+const root=resolve(import.meta.dirname,'../.data/tests');await mkdir(root,{recursive:true});const dir=await mkdtemp(join(root,'charts-')),file=join(dir,'charts.mjs');
+await build({entryPoints:[resolve(import.meta.dirname,'../vendor/cuigengji/src/client/features/structure/Overview.jsx')],outfile:file,bundle:true,platform:'node',format:'esm',packages:'external',loader:{'.png':'dataurl'}});
+const {GoalRing,ShadowDonut}=await import(pathToFileURL(file));
+test('实际环形图使用独立 SVG 色段，旧圆点样式不能再覆盖图表',async()=>{const style=await readFile(resolve(import.meta.dirname,'../vendor/cuigengji/src/client/style.ts'),'utf8');assert.doesNotMatch(style,/\.cuigengji svg circle\s*\{/);const html=renderToStaticMarkup(React.createElement(GoalRing,{words:16701,target:20000}));assert.match(html,/data-chart-segment="true"/);assert.match(html,/fill="none"/);assert.match(html,/stroke-dasharray="83\.505/);assert.match(html,/84%/);});
+test('零进度显示浅色底环，空伏笔显示等待提示而非灰色实心盘',()=>{const goal=renderToStaticMarkup(React.createElement(GoalRing,{words:0,target:20000}));assert.match(goal,/accent-soft/);assert.match(goal,/0%/);const html=renderToStaticMarkup(React.createElement(ShadowDonut,{values:[],select(){}}));assert.match(html,/等待故事展开/);assert.match(html,/stroke-dasharray="8 5"/);assert.doesNotMatch(html,/fill="#777"/);});
+test('混合伏笔状态按实际数量分色，并保留点击筛选入口',()=>{const html=renderToStaticMarkup(React.createElement(ShadowDonut,{values:[{status:'planned'},{status:'planted'},{status:'recovered'}],select(){}}));for(const color of ['#8a94a6','#b882da','#42a592'])assert.match(html,new RegExp('stroke="'+color+'"'));assert.match(html,/已埋设 1条伏笔/);assert.match(html,/已回收 1条伏笔/);});

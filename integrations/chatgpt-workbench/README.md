@@ -2,6 +2,8 @@
 
 基于 mistnest 的 MIT 催更姬，保留聊天侧栏协作、正文、设定与规划。
 
+内置模块显示设置、仪表盘圆环修复与白板合并保存见 [模块骨架说明](MODULE_FOUNDATION.md)。
+
 结构资料与主题见 [结构资料说明](STRUCTURED_WRITING.md)，事件与阶段关系见 [时间线说明](STORY_EVOLUTION.md)。
 
 图表联动、默认资料字段与切页改进见 [图表工作台说明](CONNECTED_CHARTS.md)。

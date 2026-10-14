@@ -10,6 +10,7 @@ import {ViewSwitch,SearchControl} from '../../shared/workspace.tsx';
 import {useWorkbenchPreferences} from '../../shared/preferences.tsx';
 import {Groups, GroupSelect, filterGroup} from '../../shared/groups.tsx';
 import {BatchManager,BatchList} from '../../shared/batch-management.tsx';
+import {useModules,ModulePage} from '../../modules/index.tsx';
 import React,{useEffect,useRef,useState} from 'react';
 import {useResource,useDraft,usePreference} from '../../shared/state.js';
 import {ResourceState,SaveBar,saveShortcut} from '../../shared/ui.jsx';
@@ -24,11 +25,13 @@ const statusNames={idea:'讨论中',selected:'准备采用',written:'已写入�
 const scopeNames={long:'长期',phase:'阶段',near:'近期',unspecified:'未指定'};
 const edgeNames={next:'剧情推进',requires:'依赖铺垫',alternative:'备选分支'};
 export function Planning({call,novelId,tick,run,busy,onChapter,onMemory,onTransfer,onEvent,onPlanning,onCreateMemory}) {
+ const modules=useModules();
  const {preferences}=useWorkbenchPreferences();
  const [quick,setQuick]=useState(null),[area,setArea]=usePreference(`${novelId}:planning-area`,'scenes');
  const canvas=useRef(null),batchView=useRef(preferences.planningView);
  const [creating,setCreating]=useState(null),[created,setCreated]=useState(null),[batch,setBatch]=useState(false);
  const [parent,setParent]=usePreference(`${novelId}:planning-parent`,null),[selected,setSelected]=usePreference(`${novelId}:planning-selected`,null),[viewChoice,setView]=useState(preferences.planningView),[query,setQuery]=useState(''),[filter,setFilter]=useState(''),[thread,setThread]=useState(''),[group,setGroup]=useState(''),[checked,setChecked]=useState([]),[poll,setPoll]=useState(0),[historyOpen,setHistoryOpen]=useState(false),[changes,setChanges]=useState(null);
+ useEffect(()=>{if(!modules.timeline&&area!=='scenes')setArea('scenes');},[modules.timeline,area]);
  const view=viewChoice==='auto'?'canvas':viewChoice;
  const {ask,confirm}=useDialog();
  const [pageId,setPageId]=usePreference(`${novelId}:planning-page`,'');
@@ -66,7 +69,7 @@ export function Planning({call,novelId,tick,run,busy,onChapter,onMemory,onTransf
    if(await transact(operations,'移动规划页面')){switchPage(movePage);endBatch();}
  };
  const saveDecoration=(value,requestId)=>transact([{op:'decoration.update',id:value.id,expectedRevision:value.revision,value}],'保存画布批注',requestId);
- const saveLayout=(positions,revisions={},requestId)=>transact(Object.entries(positions).map(([id,position])=>{const d=decorations.find(d=>d.id===id);return d?{op:'decoration.update',id,expectedRevision:revisions[id]??d.revision,value:{position}}:{op:'node.update',id,expectedRevision:revisions[id]??nodes.find(n=>n.id===id)?.revision,value:{position}};}),'调整画布布局',requestId);
+ const saveLayout=async(positions,revisions={},requestId)=>{await call('planning.apply',{novelId,requestId,reason:'合并保存画布布局',operations:Object.entries(positions).map(([id,position])=>{const d=decorations.find(d=>d.id===id);return d?{op:'decoration.update',id,expectedRevision:revisions[id]??d.revision,value:{position}}:{op:'node.update',id,expectedRevision:revisions[id]??nodes.find(n=>n.id===id)?.revision,value:{position}};})});await refreshWritten();return true;};
  const removeObjects=async ids=>{
    if(!ids.length||busy||!await confirm(`删除选中的 ${ids.length} 项？讨论框内的卡片会保留，情节可从修改记录恢复。`))return;
    const depth=n=>{let count=0,p=n;const seen=new Set();while(p?.parentId&&!seen.has(p.id)){seen.add(p.id);count++;p=nodes.find(v=>v.id===p.parentId);}return count;};
@@ -100,8 +103,8 @@ export function Planning({call,novelId,tick,run,busy,onChapter,onMemory,onTransf
    }
    await refreshWritten();setQuery('');setFilter('');setThread('');setPoll(n=>n+1);
  });
- const navigation=<div className="connected-nav"><button className={area!=='scenes'?'selected':''} onClick={()=>setArea('narration')}>时间线规划</button><button className={area==='scenes'?'selected':''} onClick={()=>setArea('scenes')}>情节画布</button></div>;
- if(area!=='scenes')return <div className="planning-workspace connected-workspace">{navigation}<div className="connected-scroll"><Timeline {...{call,novelId,tick,run,busy,onChapter,onMemory,onPlanning,onCreateMemory}}/></div></div>;
+ const navigation=<div className="connected-nav">{modules.timeline&&<button className={area!=='scenes'?'selected':''} onClick={()=>setArea('narration')}>时间线规划</button>}<button className={area==='scenes'?'selected':''} onClick={()=>setArea('scenes')}>情节画布</button></div>;
+ if(modules.timeline&&area!=='scenes')return <div className="planning-workspace connected-workspace">{navigation}<div className="connected-scroll"><ModulePage id="timeline" {...{call,novelId,tick,run,busy,onChapter,onMemory,onPlanning,onCreateMemory}}/></div></div>;
  return <div className="planning-workspace">{navigation}
   <header className="module-heading canvas-heading"><div className="module-toolbar">
    <PlanningPages pages={pages} value={pageId} busy={busy} change={switchPage} create={(name,summary)=>run(async()=>{const page=await call('planning.page.create',{novelId,name,summary,requestId:crypto.randomUUID()});switchPage(page.id);})} update={(page,name,summary)=>run(()=>call('planning.page.update',{novelId,pageId:page.id,expectedRevision:page.revision,name,summary,requestId:crypto.randomUUID()}))} remove={page=>run(async()=>{await call('planning.page.delete',{novelId,pageId:page.id,expectedRevision:page.revision,confirm:true,requestId:crypto.randomUUID()});switchPage('');})}/>
