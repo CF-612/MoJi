@@ -1,3 +1,7 @@
+import {useDialog} from '../dialog.tsx';
+import {sharedLayoutQueue} from './layout-queue.mjs';
+import {useDialog} from '../dialog.tsx';
+import {sharedLayoutQueue} from './layout-queue.mjs';
 import React,{useContext,useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {SessionScope,readLocal} from './state.js';
 import {CARD_WIDTH,CARD_HEIGHT,PORT_Y,contains,intersects,fitCamera,toWorld,zoomAt,curve} from './graph-geometry.ts';
@@ -34,9 +38,10 @@ export function canJoin(edges:Link[],from:string,to:string,acyclic=false){
   return true;
 }
 export function GraphStatus({graph,busy}:{graph:ReturnType<typeof useGraph>;busy:boolean}){
-  if(graph.failed)return <span className="graph-save-error" role="alert">{graph.error||'布局未保存'}<button disabled={busy||graph.saving} onClick={graph.retry}>重试</button><button disabled={busy||graph.saving} onClick={graph.discard}>还原布局</button></span>;
+  if(graph.failed)return <span className="graph-save-error" role="alert">{graph.error||'布局未保存'}<button disabled={busy||graph.saving||graph.layoutSaving} onClick={graph.retry}>重试</button>{graph.layoutConflict&&<button disabled={busy||graph.saving||graph.layoutSaving} onClick={graph.rebase}>保留目标，核对后重存</button>}<button disabled={busy||graph.saving||graph.layoutSaving} onClick={graph.discard}>放弃位置草稿</button></span>;
   if(graph.error)return <small role="alert">{graph.error}</small>;
-  if(graph.saving)return <small role="status">正在保存…</small>;
+  if(graph.saving)return <small role="status">正在保存连线…</small>;
+  if(graph.pending)return <small role="status" className="muted">{graph.layoutSaving?'布局后台保存中':'布局待保存 · 暂停拖动后自动保存'}</small>;
   if(graph.wire)return <small role="status">连接到另一张卡片，或拖到空白新建 · Esc 取消</small>;
   return null;
 }
@@ -46,6 +51,7 @@ export function GraphControls({graph,busy}:{graph:ReturnType<typeof useGraph>;bu
 
 /** One world coordinate system. Viewport changes are local preferences, never novel edits. */
 export function useGraph(options:Options){
+  const {confirm}=useDialog();
   const opts=useRef(options);opts.current=options;
   const scope=useContext(SessionScope),storageKey=`cuigengji:camera:${scope}:${options.scopeKey}`;
   const saved=useRef(readLocal(storageKey,null));
@@ -57,13 +63,18 @@ export function useGraph(options:Options){
   const [selected,setSelectedState]=useState<string[]>([]),selection=useRef(selected);selection.current=selected;
   const [selectedEdge,setSelectedEdge]=useState<string|null>(null),[wire,setWire]=useState<Wire|null>(null),wireRef=useRef(wire);
   const [lasso,setLasso]=useState<Rect|null>(null),[dragging,setDragging]=useState(false),[saving,setSaving]=useState(false),[failed,setFailed]=useState(false),[error,setError]=useState('');
-  const [awaiting,setAwaiting]=useState<Record<string,number>|null>(null),[awaitingLink,setAwaitingLink]=useState<Link|null>(null);
+  const [awaitingLink,setAwaitingLink]=useState<Link|null>(null);
   const gesture=useRef<Gesture|null>(null),locked=useRef(false),suppress=useRef(false),rightEnd=useRef(0),space=useRef(false);
   const touches=useRef(new Map<number,Point>()),pinch=useRef<{before:Camera;center:Point;distance:number}|null>(null);
   const touchOpen=useRef(new Map<string,()=>void>());
   const editable=(target:EventTarget|null)=>target instanceof Element&&!!target.closest('input,textarea,select,[contenteditable=true],[data-graph-editor]');
   const touchPair=()=>{const [a,b]=[...touches.current.values()];return a&&b?{center:relative((a.x+b.x)/2,(a.y+b.y)/2),distance:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y))}:null;};
-  const failedChange=useRef<{change:LayoutChange;persist:Options['onLayout'];commit:()=>void}|null>(null);
+  const layoutKey=storageKey+':draft';
+  const queue=sharedLayoutQueue(layoutKey,{persist:options.onLayout,read:()=>readLocal(layoutKey,null),write:value=>{if(Object.keys(value.pending).length||value.flight)localStorage.setItem(layoutKey,JSON.stringify(value));else localStorage.removeItem(layoutKey);}});
+  const [layoutStatus,setLayoutStatus]=useState(()=>queue.snapshot());
+  useEffect(()=>queue.subscribe(next=>{setLayoutStatus(next);setFailed(!!next.error);setError(next.error);const overlay=queue.points();const g=gesture.current;if(g?.kind==='card'&&g.moved)for(const id of g.ids)overlay[id]=localRef.current[id];if(JSON.stringify(localRef.current)!==JSON.stringify(overlay))setLocal(overlay);}),[queue]);
+  useEffect(()=>{queue.sync(options.nodes);const overlay=queue.points();const g=gesture.current;if(g?.kind==='card'&&g.moved)for(const id of g.ids)overlay[id]=localRef.current[id];if(JSON.stringify(localRef.current)!==JSON.stringify(overlay))setLocal(overlay);},[options.nodes,queue]);
+  useEffect(()=>{const hidden=()=>{if(document.hidden)void queue.flush();},leave=(e:BeforeUnloadEvent)=>{if(queue.snapshot().dirty){e.preventDefault();e.returnValue='';}};document.addEventListener('visibilitychange',hidden);window.addEventListener('beforeunload',leave);return()=>{document.removeEventListener('visibilitychange',hidden);window.removeEventListener('beforeunload',leave);void queue.flush();};},[queue]);
   const undoStack=useRef<LayoutChange[]>([]),redoStack=useRef<LayoutChange[]>([]),[,historyTick]=useState(0);
   const points=Object.fromEntries(options.nodes.map(n=>[n.id,local[n.id]||n.position||options.fallback[n.id]||{x:40,y:60}]));
   const pointsRef=useRef(points);pointsRef.current=points;
@@ -104,24 +115,23 @@ export function useGraph(options:Options){
   useLayoutEffect(()=>{const el=scroll.current;if(!el)return;let size={width:0,height:0};const observer=new ResizeObserver(()=>{if(!el.clientWidth||!el.clientHeight)return;if(!fitted.current&&opts.current.nodes.length){fit();fitted.current=true;}else if(size.width&&size.height){const c=cameraRef.current;updateCamera({...c,x:c.x+(el.clientWidth-size.width)/2,y:c.y+(el.clientHeight-size.height)/2},true);}size={width:el.clientWidth,height:el.clientHeight};});observer.observe(el);return()=>observer.disconnect();},[]);
   useEffect(()=>{if(!fitted.current&&options.nodes.length&&scroll.current?.clientWidth){fit();fitted.current=true;}const ids=new Set(options.nodes.map(n=>n.id)),kept=selection.current.filter(id=>ids.has(id));if(kept.length!==selection.current.length)select(kept);if(wireRef.current&&!ids.has(wireRef.current.id))updateWire(null);},[options.nodes]);
   useEffect(()=>()=>rememberCamera(),[]);
-  useEffect(()=>{if(awaiting&&Object.entries(awaiting).every(([id,revision])=>!options.nodes.some(n=>n.id===id)||options.nodes.some(n=>n.id===id&&n.revision>revision))){const next={...localRef.current};for(const id of Object.keys(awaiting))delete next[id];setLocal(next);setAwaiting(null);locked.current=false;}},[options.nodes,awaiting]);
   useEffect(()=>{if(awaitingLink&&options.edges.some(e=>e.from===awaitingLink.from&&e.to===awaitingLink.to)){setAwaitingLink(null);locked.current=false;}},[options.edges,awaitingLink]);
-  const save=async(change:LayoutChange,persist=opts.current.onLayout,commit=()=>{undoStack.current.push({...change,revisions:Object.fromEntries(Object.entries(change.revisions).map(([id,r])=>[id,r+1]))});undoStack.current=undoStack.current.slice(-50);redoStack.current=[];historyTick(n=>n+1);})=>{
-    if(locked.current||opts.current.busy)return false;
-    change.requestId??=crypto.randomUUID();
-    locked.current=true;setSaving(true);setFailed(false);setError('');let ok=false;
-    try{ok=await persist(change.after,change.revisions,change.requestId)===true;if(ok){setAwaiting(change.revisions);commit();failedChange.current=null;}else{failedChange.current={change,persist,commit};setFailed(true);}}catch{failedChange.current={change,persist,commit};setFailed(true);}finally{if(!ok)locked.current=false;setSaving(false);}return ok;
+  const save=async(change:LayoutChange,_persist=opts.current.onLayout)=>{
+    queue.enqueue(change.after,change.revisions);undoStack.current.push(change);undoStack.current=undoStack.current.slice(-50);redoStack.current=[];historyTick(n=>n+1);return true;
   };
-  const history=async(redo=false)=>{if(locked.current||opts.current.busy||failed)return;const source=redo?redoStack.current:undoStack.current,target=redo?undoStack.current:redoStack.current,entry=source.at(-1);if(!entry)return;if(Object.entries(entry.revisions).some(([id,r])=>opts.current.nodes.find(n=>n.id===id)?.revision!==r)){setError('相关卡片已有新版本，无法覆盖后续修改。');return;}const after=redo?entry.after:entry.before,before=redo?entry.before:entry.after;setLocal({...localRef.current,...after});await save({before,after,revisions:entry.revisions},opts.current.onLayout,()=>{source.pop();const revisions=Object.fromEntries(Object.entries(entry.revisions).map(([id,r])=>[id,r+1]));target.push({...entry,revisions});for(const [id,r] of Object.entries(revisions)){const next=[...source].reverse().find(item=>id in item.revisions),expected=next&&(redo?next.before[id]:next.after[id]);if(next&&expected&&after[id]&&expected.x===after[id].x&&expected.y===after[id].y)next.revisions[id]=r;}historyTick(n=>n+1);});};
-  const connect=async(target:string)=>{const current=wireRef.current;if(!current||locked.current||opts.current.busy)return;const [from,to]=current.side==='out'?[current.id,target]:[target,current.id];updateWire(null);locked.current=true;setSaving(true);let ok=false;try{ok=await opts.current.onConnect(from,to)===true;if(ok)setAwaitingLink({from,to});}catch{/* Parent reports the failed RPC. */}finally{if(!ok)locked.current=false;setSaving(false);}};
+  const history=async(redo=false)=>{
+    if(locked.current||opts.current.busy||failed)return;const source=redo?redoStack.current:undoStack.current,target=redo?undoStack.current:redoStack.current,entry=source.at(-1);if(!entry)return;
+    const after=redo?entry.after:entry.before;queue.enqueue(after,Object.fromEntries(Object.keys(after).map(id=>[id,opts.current.nodes.find(n=>n.id===id)?.revision])));source.pop();target.push(entry);historyTick(n=>n+1);
+  };
+  const connect=async(target:string)=>{const current=wireRef.current;if(!current||locked.current||opts.current.busy)return;if(!await queue.flush())return;const [from,to]=current.side==='out'?[current.id,target]:[target,current.id];updateWire(null);locked.current=true;setSaving(true);let ok=false;try{ok=await opts.current.onConnect(from,to)===true;if(ok)setAwaitingLink({from,to});}catch{/* Parent reports the failed RPC. */}finally{if(!ok)locked.current=false;setSaving(false);}};
   const cardProps=(id:string,open:()=>void):React.HTMLAttributes<HTMLElement>=>(touchOpen.current.set(id,open),{
-    onPointerDown:e=>{if(e.pointerType==='touch'||editable(e.target)||e.button!==0||opts.current.busy||locked.current||failed||wireRef.current||space.current||(e.target as HTMLElement).closest('[data-graph-port],.decoration-resize'))return;const node=opts.current.nodes.find(n=>n.id===id);if(!node)return;suppress.current=false;let ids=selection.current.includes(id)?[...selection.current]:[id];if(node.kind==='frame'&&node.moveContents){const box=bounds(id);ids=[...new Set([...ids,...opts.current.nodes.filter(n=>n.id!==id&&n.kind!=='frame'&&contains(box,bounds(n.id))).map(n=>n.id)])];}gesture.current={kind:'card',pointer:e.pointerId,start:{x:e.clientX,y:e.clientY},moved:false,ids,before:Object.fromEntries(ids.map(key=>[key,{...pointsRef.current[key]}])),revisions:Object.fromEntries(ids.map(key=>[key,opts.current.nodes.find(n=>n.id===key)!.revision])),persist:opts.current.onLayout};},
+    onPointerDown:e=>{if(e.pointerType==='touch'||editable(e.target)||e.button!==0||opts.current.busy||locked.current||wireRef.current||space.current||(e.target as HTMLElement).closest('[data-graph-port],.decoration-resize'))return;const node=opts.current.nodes.find(n=>n.id===id);if(!node)return;suppress.current=false;let ids=selection.current.includes(id)?[...selection.current]:[id];if(node.kind==='frame'&&node.moveContents){const box=bounds(id);ids=[...new Set([...ids,...opts.current.nodes.filter(n=>n.id!==id&&n.kind!=='frame'&&contains(box,bounds(n.id))).map(n=>n.id)])];}gesture.current={kind:'card',pointer:e.pointerId,start:{x:e.clientX,y:e.clientY},moved:false,ids,before:Object.fromEntries(ids.map(key=>[key,{...pointsRef.current[key]}])),revisions:Object.fromEntries(ids.map(key=>[key,opts.current.nodes.find(n=>n.id===key)!.revision])),persist:opts.current.onLayout};},
     onClickCapture:e=>{if(!editable(e.target)&&suppress.current){e.preventDefault();e.stopPropagation();suppress.current=false;}},
-    onClick:e=>{if((e.target as HTMLElement).closest('[data-graph-port],.decoration-resize')||opts.current.busy||locked.current)return;if(e.detail===0){open();return;}const append=e.shiftKey||e.ctrlKey||e.metaKey;select(append?(selection.current.includes(id)?selection.current.filter(v=>v!==id):[...selection.current,id]):[id]);},
-    onDoubleClick:e=>{if(editable(e.target)||(e.target as HTMLElement).closest('[data-graph-port],.decoration-resize')||opts.current.busy||locked.current)return;e.preventDefault();open();},
+    onClick:e=>{if((e.target as HTMLElement).closest('[data-graph-port],.decoration-resize')||opts.current.busy||locked.current)return;if(e.detail===0){void queue.flush().then(ok=>{if(ok)open();});return;}const append=e.shiftKey||e.ctrlKey||e.metaKey;select(append?(selection.current.includes(id)?selection.current.filter(v=>v!==id):[...selection.current,id]):[id]);},
+    onDoubleClick:e=>{if(editable(e.target)||(e.target as HTMLElement).closest('[data-graph-port],.decoration-resize')||opts.current.busy||locked.current)return;e.preventDefault();void queue.flush().then(ok=>{if(ok)open();});},
   });
   const portProps=(id:string,side:Side,name:string):React.ButtonHTMLAttributes<HTMLButtonElement>&{'data-graph-port':Side;'data-node-id':string}=>({
-    'data-graph-port':side,'data-node-id':id,type:'button','aria-label':`${name}：${side==='out'?'输出':'输入'}连接点`,disabled:options.busy||saving||awaiting!==null||awaitingLink!==null||failed,className:`graph-port port-${side} ${wire?(valid(id,side)?'port-valid':wire.id===id?'port-source':'port-unavailable'):''} ${wire?.target===id&&valid(id,side)?'port-target':''}`,
+    'data-graph-port':side,'data-node-id':id,type:'button','aria-label':`${name}：${side==='out'?'输出':'输入'}连接点`,disabled:options.busy||saving||awaitingLink!==null||failed,className:`graph-port port-${side} ${wire?(valid(id,side)?'port-valid':wire.id===id?'port-source':'port-unavailable'):''} ${wire?.target===id&&valid(id,side)?'port-target':''}`,
     onPointerDown:e=>{if(e.button!==0)return;e.stopPropagation();e.preventDefault();scroll.current?.focus({preventScroll:true});suppress.current=false;if(wireRef.current){if(valid(id,side))void connect(id);else updateWire(null);return;}setSelectedEdge(null);updateWire({id,side,point:endpoint(id,side),target:null});gesture.current={kind:'wire',pointer:e.pointerId,start:{x:e.clientX,y:e.clientY},moved:false};e.currentTarget.setPointerCapture(e.pointerId);},
     onClick:e=>{e.stopPropagation();if(e.detail!==0)return;if(wireRef.current){if(valid(id,side))void connect(id);else updateWire(null);}else updateWire({id,side,point:endpoint(id,side),target:null});},
   });
@@ -157,12 +167,12 @@ export function useGraph(options:Options){
   useEffect(()=>{const key=(e:KeyboardEvent)=>keyHandler.current(e),release=(e:KeyboardEvent)=>{if(e.key===' ')space.current=false;},blur=()=>{space.current=false;cancel();};window.addEventListener('keydown',key);window.addEventListener('keyup',release);window.addEventListener('blur',blur);return()=>{window.removeEventListener('keydown',key);window.removeEventListener('keyup',release);window.removeEventListener('blur',blur);};},[]);
   useEffect(()=>{const el=scroll.current;if(!el)return;const wheel=(e:WheelEvent)=>{if(!e.deltaY||gesture.current||el.dataset.resizing)return;const target=e.target instanceof Element?e.target:null;if(target?.closest('input,textarea,select,[contenteditable=true],[role=menu],.menu-panel,.graph-help'))return;for(let node=target;node&&node!==el;node=node.parentElement)if(node.scrollHeight>node.clientHeight+1&&/^(auto|scroll)$/.test(getComputedStyle(node).overflowY))return;e.preventDefault();zoomTo(cameraRef.current.zoom*Math.exp(-e.deltaY*.0015),relative(e.clientX,e.clientY));};el.addEventListener('wheel',wheel,{passive:false});return()=>el.removeEventListener('wheel',wheel);},[]);
   const preview=wire&&points[wire.id]?curve(wire.side==='out'?endpoint(wire.id,'out'):wire.target?endpoint(wire.target,'out'):wire.point,wire.side==='in'?endpoint(wire.id,'in'):wire.target?endpoint(wire.target,'in'):wire.point):null;
-  return {scroll,surface,points,camera,zoom:camera.zoom,zoomTo,wire,preview,selected,select,selectedEdge,setSelectedEdge:chooseEdge,portProps,cardProps,saving:saving||awaiting!==null||awaitingLink!==null,failed,error,dragging,lasso,centerPoint,clientPoint,fit,fallback:options.fallback,
+  return {scroll,surface,points,camera,zoom:camera.zoom,zoomTo,wire,preview,selected,select,selectedEdge,setSelectedEdge:chooseEdge,portProps,cardProps,saving:saving||awaitingLink!==null,pending:layoutStatus.dirty,layoutSaving:layoutStatus.saving,layoutConflict:layoutStatus.errorCode==='CONFLICT',failed,error,dragging,lasso,centerPoint,clientPoint,fit,fallback:options.fallback,
     ensureVisible,canUndo:undoStack.current.length>0,canRedo:redoStack.current.length>0,undo:()=>history(),redo:()=>history(true),
     worldStyle:{transform:`translate(${camera.x}px,${camera.y}px) scale(${camera.zoom})`,transformOrigin:'0 0'} as React.CSSProperties,
     viewportStyle:{backgroundSize:`${24*camera.zoom}px ${24*camera.zoom}px`,backgroundPosition:`${camera.x}px ${camera.y}px`,'--graph-title-scale':Math.min(2,Math.max(1,.7/camera.zoom))} as React.CSSProperties,
     scrollProps:{onPointerDown:down,onPointerMove:move,onPointerUp:up,onPointerCancel:()=>{touches.current.clear();pinch.current=null;cancel();},onScroll:(e:React.UIEvent<HTMLDivElement>)=>{if(e.currentTarget.scrollLeft||e.currentTarget.scrollTop)e.currentTarget.scrollTo(0,0);},onClickCapture:(e:React.MouseEvent)=>{if(!editable(e.target)&&suppress.current){e.preventDefault();e.stopPropagation();suppress.current=false;}},onContextMenu:(e:React.MouseEvent)=>{if(editable(e.target))return;e.preventDefault();if(gesture.current?.kind==='pan'||Date.now()-rightEnd.current<500)return;context(e.clientX,e.clientY,hitAt(e.target));},tabIndex:0,'aria-label':'画布：单指平移、双指缩放；鼠标右键平移、滚轮缩放'},
-    cancel,retry:()=>{const pending=failedChange.current;if(pending)void save(pending.change,pending.persist,pending.commit);},discard:()=>{setLocal({});setFailed(false);setError('');failedChange.current=null;},
+    cancel,rebase:async()=>{if(await confirm('保留本地目标坐标，以当前已读取版本重新保存？这会覆盖对应远端坐标，卡片文字保持不变。')){if(queue.rebase(opts.current.nodes))void queue.flush();else setError('相关卡片不存在或已删除，请先核对最新资料。');}},retry:()=>{void queue.retry();},discard:()=>{if(queue.discard()){setLocal({});setFailed(false);setError('');undoStack.current=[];redoStack.current=[];historyTick(n=>n+1);}},
     arrange:(positions:Record<string,Point>)=>{if(options.busy||locked.current||failed)return;const ids=Object.keys(positions).filter(id=>points[id]);if(!ids.length)return;const after=Object.fromEntries(ids.map(id=>[id,positions[id]]));setLocal({...localRef.current,...after});void save({before:Object.fromEntries(ids.map(id=>[id,points[id]])),after,revisions:Object.fromEntries(ids.map(id=>[id,options.nodes.find(n=>n.id===id)!.revision]))});},
   };
 }
