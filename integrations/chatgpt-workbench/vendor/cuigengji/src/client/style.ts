@@ -1,3 +1,4 @@
+import {disclosureStyles} from './shared/disclosure-style.ts';
 import {searchStyles} from './shared/WorkSearch.jsx';
 import {reviewStyles} from './shared/ReviewInbox.jsx';
 import {diffStyles} from './shared/TextDiff.jsx';
@@ -285,4 +286,4 @@ export const styles = `
  .cuigengji .chapter-main .manuscript {padding-left:8px;padding-right:8px;}
  .cuigengji .chapter-toolbar {gap:8px;}
 }
-` + visualStyles + selectStyles + graphStyles + managementStyles + transferStyles + welcomeStyles + batchStyles + navigationStyles + mobileStyles + cardStyles + structureStyles + storyStageStyles + trackStyles + placementStyles + markdownStyles + diffStyles + reviewStyles + searchStyles;
+` + visualStyles + selectStyles + graphStyles + managementStyles + transferStyles + welcomeStyles + batchStyles + navigationStyles + mobileStyles + cardStyles + structureStyles + storyStageStyles + trackStyles + placementStyles + markdownStyles + diffStyles + reviewStyles + searchStyles + disclosureStyles;
