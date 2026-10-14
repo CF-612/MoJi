@@ -10,6 +10,8 @@
 
 连续事件条、统一伏笔筛选和可编辑卷章编号见 [连续时间线说明](TIMELINE_TRACKS.md)。
 
+直接拖动事件、首尾调整和位置草稿见 [时间线编辑说明](TIMELINE_EDITING.md)。
+
 ## 本地运行
 
 需要 Node.js 24。执行 `npm ci`、`npm run build`、`npm run build:cloud`、`npm test`。`npm start` 打开仅监听本机的演示服务，数据保存在忽略的 `.data/`。

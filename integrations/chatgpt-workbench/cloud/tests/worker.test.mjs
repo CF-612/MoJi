@@ -26,7 +26,7 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
     assert.ok(listing.tools.some(t=>t.name==='workbench_import_preview'),'聊天 AI 必须有导入预览工具');
     assert.ok(listing.tools.some(t=>t.name==='workbench_import'),'聊天 AI 必须有携带预览证明的导入工具');
     const openTool=listing.tools.find(t=>t.name==='workbench_open');
-    assert.equal(openTool._meta.ui.resourceUri,'ui://cuigengji/cloud-v090');
+    assert.equal(openTool._meta.ui.resourceUri,'ui://cuigengji/cloud-v091');
     assert.equal(openTool._meta['openai/outputTemplate'],openTool._meta.ui.resourceUri);
     for(const name of ['workbench_bootstrap','workbench_ui_rpc']){
       const tool=listing.tools.find(t=>t.name===name);
@@ -60,13 +60,18 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
     const later=await edit('writing.event.create',{confirmed:true,value:{title:'再次来信',order:2,narrativeKind:'linear'}}),beforeOrder=await ui('writing.board.get',{novelId});
     const moved=await edit('writing.event.move',{id:later.id,view:'story',direction:'up',confirmed:true,expectedOrder:beforeOrder.events.map(e=>({id:e.id,revision:e.revision}))});
     assert.deepEqual(moved.order,[later.id,event.id]);const reordered=await ui('writing.board.get',{novelId});assert.equal(reordered.events[0].id,later.id);assert.equal(reordered.events.find(e=>e.id===event.id).foreshadowRefs[0],shadow.foreshadowId);assert.equal(reordered.events.find(e=>e.id===event.id).narrationOrder,10);
+    assert.ok(opened.structuredContent.result.capabilities.editActions.includes('writing.event.place'));
+    const secondChapter=await edit('chapter.create',{title:'第二章'}),placementBoard=await ui('writing.board.get',{novelId}),placementEvent=placementBoard.events.find(e=>e.id===later.id);
+    const placed=await edit('writing.event.place',{id:later.id,expectedRevision:placementEvent.revision,view:'narration',operation:'move',startChapterId:secondChapter.id,endChapterId:secondChapter.id,expectedChapterOrder:placementBoard.chapters.map(c=>c.id),chapterRevisions:Object.fromEntries(placementBoard.chapters.map(c=>[c.id,c.revision])),confirmed:true});
+    assert.equal(placed.events[0].chapterRefs[0].chapterId,secondChapter.id);assert.equal(placed.events[0].chapterRefs[0].evidence,'');
+    const badPlace=await call('tools/call',{name:'workbench_query',arguments:{action:'writing.event.place',args:{novelId,id:later.id}}});assert.equal(badPlace.isError,true);
     const manuscript=Array.from({length:60},(_,i)=>`## 第${i+1}章 来信\n\n`+'　　“雨停了。”——她说。\n\n'.repeat(1200)).join('\n\n');
     const file={name:'batch.json',json:{format:'cuigengji-batch',version:1,files:[{file:{name:'长篇.md',gzipBase64:gzipSync(manuscript).toString('base64')},kind:'chapters'}]}},options={mode:'copy',targetId:novelId};
     const preview=await ui('transfer.preview',{file,options});assert.ok(preview.valid);assert.equal(preview.counts.chapters,60);
-    await ui('transfer.import',{file,options,proof:preview.proof,requestId:crypto.randomUUID()});assert.equal((await ui('chapter.list',{novelId})).length,61);
+    await ui('transfer.import',{file,options,proof:preview.proof,requestId:crypto.randomUUID()});assert.equal((await ui('chapter.list',{novelId})).length,62);
     const snapshots=await ui('transfer.snapshots');assert.equal(snapshots.length,1);
     const restoreFile=await ui('transfer.snapshot.get',{id:snapshots[0].id});const restoreOptions={mode:'restore',replaceExisting:true};const restore=await ui('transfer.preview',{file:restoreFile,options:restoreOptions});assert.ok(restore.valid);
-    await ui('transfer.import',{file:restoreFile,options:restoreOptions,proof:restore.proof,requestId:crypto.randomUUID()});assert.equal((await ui('chapter.list',{novelId})).length,1);
+    await ui('transfer.import',{file:restoreFile,options:restoreOptions,proof:restore.proof,requestId:crypto.randomUUID()});assert.equal((await ui('chapter.list',{novelId})).length,2);
     const runtime=await mf.getDurableObjectNamespace('WORKBENCH_RUNTIME');assert.equal((await runtime.getByName('foreign').invoke('auth0|foreign','rpc',['novel.list',{},'test','human'])).error.code,'FORBIDDEN');
     const resource=await call('resources/read',{uri:'ui://cuigengji/cloud-v030'});assert.match(resource.contents[0].text,/data-mcp-app="true"/);assert.equal(resource.contents[0]._meta['openai/ui'].preferredDisplayMode,'inline');
     const current=await call('resources/read',{uri:openTool._meta.ui.resourceUri});assert.match(current.contents[0].text,/data-mcp-app="true"/);
