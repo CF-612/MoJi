@@ -1,6 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {writingBoard} from './writing-board.js';
 import {projectStage} from './story-workspace.js';
+import {chapterPlacement} from './event-placement.js';
 import {moveEventOrder} from './event-order.js';
 import {validateReviews,copyReviews,sliceReviews} from './writing-review.js';
 import {workSearch} from './work-search.js';
@@ -70,6 +71,24 @@ export function writingAction(n,action,a,actor){
  if(action==='writing.stage.get'){
   if(a.eventId&&!active(w.events).some(e=>e.id===a.eventId))fail('请选择有效事件');
   return projectStage(writingBoard(n,w,stats(n),active(w.foreshadows).map(f=>foreshadowView(n,f,a.chapterId))),a.eventId,{complete:!!a.complete,chapterId:a.chapterId});
+ }
+ if(action==='writing.event.place'){
+  if(a.confirmed!==true)fail('请确认事件位置变更','CONFIRM_REQUIRED');
+  const old=get(w.events,a.id,'事件');cas(old,a.expectedRevision);if(old.deleted)fail('事件已删除');
+  const draft=clone(w),update=(previous,value)=>eventView(n,changeEvolution(n,draft,'writing.event.update',{id:previous.id,expectedRevision:previous.revision,confirmed:true,value},actor,a.reason||'作者直接调整时间线位置',save,cas,randomUUID).value);
+  if(a.view==='story'){
+   if(a.operation!=='move'||!Object.hasOwn(a,'beforeEventId'))fail('故事顺序只支持移动事件，不改变日期和章节跨度');
+   const result=moveEventOrder(n,draft,{...a,view:'story'},update,cas);n.writing=draft;return {...result,changed:result.events.length>0};
+  }
+  if(a.view!=='narration')fail('请选择时间线顺序');
+  const ordered=chapters(n);
+  if(!Array.isArray(a.expectedChapterOrder)||a.expectedChapterOrder.length!==ordered.length||ordered.some((c,i)=>a.expectedChapterOrder[i]!==c.id))fail('章节目录已有变化，请核对最新位置后重试','CONFLICT');
+  const plan=chapterPlacement(ordered,old,a),affected=new Set([...old.chapterRefs.map(r=>r.chapterId),...plan.chapterRefs.map(r=>r.chapterId)]);
+  for(const ch of ordered)if(affected.has(ch.id))cas(ch,a.chapterRevisions?.[ch.id]);
+  if(!plan.changed)return {view:a.view,eventId:old.id,changed:false,events:[],added:[],removed:[]};
+  const chapterOrders=Object.fromEntries(Object.entries(old.chapterOrders||{}).filter(([id])=>plan.chapterRefs.some(r=>r.chapterId===id)));
+  for(const id of plan.added){const other=active(w.events).filter(e=>e.id!==old.id&&e.chapterRefs.some(r=>r.chapterId===id));chapterOrders[id]=Math.max(0,...other.map(e=>e.chapterOrders?.[id]??e.narrationOrder??e.order))+10;}
+  const event=update(old,{chapterRefs:plan.chapterRefs,chapterOrders});n.writing=draft;return {view:a.view,eventId:old.id,changed:true,events:[event],added:plan.added,removed:plan.removed};
  }
  if(action==='writing.event.move'){
   const draft=clone(w),result=moveEventOrder(n,draft,a,(old,value)=>eventView(n,changeEvolution(n,draft,'writing.event.update',{id:old.id,expectedRevision:old.revision,confirmed:true,value},actor,a.reason||'作者调整时间节点顺序',save,cas,randomUUID).value),cas);
