@@ -1,12 +1,13 @@
 import {TextDiff,DiffDisclosure} from '../../shared/TextDiff.jsx';
 import {MarkdownText,MarkdownField} from '../../shared/MarkdownText.jsx';
-import {Timeline} from '../structure/Timeline.jsx';
+import {CanvasDraft} from './CanvasDraft.tsx';
+import {Modal} from '../../shared/preferences.tsx';
 import {CardQuickSettings} from '../../shared/CardQuickSettings.tsx';
 import {CardQuickButton,CardLegend} from '../../shared/card-appearance.tsx';
 import {ReferenceButton} from '../../shared/collaboration.tsx';
 import {OverviewPage,DetailActions,useDetailTrail} from '../../shared/detail-page.tsx';
 import {CanvasInspector} from '../../shared/CanvasInspector.tsx';
-import {ViewSwitch,SearchControl} from '../../shared/workspace.tsx';
+import {SearchControl} from '../../shared/workspace.tsx';
 import {useWorkbenchPreferences} from '../../shared/preferences.tsx';
 import {Groups, GroupSelect, filterGroup} from '../../shared/groups.tsx';
 import {BatchManager,BatchList} from '../../shared/batch-management.tsx';
@@ -27,16 +28,16 @@ const edgeNames={next:'剧情推进',requires:'依赖铺垫',alternative:'备选
 export function Planning({call,novelId,tick,run,busy,onChapter,onMemory,onTransfer,onEvent,onPlanning,onCreateMemory}) {
  const modules=useModules();
  const {preferences}=useWorkbenchPreferences();
- const [quick,setQuick]=useState(null),[area,setArea]=usePreference(`${novelId}:planning-area`,'scenes');
- const canvas=useRef(null),batchView=useRef(preferences.planningView);
+ const [quick,setQuick]=useState(null),[area,setArea]=usePreference(`${novelId}:planning-area`,preferences.planningView==='canvas'?'scenes':'narration');
+ const canvas=useRef(null),batchView=useRef(area);
  const [creating,setCreating]=useState(null),[created,setCreated]=useState(null),[batch,setBatch]=useState(false);
- const [parent,setParent]=usePreference(`${novelId}:planning-parent`,null),[selected,setSelected]=usePreference(`${novelId}:planning-selected`,null),[viewChoice,setView]=useState(preferences.planningView),[query,setQuery]=useState(''),[filter,setFilter]=useState(''),[thread,setThread]=useState(''),[group,setGroup]=useState(''),[checked,setChecked]=useState([]),[poll,setPoll]=useState(0),[historyOpen,setHistoryOpen]=useState(false),[changes,setChanges]=useState(null);
+ const [parent,setParent]=usePreference(`${novelId}:planning-parent`,null),[selected,setSelected]=usePreference(`${novelId}:planning-selected`,null),[query,setQuery]=useState(''),[filter,setFilter]=useState(''),[thread,setThread]=useState(''),[group,setGroup]=useState(''),[checked,setChecked]=useState([]),[poll,setPoll]=useState(0),[historyOpen,setHistoryOpen]=useState(false),[changes,setChanges]=useState(null);
  useEffect(()=>{if(!modules.timeline&&area!=='scenes')setArea('scenes');},[modules.timeline,area]);
- const view=viewChoice==='auto'?'canvas':viewChoice;
+ const showCanvas=()=>setArea('scenes');
  const {ask,confirm}=useDialog();
  const [pageId,setPageId]=usePreference(`${novelId}:planning-page`,'');
  const [decoration,setDecoration]=useState(null);
- const resource=useResource(()=>area==='scenes'?Promise.all([readPlanningSnapshot(call,novelId,{pageId:pageId||null}),call('planning.groups',{novelId}),call('planning.pages',{novelId}),readDecorations(call,novelId,pageId||null)]).then(values=>[...values,pageId]):Promise.resolve(null),[call,novelId,tick,poll,pageId,area],`${novelId}:planning:${pageId}:${area}`);
+ const resource=useResource(()=>Promise.all([readPlanningSnapshot(call,novelId,{pageId:pageId||null}),call('planning.groups',{novelId}),call('planning.pages',{novelId}),readDecorations(call,novelId,pageId||null)]).then(values=>[...values,pageId]),[call,novelId,tick,poll,pageId],`${novelId}:planning:${pageId}`);
  useEffect(()=>{const timer=setInterval(()=>{if(!document.hidden)setPoll(n=>n+1);},4000);return()=>clearInterval(timer);},[]);
  const pageReady=resource.value?.[4]===pageId;
  const [written,setWritten]=useState(null);
@@ -55,11 +56,11 @@ export function Planning({call,novelId,tick,run,busy,onChapter,onMemory,onTransf
  const refreshWritten=async()=>{const [snapshot,decorations]=await Promise.all([readPlanningSnapshot(call,novelId,{pageId:pageId||null}),readDecorations(call,novelId,pageId||null)]);setWritten({pageId,snapshot,decorations});};
  const transact=(operations,reason,requestId=crypto.randomUUID())=>run(async()=>{await call('planning.apply',{novelId,requestId,operations,reason,...(operations.some(op=>op.op==='node.delete')?{expectedSequence:sequence}:{})});await refreshWritten();});
  const connect=(from,to)=>transact([{op:'edge.create',value:{from,to,type:'next'}}],'建立连线');
- const beginCreation=(position,source=null,side='out')=>{close();setDecoration(null);setView('canvas');setCreating({key:crypto.randomUUID(),kind:'scene',pageId:pageId||null,position:position||{x:(source?.position?.x||0)+300,y:source?.position?.y||0},source,side,groupId:source?.groupId||filterGroup(group)||null});};
+ const beginCreation=(position,source=null,side='out')=>{close();setDecoration(null);showCanvas();setCreating({key:crypto.randomUUID(),kind:'scene',pageId:pageId||null,position:position||{x:(source?.position?.x||0)+300,y:source?.position?.y||0},source,side,groupId:source?.groupId||filterGroup(group)||null});};
  const continueFrom=node=>beginCreation(node.position?{x:node.position.x+300,y:node.position.y}:canvas.current?.(),node);
  const disconnect=items=>transact(items.map(edge=>({op:'edge.delete',id:edge.id,expectedRevision:edge.revision,confirm:true})),'断开连线');
- const add=()=>beginCreation(canvas.current?.()||{x:40,y:60});
- const decorate=(kind,position,size)=>{close();setDecoration(null);setView('canvas');setCreating({...newDecoration(kind,position,pageId||null),...size,key:crypto.randomUUID()});};
+ const add=()=>{if(area==='scenes')beginCreation(canvas.current?.()||{x:40,y:60});else{close();setCreating({key:crypto.randomUUID(),kind:'scene',pageId:pageId||null,position:{x:40,y:60},groupId:filterGroup(group)||null});}};
+ const decorate=(kind,position,size)=>{close();setDecoration(null);showCanvas();setCreating({...newDecoration(kind,position,pageId||null),...size,key:crypto.randomUUID()});};
  const switchPage=id=>{setPageId(id);close();setParent(null);setGroup('');setQuery('');setFilter('');setThread('');setChecked([]);setDecoration(null);setCreating(null);};
  const moveToPage=async(checked,movePage)=>{
    const ids=new Set(checked),cut=edges.filter(e=>ids.has(e.from)!==ids.has(e.to));
@@ -88,8 +89,8 @@ export function Planning({call,novelId,tick,run,busy,onChapter,onMemory,onTransf
  const moveObjects=(ids,groupId)=>transact(ids.map(id=>({op:'node.update',id,expectedRevision:nodes.find(n=>n.id===id)?.revision,value:{groupId}})),'移动规划分组');
  const visible=nodes.filter(n=>(query?`${n.title} ${n.summary} ${n.threads.join(' ')}`.toLowerCase().includes(query.toLowerCase()):true)&&(group?(n.groupId??null)===filterGroup(group):true)&&(!filter||n.status===filter)&&(!thread||n.threads.includes(thread)));
  const batchItems=visible.map(n=>({id:n.id,title:n.title,summary:n.summary,meta:[statusNames[n.status],groups.find(g=>g.id===n.groupId)?.name].filter(Boolean).join(' · ')}));
- const beginBatch=()=>{batchView.current=view;close();setBatch(true);setChecked([]);setView('list');};
- const endBatch=()=>{setBatch(false);setChecked([]);setView(batchView.current);};
+ const beginBatch=()=>{batchView.current=area;close();setBatch(true);setChecked([]);};
+ const endBatch=()=>{setBatch(false);setChecked([]);setArea(batchView.current);};
  const openHistory=()=>run(async()=>{let result=await call('planning.history',{novelId,offset:0,limit:200});setChanges(result);setHistoryOpen(true);});
  const chain=[];let current=nodes.find(n=>n.id===parent);const walked=new Set();while(current&&!walked.has(current.id)){walked.add(current.id);chain.unshift(current);current=nodes.find(n=>n.id===current.parentId);}
  const saveCreation=(value,requestId)=>run(async()=>{
@@ -103,30 +104,31 @@ export function Planning({call,novelId,tick,run,busy,onChapter,onMemory,onTransf
    }
    await refreshWritten();setQuery('');setFilter('');setThread('');setPoll(n=>n+1);
  });
- const navigation=<div className="connected-nav">{modules.timeline&&<button className={area!=='scenes'?'selected':''} onClick={()=>setArea('narration')}>时间线规划</button>}<button className={area==='scenes'?'selected':''} onClick={()=>setArea('scenes')}>情节画布</button></div>;
- if(modules.timeline&&area!=='scenes')return <div className="planning-workspace connected-workspace">{navigation}<div className="connected-scroll"><ModulePage id="timeline" {...{call,novelId,tick,run,busy,onChapter,onMemory,onPlanning,onCreateMemory}}/></div></div>;
+ const navigation=<div className="connected-nav">{modules.timeline&&<button className={area!=='scenes'?'selected':''} onClick={()=>setArea('narration')}>时间线</button>}<button className={area==='scenes'?'selected':''} onClick={()=>setArea('scenes')}>画布</button></div>;
+
  return <div className="planning-workspace">{navigation}
   <header className="module-heading canvas-heading"><div className="module-toolbar">
    <PlanningPages pages={pages} value={pageId} busy={busy} change={switchPage} create={(name,summary)=>run(async()=>{const page=await call('planning.page.create',{novelId,name,summary,requestId:crypto.randomUUID()});switchPage(page.id);})} update={(page,name,summary)=>run(()=>call('planning.page.update',{novelId,pageId:page.id,expectedRevision:page.revision,name,summary,requestId:crypto.randomUUID()}))} remove={page=>run(async()=>{await call('planning.page.delete',{novelId,pageId:page.id,expectedRevision:page.revision,confirm:true,requestId:crypto.randomUUID()});switchPage('');})}/>
    <Groups {...{groups,busy,call,run,novelId}} prefix="planning" value={group} onChange={value=>{setGroup(value);setChecked([]);}}/>
    <span className="toolbar-spacer"/><SearchControl label="搜索规划" value={query} change={setQuery}/>
    <details className={`menu filter-menu ${filter||thread?'is-active':''}`}><summary aria-label="筛选规划"><Icon name="filter"/>筛选{(filter||thread)&&<small>{Number(Boolean(filter))+Number(Boolean(thread))}</small>}</summary><div className="menu-panel"><label>进展<select aria-label="规划状态" value={filter} onChange={e=>setFilter(e.target.value)}><option value="">全部状态</option>{Object.entries(statusNames).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label><label>故事线<select aria-label="故事线" value={thread} onChange={e=>setThread(e.target.value)}><option value="">全部故事线</option>{[...new Set(nodes.flatMap(n=>n.threads))].sort().map(t=><option key={t} value={t}>{t}</option>)}</select></label><button disabled={!filter&&!thread} onClick={()=>{setFilter('');setThread('');}}>清除筛选</button></div></details>
-   {!batch&&<><ViewSwitch value={view} change={setView} graph="画布"/><button className="module-select" aria-label="多选" disabled={busy} onClick={beginBatch}>多选</button><div className="module-add"><button className="primary" disabled={busy} onClick={add}>＋ 情节</button><details className="menu"><summary className="primary" aria-label="添加画布内容" title="添加便签、讨论框">⌄</summary><div className="menu-panel"><button disabled={busy} onClick={()=>decorate('note',canvas.current?.()||{x:40,y:60})}>文字批注</button><button disabled={busy} onClick={()=>decorate('frame',canvas.current?.()||{x:40,y:60})}>讨论框</button></div></details></div>
-   <details className="menu"><summary aria-label="规划更多操作">···</summary><div className="menu-panel"><button disabled={busy} onClick={()=>onTransfer({mode:'export',selection:{kind:'planning',novelId,pageIds:[pageId||null]}})}>导出当前画布</button><button disabled={busy} onClick={()=>onTransfer({mode:'import',selection:{kind:'planning',novelId}})}>导入规划</button><button disabled={busy} onClick={openHistory}>{sequence>seen?'有新变化 · ':''}修改记录</button></div></details></>}
+   {!batch&&<><button className="module-select" aria-label="多选" disabled={busy} onClick={beginBatch}>多选</button><div className="module-add"><button className="primary" disabled={busy} onClick={add}>＋ 规划</button>{area==='scenes'&&<details className="menu"><summary className="primary" aria-label="添加画布内容" title="添加便签、讨论框">⌄</summary><div className="menu-panel"><button disabled={busy} onClick={()=>decorate('note',canvas.current?.()||{x:40,y:60})}>文字批注</button><button disabled={busy} onClick={()=>decorate('frame',canvas.current?.()||{x:40,y:60})}>讨论框</button></div></details>}</div>
+   <details className="menu"><summary aria-label="规划更多操作">···</summary><div className="menu-panel"><button disabled={busy} onClick={()=>onTransfer({mode:'export',selection:{kind:'planning',novelId,pageIds:[pageId||null]}})}>导出当前规划页</button><button disabled={busy} onClick={()=>onTransfer({mode:'import',selection:{kind:'planning',novelId}})}>导入规划</button><button disabled={busy} onClick={openHistory}>{sequence>seen?'有新变化 · ':''}修改记录</button></div></details></>}
   </div><CardLegend planning/>{(filter||thread)&&<div className="active-filters" aria-label="当前规划筛选">{filter&&<button aria-label="移除进展筛选" onClick={()=>setFilter('')}>{statusNames[filter]}<span aria-hidden="true">×</span></button>}{thread&&<button aria-label="移除故事线筛选" onClick={()=>setThread('')}>{thread}<span aria-hidden="true">×</span></button>}</div>}</header>
   <div className="planning-stage"><OverviewPage active={true}><ResourceState resource={resource}><div className="planning-columns">
-   <div className="planning-overview">{batch&&<BatchManager items={batchItems} selected={checked} change={setChecked} groups={groups} busy={busy||resource.loading} pages={pages} currentPage={pageId} done={endBatch} onPage={moveToPage} onMove={(ids,groupId)=>run(async()=>{await call('planning.apply',{novelId,requestId:crypto.randomUUID(),reason:'移动规划分组',operations:ids.map(id=>({op:'node.update',id,expectedRevision:nodes.find(n=>n.id===id)?.revision,value:{groupId}}))});await refreshWritten();setChecked([]);})}/>} {batch?<BatchList items={batchItems} selected={checked} change={setChecked} busy={busy||resource.loading}/>:!visible.length&&view!=='canvas'?<div className="empty">{query||filter||thread||group?'没有匹配的规划，试试调整筛选。':'从一个情节开始。'}</div>:view==='canvas'?<PlanningCanvas key={`${novelId}:${pageId}`} scopeKey={`${novelId}:planning:${pageId||'main'}`} nodes={visible} allNodes={nodes} edges={edges} groups={groups} decorations={decorations} filtered={Boolean(query||filter||thread||group)} busy={busy} seen={seen}
+   <div className={`planning-overview ${area!=='scenes'&&!batch?'is-timeline':''}`}>{batch&&<BatchManager items={batchItems} selected={checked} change={setChecked} groups={groups} busy={busy||resource.loading} pages={pages} currentPage={pageId} done={endBatch} onPage={moveToPage} onMove={(ids,groupId)=>run(async()=>{await call('planning.apply',{novelId,requestId:crypto.randomUUID(),reason:'移动规划分组',operations:ids.map(id=>({op:'node.update',id,expectedRevision:nodes.find(n=>n.id===id)?.revision,value:{groupId}}))});await refreshWritten();setChecked([]);})}/>} {!batch&&modules.timeline&&area!=='scenes'?<ModulePage id="timeline" {...{call,novelId,tick,run,busy,onChapter,onMemory,onCreateMemory}} planningItems={visible} creationDefaults={{pageId:pageId||null,groupId:filterGroup(group)||null}} onChanged={()=>setPoll(n=>n+1)} onPlanning={open}/>:batch?<BatchList items={batchItems} selected={checked} change={setChecked} busy={busy||resource.loading}/>:<PlanningCanvas key={`${novelId}:${pageId}`} scopeKey={`${novelId}:planning:${pageId||'main'}`} nodes={visible} allNodes={nodes} edges={edges} groups={groups} decorations={decorations} filtered={Boolean(query||filter||thread||group)} busy={busy} seen={seen}
      onReady={center=>{canvas.current=center;}} onNew={(position,connection)=>beginCreation(position,connection?nodes.find(n=>n.id===connection.id):null,connection?.side)}
      creation={creating} saveCreation={saveCreation} cancelCreation={()=>setCreating(null)} focusId={created} focused={()=>setCreated(null)} editingDecoration={decoration} saveDecoration={saveDecoration} closeDecoration={()=>setDecoration(null)}
      onDecorate={decorate} onEditDecoration={value=>{close();setCreating(null);setDecoration(value);}}
      onResizeDecoration={(d,size)=>transact([{op:'decoration.update',id:d.id,expectedRevision:d.revision,value:size}],'调整批注大小')}
      onToggleFrame={d=>transact([{op:'decoration.update',id:d.id,expectedRevision:d.revision,value:{moveContents:!d.moveContents}}],'调整讨论框移动方式')}
      onQuick={setQuick} onSelect={open} onLayout={saveLayout} onConnect={connect} onDisconnect={disconnect} onRemove={removeObjects} onDuplicate={duplicateObjects} onMove={moveObjects}
-     emptyMessage={query||filter||thread||group?'没有匹配的规划，试试调整筛选。':'右键开始新的情节'}/>:<div className="planning-list">{visible.map(n=><div className={`card state-${n.status} ${trail.lastOpened===n.id?'selected':''}`} key={n.id}><CardQuickButton title={n.title} open={()=>setQuick(n.id)} disabled={busy}/><button className="planning-title" aria-current={trail.lastOpened===n.id?'true':undefined} onClick={()=>open(n.id)}>{n.title}</button><span className="status-badge">{statusNames[n.status]}</span><p>{n.summary}</p>{nodes.some(c=>c.parentId===n.id)&&<button onClick={()=>{setParent(n.id);close();setQuery('');}}>子规划 · {nodes.filter(c=>c.parentId===n.id).length}</button>}</div>)}</div>}</div>
+     emptyMessage={query||filter||thread||group?'没有匹配的规划，试试调整筛选。':'右键开始新的情节'}/>}</div>
 
   </div></ResourceState></OverviewPage>
   {selected&&<CanvasInspector key={selected} backLabel={trail.previous?'‹ 返回上一条':'关闭详情'} onBack={back}><PlanningDetail {...{call,novelId,run,busy,nodes,edges,groups,pages,transact,refreshWritten,onChapter,onMemory,continueFrom,close}} onSelect={open} onEnter={()=>{setParent(selected);close();setQuery('');}} id={selected} latest={nodes.find(n=>n.id===selected)}/></CanvasInspector>}
   </div>
+  {area!=='scenes'&&creating&&<Modal title="新建规划" close={()=>setCreating(null)} className="planning-draft-modal"><CanvasDraft key={creating.key} creation={creating} draftKey={`${novelId}:planning:${pageId||'main'}:create:${creating.kind}:${creating.source?.id||'new'}`} busy={busy} save={saveCreation} close={()=>setCreating(null)}/></Modal>}
   {quick&&<CardQuickSettings kind="planning" id={quick} {...{call,novelId,groups,run,busy}} close={()=>setQuick(null)} updated={refreshWritten} openDetail={()=>open(quick)}/>}
   {historyOpen&&<div className="planning-history page"><div className="row"><h2 className="grow">规划修改记录</h2><button onClick={()=>setSeen(changes?.sequence||sequence)}>标为已读</button><button onClick={()=>setHistoryOpen(false)}>关闭记录</button></div>{changes?.items.map(t=><details className="card" key={t.id}><summary>{t.actor.kind==='agent'?'AI':'作者'} · {t.reason} · {new Date(t.updatedAt).toLocaleString()} · {t.changes.length} 项</summary>{t.changes.map(c=><div key={`${c.collection}:${c.id}`}><h3>{c.after.title||c.after.name||edgeNames[c.after.type]||(c.collection==='decorations'?'画布批注':'关系')}</h3><p className="muted">{changeSummary(c)}</p><DiffDisclosure before={describe(c.before,nodes,{groups,pages})} after={describe(c.after,nodes,{groups,pages})}/>{c.collection==='nodes'&&!c.after.deleted&&<button onClick={()=>{setPageId(c.after.pageId||'');setParent(c.after.parentId||null);open(c.id);setHistoryOpen(false);}}>定位节点</button>}</div>)}<button disabled={busy} onClick={async()=>{if(await confirm('撤销这次变更？若相关对象已有后续修改，将拒绝覆盖。'))run(async()=>{await call('planning.revert',{novelId,transactionId:t.id,requestId:crypto.randomUUID()});setHistoryOpen(false);});}}>撤销这次变更</button></details>)}{changes?.nextOffset!==null&&<button disabled={busy} onClick={()=>run(async()=>{const next=await call('planning.history',{novelId,offset:changes.nextOffset,limit:200});setChanges({...next,items:[...changes.items,...next.items]});})}>加载更多记录</button>}</div>}
  </div>;

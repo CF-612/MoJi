@@ -1,7 +1,7 @@
 // 内置模块的唯一目录。显示偏好不改变云端权限或作品数据。
 export const modules=Object.freeze([
  {id:'overview',name:'创作仪表盘',description:'字数图表、写作目标与进度概览',page:'overview',dependencies:[]},
- {id:'timeline',name:'时间线',description:'章节／故事时间轴、事件与时间线规划',page:'timeline',dependencies:[]},
+ {id:'timeline',name:'时间线',description:'章节／故事时间轴、事件与时间线规划',page:'timeline',navigation:false,dependencies:[]},
  {id:'foreshadow',name:'伏笔辅助',description:'章节、时间线和仪表盘中的伏笔入口',dependencies:[]},
  {id:'evolution',name:'关系演变',description:'跟随事件查看关系阶段与变化',dependencies:['timeline']},
 ]);
@@ -18,5 +18,5 @@ export function toggleModule(value,id,enabled){
  return next;
 }
 export function profileModules(id){const p=profiles[id];return p?Object.fromEntries(modules.map(m=>[m.id,p.enabled.includes(m.id)])):normalizeModules();}
-export function navigationModules(value){const enabled=normalizeModules(value);return modules.filter(m=>m.page&&enabled[m.id]).map(m=>[m.page,m.id==='overview'?'仪表盘':m.name]);}
+export function navigationModules(value){const enabled=normalizeModules(value);return modules.filter(m=>m.page&&m.navigation!==false&&enabled[m.id]).map(m=>[m.page,m.id==='overview'?'仪表盘':m.name]);}
 export function pageAvailable(page,value){const module=modules.find(m=>m.page===page);return !module||normalizeModules(value)[module.id];}

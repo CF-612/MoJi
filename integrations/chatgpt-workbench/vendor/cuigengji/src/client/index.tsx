@@ -60,6 +60,7 @@ function WorkbenchContent({ sessionId, rpc }) {
     return()=>{document.removeEventListener('click',activate);document.removeEventListener('pointerdown',outside);document.removeEventListener('keydown',escape);};
   },[]);
   useEffect(()=>{if(!novelId)return;const timer=setTimeout(()=>{preloadResource(sessionId,boardKey(novelId),()=>call('writing.board.get',{novelId})).catch(()=>{});},1500);return()=>clearTimeout(timer);},[novelId,call,sessionId]);
+  useEffect(()=>{if(tab==='timeline'&&novelId){try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:planning-area`,JSON.stringify('narration'));}catch{}setTab('plan');}},[tab,novelId,sessionId]);
   const running = useRef(false);
   const run = async fn => {
     if (running.current) return;
@@ -76,7 +77,7 @@ function WorkbenchContent({ sessionId, rpc }) {
   const returnFromManagement=()=>{setReturnTarget(null);setHomeOpen(managementReturn==='welcome');setTab(['chapters','plan','memory','preset','manage'].includes(managementReturn)?managementReturn:'chapters');};
   const managementBack={onBack:returnFromManagement,backLabel:managementReturn==='welcome'?'返回作品首页':novelId?'返回'+({plan:'规划',memory:'设定',chapters:'正文',preset:'写作预设',manage:'作品与备份'}[managementReturn]||'正文'):'返回作品选择'};
   const jump=(page,key,id)=>{setReturnTarget(tab);try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:${key}`,JSON.stringify(id));}catch{}setTab(page);};
-  const onEvent=(id,create)=>{if(!preferences.modules.timeline){setError('时间线已隐藏，可在设置中重新显示。');setUtility('settings');return;}if(create){try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:timeline-create`,JSON.stringify(true));localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:timeline-new-context`,JSON.stringify(typeof create==='object'?create:null));}catch{}}jump('timeline','timeline-event',id);};
+  const onEvent=(id,create)=>{if(!preferences.modules.timeline){setError('时间线已隐藏，可在设置中重新显示。');setUtility('settings');return;}if(create){try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:timeline-create`,JSON.stringify(true));localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:timeline-new-context`,JSON.stringify(typeof create==='object'?create:null));}catch{}}try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:planning-area`,JSON.stringify('narration'));}catch{}jump('plan','timeline-event',id);setSearchVisit(n=>n+1);};
   const onPlanning=id=>run(async()=>{const result=await call('planning.get',{novelId,nodeId:id});try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:planning-page`,JSON.stringify(result.node.pageId||''));localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:planning-area`,JSON.stringify('scenes'));}catch{}jump('plan','planning-selected',id);});
   useEffect(()=>{const openSearch=e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'&&!e.isComposing&&novelId&&!showHome&&!busy&&!utility){e.preventDefault();setUtility('search');}};document.addEventListener('keydown',openSearch);return()=>document.removeEventListener('keydown',openSearch);},[novelId,showHome,busy,utility]);
   const onCreateMemory=type=>{try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:memory-area`,JSON.stringify('library'));}catch{}jump('memory','memory-create-request',type);};
@@ -89,7 +90,7 @@ function WorkbenchContent({ sessionId, rpc }) {
     <ResourceState resource={resource}>
       {homeOpen?<Welcome {...{books,busy}} onOpen={openNovel} onCreate={create} onImport={()=>openTransfer({mode:'import'})} onManage={()=>openManagement('manage')}/>:tab==='data'?<TransferPage key={transferVisit} {...{call,run,busy,novelId}} {...managementBack} initial={transferInitial} onOpen={openNovel}/>:<>
       {!novelId ? (tab==='manage'?<Manage {...{call,run,busy}} {...managementBack} onTransfer={openTransfer}/>:<Welcome {...{books,busy}} onOpen={openNovel} onCreate={create} onImport={()=>openTransfer({mode:'import'})} onManage={()=>openManagement('manage')}/>) : <div className="workbench-body" key={`${novelId}:${searchVisit}`}>{returnTarget&&<div className="return-strip"><button onClick={()=>{setTab(returnTarget);setReturnTarget(null);}}>‹ 返回{({plan:'规划',memory:'设定'})[returnTarget]||'上一页'}</button></div>}
-        {tab==='timeline'&&<ModulePage id="timeline" {...{call,novelId,tick,run,busy,onPlanning,onForeshadow,onCreateMemory}} onMemory={id=>jump('memory','memory-selected',id)} onChapter={id=>jump('chapters','chapter',id)}/>}
+
         {tab==='overview'&&<ModulePage id="overview" {...{call,novelId,tick,run,busy,onForeshadow}} onChapter={id=>jump('chapters','chapter',id)}/>}
         {tab==='chapters' && <Chapters {...{call,novelId,tick,run,busy,onEvent,onForeshadow}} onMemory={id=>jump('memory','memory-selected',id)} onTransfer={openTransfer}/>}
         {tab==='memory' && <Memory {...{call,novelId,tick,run,busy,onEvent,onForeshadow,onPlanning}} onTransfer={openTransfer} onChapter={id=>jump('chapters','chapter',id)}/>}
@@ -99,7 +100,7 @@ function WorkbenchContent({ sessionId, rpc }) {
       </div>}
       </>}
     </ResourceState>
-    {utility==='search'&&novelId&&<WorkSearch key={novelId} {...{call,novelId,busy}} novelTitle={novel?.title} close={()=>setUtility(null)} onOpen={async hit=>{if(hit.kind==='planning'){if(!await onPlanning(hit.id))return;}else if(hit.kind==='chapter')jump('chapters','chapter',hit.id);else if(['character','world'].includes(hit.kind))jump('memory','memory-selected',hit.id);else if(hit.kind==='event')onEvent(hit.id);else if(hit.kind==='foreshadow')onForeshadow(hit.id);else setTab('preset');const destination={chapter:'chapters',character:'memory',world:'memory',planning:'plan',event:'timeline',foreshadow:'plan',requirements:'preset'}[hit.kind];if(destination===tab)setReturnTarget(null);setUtility(null);setSearchVisit(n=>n+1);}}/>}
+    {utility==='search'&&novelId&&<WorkSearch key={novelId} {...{call,novelId,busy}} novelTitle={novel?.title} close={()=>setUtility(null)} onOpen={async hit=>{if(hit.kind==='planning'){if(!await onPlanning(hit.id))return;}else if(hit.kind==='chapter')jump('chapters','chapter',hit.id);else if(['character','world'].includes(hit.kind))jump('memory','memory-selected',hit.id);else if(hit.kind==='event')onEvent(hit.id);else if(hit.kind==='foreshadow')onForeshadow(hit.id);else setTab('preset');const destination={chapter:'chapters',character:'memory',world:'memory',planning:'plan',event:'plan',foreshadow:'plan',requirements:'preset'}[hit.kind];if(destination===tab)setReturnTarget(null);setUtility(null);setSearchVisit(n=>n+1);}}/>}
     {utility==='settings'&&<PreferencesDialog close={()=>setUtility(null)} novelTitle={novel?.title} onPreset={novelId?()=>{setUtility(null);openManagement('preset');}:undefined}/>}
     {utility==='about'&&<AboutDialog close={()=>setUtility(null)}/>}
   </section>;

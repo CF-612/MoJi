@@ -3,7 +3,7 @@ import {timelineNodes,chapterLabel,narrationCompare} from './story-workspace.js'
 // for each chapter, or infer that an event happened in an unreferenced gap.
 export function timelineTracks(board,mode='narration',filter='all'){
  const chapters=board.chapters||[],events=(board.events||[]).filter(e=>!e.deleted),rank=new Map(chapters.map((c,i)=>[c.id,i]));
- const ordered=timelineNodes(board,'story'),slots=mode==='story'?ordered.map(r=>({...r,title:r.event.storyTime||r.event.storyDate||'时间未注明',subtitle:r.chapterId?chapterLabel(board,r.chapterId):r.event.plannedChapter||'待写事件',plans:board.planning.filter(p=>r.event.planningRefs.includes(p.id))})):chapters.map(c=>({key:`chapter:${c.id}`,chapterId:c.id,eventId:null,event:null,title:c.title,subtitle:board.stats.volumes.find(v=>(v.id||null)===(c.volumeId||null))?.title||'未分卷',plans:board.planning.filter(p=>p.chapterRefs.some(r=>r.chapterId===c.id))}));
+ const ordered=timelineNodes(board,'story'),slots=mode==='story'?ordered.map(r=>({...r,title:r.event.storyTime||r.event.storyDate||'时间未注明',subtitle:r.chapterId?chapterLabel(board,r.chapterId):r.event.plannedChapter||'待写事件',plans:board.planning.filter(p=>r.event.planningRefs.includes(p.id))})):chapters.map(c=>({key:`chapter:${c.id}`,chapterId:c.id,eventId:null,event:null,title:c.title,subtitle:board.stats.volumes.find(v=>(v.id||null)===(c.volumeId||null))?.title||'未分卷',plans:board.planning.filter(p=>p.chapterRefs.some(r=>r.chapterId===c.id)||events.some(e=>e.planningRefs.includes(p.id)&&e.chapterRefs.some(r=>!r.excluded&&r.chapterId===c.id)))}));
  if(mode==='narration')for(const e of events.filter(e=>!e.chapterRefs.some(r=>!r.excluded&&rank.has(r.chapterId))).sort((a,b)=>narrationCompare(a,b)))slots.push({key:e.id,eventId:e.id,event:e,chapterId:null,title:e.plannedChapter||'待写位置',subtitle:e.storyTime||'未关联正文',plans:board.planning.filter(p=>e.planningRefs.includes(p.id))});
  const eventSlots=new Map(slots.map((r,i)=>[r.eventId,i])),markers=[],waiting=[];
  for(const e of events){const members=mode==='story'?[eventSlots.get(e.id)]:e.chapterRefs.filter(r=>!r.excluded&&rank.has(r.chapterId)).map(r=>rank.get(r.chapterId));if(mode==='narration'&&!members.length)members.push(eventSlots.get(e.id));const positions=[...new Set(members.filter(Number.isInteger))].sort((a,b)=>a-b);if(!positions.length)continue;markers.push({key:`event:${e.id}`,kind:'event',id:e.id,eventId:e.id,event:e,title:e.title,start:positions[0],end:positions.at(-1),members:positions,planned:!!e.planned,review:e.review});}
@@ -26,4 +26,9 @@ export function trackSelections(board,mode='narration'){
  const track=timelineTracks(board,mode,'event');if(mode==='story')return track.slots;
  let previous=null;
  return track.slots.flatMap((s,i)=>{const presented=track.markers.filter(m=>m.start===i).sort((a,b)=>narrationCompare(a.event,b.event,s.chapterId)),confirmed=presented.filter(m=>!m.event.planned);if(confirmed.length)previous=confirmed.at(-1).event;return [{...s,stageEvent:s.event?null:previous},...presented.filter(m=>m.eventId!==s.eventId).map(m=>({key:m.eventId,eventId:m.eventId,event:m.event,chapterId:s.chapterId}))];});
+}
+
+export function unplacedPlanning(board,mode='narration'){
+ const chapters=new Set(board.chapters.map(c=>c.id));
+ return board.planning.filter(p=>!board.events.some(e=>!e.deleted&&e.planningRefs.includes(p.id))&&(mode==='story'||!p.chapterRefs.some(r=>!r.excluded&&chapters.has(r.chapterId))));
 }

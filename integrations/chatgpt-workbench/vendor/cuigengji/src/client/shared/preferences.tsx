@@ -11,9 +11,9 @@ export interface Preferences {
   theme: 'system' | 'light' | 'dark';
   cardColors: Record<string,string>;
   fontSize: number; leading: number; directory: boolean;
-  planningView: 'canvas' | 'list'; memoryView: 'canvas' | 'list'; motion: 'system' | 'reduce';
+  planningView: 'canvas' | 'timeline'; memoryView: 'canvas' | 'list'; motion: 'system' | 'reduce';
 }
-export const defaults: Preferences = { modules:normalizeModules(), theme:'system', cardColors: {...defaultCardColors}, fontSize: 18, leading: 1.95, directory: true, planningView: 'canvas', memoryView: 'list', motion: 'system' };
+export const defaults: Preferences = { modules:normalizeModules(), theme:'system', cardColors: {...defaultCardColors}, fontSize: 18, leading: 1.95, directory: true, planningView: 'timeline', memoryView: 'list', motion: 'system' };
 const key = 'cuigengji:workbench:preferences:v1';
 function read(): Preferences {
   try {
@@ -21,7 +21,7 @@ function read(): Preferences {
     return {modules:normalizeModules(p.modules),theme:['light','dark'].includes(p.theme)?p.theme:'system',cardColors:normalizeCardColors(p.cardColors),fontSize: [16,18,20,22].includes(p.fontSize) ? p.fontSize : defaults.fontSize,
       leading: [1.7,1.95,2.2].includes(p.leading) ? p.leading : defaults.leading,
       directory: typeof p.directory === 'boolean' ? p.directory : defaults.directory,
-      planningView: p.planningView === 'list' ? 'list' : 'canvas', memoryView: p.memoryView === 'canvas' ? 'canvas' : 'list',
+      planningView: ['list','timeline'].includes(p.planningView) ? 'timeline' : p.planningView === 'canvas' ? 'canvas' : defaults.planningView, memoryView: p.memoryView === 'canvas' ? 'canvas' : 'list',
       motion: p.motion === 'reduce' ? 'reduce' : 'system'};
   } catch { return defaults; }
 }
@@ -58,7 +58,7 @@ export function PreferencesDialog({close, novelTitle, onPreset}: {close: () => v
     <div className="reading-preview"><small>阅读预览</small><p style={{fontSize:p.fontSize,lineHeight:p.leading}}>雨停以后，街道重新安静下来。窗边的灯仍亮着，故事还在继续。</p></div></section>
     <section className="preference-section"><h3>卡片颜色</h3><CardColorFields/></section>
     <section className="preference-section"><h3>打开工作台时</h3><label className="preference-row">默认展开目录<input type="checkbox" checked={p.directory} onChange={e=>update({directory:e.target.checked})}/></label>
-      <label className="preference-row">规划默认视图<select value={p.planningView} onChange={e=>update({planningView:e.target.value as Preferences['planningView']})}><option value="canvas">流程图</option><option value="list">列表</option></select></label>
+      <label className="preference-row">规划默认视图<select value={p.planningView} onChange={e=>update({planningView:e.target.value as Preferences['planningView']})}><option value="timeline">时间线</option><option value="canvas">画布</option></select></label>
       <label className="preference-row">设定默认视图<select value={p.memoryView} onChange={e=>update({memoryView:e.target.value as Preferences['memoryView']})}><option value="list">列表</option><option value="canvas">关系图</option></select></label><p className="muted">下次进入对应页面时生效。</p></section>
     <section className="preference-section"><label className="preference-row">动画效果<select value={p.motion} onChange={e=>update({motion:e.target.value as Preferences['motion']})}><option value="system">跟随系统</option><option value="reduce">减少动态效果</option></select></label></section>
     <footer className="utility-footer"><button onClick={()=>update(defaults)}>恢复默认设置</button><small role="status">{error || '偏好自动保存在此浏览器'}</small></footer>

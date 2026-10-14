@@ -30,6 +30,8 @@ export const styles = `
 .cuigengji label { display:grid; gap:5px; margin:10px 0; }
 .cuigengji textarea { width:100%; min-height:130px; resize:vertical; line-height:1.85; }
 .cuigengji .prose { min-height:360px; }
+.cuigengji .planning-overview.is-timeline{overflow:auto;min-height:0;display:block;}
+.cuigengji .planning-draft-modal .canvas-draft{position:static!important;width:100%!important;max-width:none!important;margin:0!important;}
 .cuigengji .row { display:flex; gap:7px; align-items:center; flex-wrap:wrap; margin:8px 0; }
 .cuigengji .row>* { min-width:0; }
 
