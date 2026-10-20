@@ -15,6 +15,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { previewTavern } from '../infrastructure/migrations/tavern.js';
 import { checkDirectorySnapshot, directorySnapshot, planChapterMove } from '../domain/chapters/order.ts';
 import { compilePreset, importPreset, validatePreset } from '../domain/preset/index.js';
+import {imageData,novelPresentation} from '../domain/presentation.js';
 
 export class StoreError extends Error {
   constructor(code, message) { super(message); this.name = 'StoreError'; this.code = code; }
@@ -43,7 +44,7 @@ function source(actor) { return { kind: actor.kind === 'human' ? 'human' : 'agen
 function version(chapter, actor, reason) {
   chapter.contentHash = hash(chapter.content);
   chapter.versions.push({ revision: chapter.revision, content: chapter.content, contentHash: chapter.contentHash,
-    title: chapter.title, volumeId: chapter.volumeId, order: chapter.order, deleted: chapter.deleted,
+    title: chapter.title, summary:chapter.summary||'', volumeId: chapter.volumeId, order: chapter.order, deleted: chapter.deleted,
     timestamp: now(), actor: source(actor), reason: reason || '' });
 }
 function stale(novel, chapterId) {
@@ -162,9 +163,9 @@ export class Store extends ProjectStore {
   }
 
   execute(state, action, a, actor) {
-    if (action === 'novel.list') return Object.values(state.novels).filter(n => a.includeArchived || !n.archived).map(n => ({ id: n.id, title: n.title, revision: n.revision, archived: n.archived, updatedAt: n.updatedAt }));
+    if (action === 'novel.list') return Object.values(state.novels).filter(n => a.includeArchived || !n.archived).map(n => ({ id: n.id, title: n.title, revision: n.revision, archived: n.archived, updatedAt: n.updatedAt,description:n.description||'',...(a.includeImages!==false&&actor.kind==='human'?novelPresentation(n):{genre:n.genre,workStatus:n.workStatus}) }));
     if (action === 'novel.create') {
-      const n = record({ title: text(a.title, 'title'), description: a.description ?? '', archived: false, volumes: {}, chapters: {}, nodes: {}, edges: {}, plan: null });
+      const n = record({ title: text(a.title, 'title'), description: text(a.description ?? '', 'description',true),...novelPresentation(a), archived: false, volumes: {}, chapters: {}, nodes: {}, edges: {}, plan: null });
       state.novels[n.id] = n; return { id: n.id, title: n.title, revision: n.revision };
     }
     if (action === 'novel.import') return this.importNovel(state, a);
@@ -242,6 +243,7 @@ export class Store extends ProjectStore {
       }
       if (a.title !== undefined) n.title = text(a.title, 'title');
       if (a.description !== undefined) n.description = text(a.description, 'description', true);
+      Object.assign(n,novelPresentation(a));
       touch(n); return { id: n.id, title: n.title, revision: n.revision, archived: n.archived };
     }
     if (action === 'volume.list') return Object.values(n.volumes).filter(v => a.includeDeleted || !v.deleted).sort((x, y) => x.order - y.order);
@@ -287,8 +289,19 @@ export class Store extends ProjectStore {
     if (action === 'chapter.create') {
       if(a.autoNumber!==undefined&&typeof a.autoNumber!=='boolean')fail('INVALID_INPUT','autoNumber 必须为布尔值');
       if (a.volumeId && get(n.volumes, a.volumeId, '卷').deleted) fail('DELETED', '卷已删除');
-      const c = record({ title: text(numberedTitle(a.title,nextChapterTitle(n.chapters,a.volumeId),a.autoNumber), 'title'), volumeId: a.volumeId || null, order: ordering(a.order ?? Object.keys(n.chapters).length), content: text(a.content ?? '', 'content', true), deleted: false, versions: [] });
-      version(c, actor, a.reason); n.chapters[c.id] = c; touch(n); return meta(c);
+      const c = record({ title: text(numberedTitle(a.title,nextChapterTitle(n.chapters,a.volumeId),a.autoNumber), 'title'), summary:text(a.summary??'','summary',true),volumeId: a.volumeId || null, order: ordering(a.order ?? Object.keys(n.chapters).length), content: text(a.content ?? '', 'content', true), deleted: false, versions: [] });
+      version(c, actor, a.reason); n.chapters[c.id] = c;
+      if(a.characters!==undefined||a.events!==undefined){
+        if(actor.kind!=='human')fail('HUMAN_REQUIRED','章节快捷关联由作者在创建页确认');
+        if(!Array.isArray(a.characters||[])||!Array.isArray(a.events||[])||(a.characters||[]).length>100||(a.events||[]).length>100)fail('INVALID_INPUT','章节快捷关联需要数组，最多 100 项');
+        for(const item of a.characters||[]){
+          const node=item.nodeId?get(n.nodes,item.nodeId,'人物'):execute('graph.create',{type:'character_card',name:text(item.name,'人物姓名'),content:''});
+          if(node.deleted||node.type!=='character_card')fail('INVALID_INPUT','请选择有效人物');
+          execute('writing.link.create',{chapterId:c.id,nodeId:node.id,kind:'appearance',expectedChapterRevision:c.revision,confirmed:true,manual:true,evidence:'',reason:'作者在新建章节时指定出场人物'});
+        }
+        for(const [index,item]of (a.events||[]).entries())execute('writing.event.create',{confirmed:true,value:{title:text(item.title||'未命名事件','事件名称'),content:text(item.content||'','事件说明',true),storyTime:text(item.storyTime||'','故事时间',true),order:Math.max(0,...Object.values(n.writing?.events||{}).map(e=>e.order))+10,narrativeKind:'linear',planned:true,chapterRefs:[{chapterId:c.id,revision:c.revision,evidence:''}],memoryRefs:[],planningRefs:[],foreshadowRefs:[]},reason:'作者在新建章节时添加本章事件'});
+      }
+      touch(n); return meta(c);
     }
     if (action === 'chapter.move') {
       if (actor.kind !== 'human') fail('HUMAN_REQUIRED', '目录拖拽排序由作者操作');
@@ -320,7 +333,7 @@ export class Store extends ProjectStore {
       } else if (action === 'chapter.restore') {
         const v = c.versions.find(v => v.revision === a.targetRevision);
         if (!v) fail('NOT_FOUND', '历史版本不存在');
-        Object.assign(c, { content: v.content, title: v.title, order: v.order, volumeId: v.volumeId && !n.volumes[v.volumeId]?.deleted ? v.volumeId : null, deleted: false });
+        Object.assign(c, { content: v.content, summary:v.summary||'', title: v.title, order: v.order, volumeId: v.volumeId && !n.volumes[v.volumeId]?.deleted ? v.volumeId : null, deleted: false });
       } else {
         if (c.deleted) fail('DELETED', '请先恢复章节');
         if ([a.content, a.patch, a.append].filter(v => v !== undefined).length > 1) fail('INVALID_INPUT', 'content、patch、append 只能选一个');
@@ -333,6 +346,7 @@ export class Store extends ProjectStore {
           c.content = c.content.slice(0, offset) + replacement + c.content.slice(offset + old.length);
         }
         if (a.title !== undefined) c.title = text(a.title, 'title');
+        if (a.summary !== undefined) c.summary = text(a.summary, 'summary',true);
         if (a.order !== undefined) c.order = ordering(a.order);
         if (a.volumeId !== undefined) { if (a.volumeId && get(n.volumes, a.volumeId, '卷').deleted) fail('DELETED', '卷已删除'); c.volumeId = a.volumeId || null; }
       }
@@ -369,6 +383,7 @@ export class Store extends ProjectStore {
     if (action === 'graph.create') {
       if (!kinds.has(a.type)) fail('INVALID_INPUT', '节点类型无效');
       const v = record({ type: a.type, groupId: groupId(n, a.groupId), ...memoryFields(a, n, true), ...nodePosition(a), deleted: false });
+      if(a.avatarImage!==undefined)v.avatarImage=imageData(a.avatarImage);
       this.checkMemorySources(n, v);
       n.nodes[v.id] = v; touch(n); return v;
     }
@@ -383,6 +398,7 @@ export class Store extends ProjectStore {
         if (a.type !== undefined) { if (!kinds.has(a.type)) fail('INVALID_INPUT', '节点类型无效'); v.type = a.type; }
         if (a.groupId !== undefined) v.groupId = groupId(n, a.groupId);
         Object.assign(v, memoryFields(a, n), nodePosition(a));
+        if(a.avatarImage!==undefined)v.avatarImage=imageData(a.avatarImage);
         this.checkMemorySources(n, v);
       }
       touch(v); touch(n); return v;
@@ -491,22 +507,25 @@ export class Store extends ProjectStore {
     if (!backup || backup.format !== 'cuigengji' || ![1,2].includes(backup.schemaVersion) || !backup.novel) fail('INVALID_BACKUP', '不是支持的 cuigengji 备份');
     const n = clone(backup.novel);
     text(n.id, 'novel.id'); text(n.title, 'novel.title');
+    novelPresentation(n);
     if (!Number.isSafeInteger(n.revision) || n.revision < 1 || typeof n.archived !== 'boolean') fail('INVALID_BACKUP', '小说版本或归档状态无效');
     for (const field of ['volumes', 'chapters', 'nodes', 'edges']) if (!n[field] || typeof n[field] !== 'object' || Array.isArray(n[field])) fail('INVALID_BACKUP', `${field}无效`);
     for (const collection of [n.volumes, n.chapters, n.nodes, n.edges]) for (const [id, entity] of Object.entries(collection)) {
       if (id !== entity.id || !Number.isSafeInteger(entity.revision) || entity.revision < 1) fail('INVALID_BACKUP', '对象 ID 或版本无效');
     }
     for (const c of Object.values(n.chapters)) {
+      if(c.summary!==undefined)text(c.summary,'chapter.summary',true);
       if (typeof c.content !== 'string' || c.contentHash !== hash(c.content) || !Array.isArray(c.versions) || !c.versions.length || (c.volumeId && !own(n.volumes, c.volumeId))) fail('INVALID_BACKUP', '章节或卷关系无效');
       let previousRevision = 0;
       for (const v of c.versions) {
+        if(v.summary!==undefined)text(v.summary,'version.summary',true);
         if (!Number.isSafeInteger(v.revision) || v.revision <= previousRevision || typeof v.content !== 'string' || v.contentHash !== hash(v.content)) fail('INVALID_BACKUP', '历史正文版本或哈希不匹配');
         previousRevision = v.revision;
       }
       const latest = c.versions.at(-1);
       if (latest.revision !== c.revision || latest.contentHash !== c.contentHash) fail('INVALID_BACKUP', '最新历史版本与正文不一致');
     }
-    for (const node of Object.values(n.nodes)) { if (!kinds.has(node.type)) fail('INVALID_BACKUP', '节点类型无效'); Object.assign(node, memoryFields(node, n, true), nodePosition(node)); }
+    for (const node of Object.values(n.nodes)) { if (!kinds.has(node.type)) fail('INVALID_BACKUP', '节点类型无效');if(node.avatarImage!==undefined)imageData(node.avatarImage); Object.assign(node, memoryFields(node, n, true), nodePosition(node)); }
     for (const edge of Object.values(n.edges)) { if (!own(n.nodes, edge.from) || !own(n.nodes, edge.to)) fail('INVALID_BACKUP', '关系端点不存在'); Object.assign(edge, memoryFields(edge, n, true, true)); }
     if (n.plan && (typeof n.plan.content !== 'string' || !Number.isSafeInteger(n.plan.revision) || n.plan.revision < 1 || typeof n.plan.approved !== 'boolean')) fail('INVALID_BACKUP', '规划格式无效');
     validateMemoryGroups(n);

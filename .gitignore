@@ -6,6 +6,9 @@ playwright-report/
 runtime/
 .env
 .env.*
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
 # Keep novels, exports and personal migration data outside the source repository.
 /test-data/
 /novel-data/

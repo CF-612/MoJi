@@ -1,5 +1,6 @@
 import {useModules} from '../../modules/context.tsx';
-import React,{useEffect,useRef} from 'react';
+import React,{useEffect,useRef,useState} from 'react';
+import {Icon} from '../../shared/icons.tsx';
 import {EditableEventBar} from './EditableEventBar.jsx';
 import {useTimelineDrag} from './useTimelineDrag.js';
 import {timelineTracks,trackSelections} from '../../../domain/timeline-tracks.js';
@@ -8,18 +9,21 @@ const kinds={all:'全部',event:'事件',person:'人物',foreshadow:'伏笔'};
 const statuses={idea:'讨论中',selected:'考虑采用',written:'已写入正文',dropped:'暂不采用'};
 const shadows={planned:'计划',planted:'已埋设',developing:'推进中',recovered:'已回收',abandoned:'已放弃'};
 const refs={appearance:'实际出场',mention:'仅被提及',entering:'进入故事',participating:'参与事件'};
-export function TimelineTracks({board,novelId,mode,current,choose,onPlan,onEvent,onMemory,onShadow,onPlace,busy}){
+export function TimelineTracks({board,novelId,mode,current,choose,onPlan,onEvent,onMemory,onShadow,onPlace,busy,setMode}){
  const modules=useModules();
  const [filter,setFilter]=usePreference(`${novelId}:timeline-filter`,'all');
- const safeFilter=!modules.foreshadow&&filter==='foreshadow'?'all':filter,shownBoard=modules.foreshadow?board:{...board,foreshadows:[]};
- const baseTrack=timelineTracks(shownBoard,mode,safeFilter),selections=trackSelections(board,mode),scroll=useRef(null);
+ const available=['event','person',...(modules.foreshadow?['foreshadow']:[])],safeFilter=(Array.isArray(filter)?filter:filter==='all'?available:[filter]).filter(id=>available.includes(id)),shownBoard=modules.foreshadow?board:{...board,foreshadows:[]};
+ const [zoom,setZoom]=usePreference(`${novelId}:timeline-zoom`,100),[filtersOpen,setFiltersOpen]=useState(false),[width,setWidth]=useState(420);
+ const baseTrack=timelineTracks(shownBoard,mode,safeFilter,zoom/100),selections=trackSelections(board,mode),scroll=useRef(null);
  const drag=useTimelineDrag({board,track:baseTrack,mode,scroll,onPlace,busy}),track=drag.drag?.track||baseTrack;
+ useEffect(()=>{const el=scroll.current;if(!el)return;const observer=new ResizeObserver(([e])=>setWidth(e.contentRect.width));observer.observe(el);return()=>observer.disconnect();},[]);
+ const ruler=Math.min(176,Math.max(92,width*.28)),availableWidth=width-ruler-16,crowded=track.lanes*138>availableWidth,laneWidth=crowded?Math.max(44,130*zoom/100):Math.max(90,availableWidth/track.lanes-8);
  const selectSlot=s=>choose(selections.find(r=>r.key===s.key)||s);
  const selectMarker=m=>{const slot=track.slots[m.start];if(m.kind==='event')choose({key:m.eventId,eventId:m.eventId,event:m.event,chapterId:slot.chapterId});else {selectSlot(slot);if(m.kind==='person')onMemory(m.id);else onShadow(m.id);}};
  const currentSlot=track.slots.find(s=>s.chapterId&&s.chapterId===current?.chapterId||s.eventId&&s.eventId===current?.eventId);
  useEffect(()=>{const el=scroll.current;if(!el||!currentSlot||drag.drag)return;const top=currentSlot.top;if(top<el.scrollTop+44||top+currentSlot.height>el.scrollTop+el.clientHeight)el.scrollTo({top:Math.max(0,top-44),behavior:'smooth'});},[current?.key,currentSlot?.top,!!drag.drag]);
  const jump=()=>{const m=track.allMarkers.find(m=>m.eventId===current?.eventId),slot=m?track.slots[m.start]:track.slots.find(s=>s.chapterId===current?.chapterId);if(slot)scroll.current?.scrollTo({top:Math.max(0,slot.top-20),behavior:'smooth'});};
- return <section className="timeline-tracks" aria-label="连续时间线"><div className="track-filter" role="group" aria-label="时间线内容筛选">{Object.entries(kinds).filter(([id])=>modules.foreshadow||id!=='foreshadow').map(([id,label])=><button key={id} aria-pressed={filter===id} className={filter===id?'selected':''} disabled={!!drag.drag} onClick={()=>setFilter(id)}>{label}</button>)}<button className="track-locate" onClick={jump}>定位当前</button></div>
+ return <section className="timeline-tracks" data-compact={zoom<75} style={{'--ruler-width':ruler+'px','--lane-width':laneWidth+'px'}} aria-label="连续时间线"><div className="timeline-tools"><div className="timeline-tools-row"><div className="narrative-switch" role="group" aria-label="时间线顺序"><button aria-pressed={mode==='narration'} disabled={!!drag.drag} onClick={()=>setMode?.('narration')}>故事叙述</button><button aria-pressed={mode==='story'} disabled={!!drag.drag} onClick={()=>setMode?.('story')}>时间叙述</button></div><button className="track-locate" onClick={jump}>定位当前</button><button className="timeline-filter-toggle" aria-label="时间线内容筛选" aria-expanded={filtersOpen} onClick={()=>setFiltersOpen(v=>!v)}><Icon name="filter"/>筛选 <small>{safeFilter.length}/{available.length}</small></button></div><div className="timeline-tools-row"><small>{track.markers.length} 个条目 · {track.lanes} 条轨道</small><label className="timeline-zoom">缩放<input type="range" min="35" max="160" step="5" aria-label="时间线缩放" value={zoom} disabled={!!drag.drag} onChange={e=>setZoom(Number(e.target.value))}/><span>{zoom}%</span></label></div>{filtersOpen&&<div className="track-filter" role="group" aria-label="时间线内容筛选">{available.map(id=><label key={id}><input type="checkbox" checked={safeFilter.includes(id)} disabled={!!drag.drag} onChange={e=>setFilter(e.target.checked?[...safeFilter,id]:safeFilter.filter(v=>v!==id))}/>{kinds[id]}<small>{track.allMarkers.filter(m=>m.kind===id).length}</small></label>)}</div>}</div>
  <div className="track-scroll" ref={scroll} tabIndex={0} aria-label="时间线轨道，可上下及左右滚动"><div className="track-world" style={{'--track-lanes':track.lanes,height:track.height}}>
  <div className="track-heading"><span>{mode==='story'?'故事时间':'卷章 / 规划'}</span><span>事件与标记</span></div>
  {track.slots.map((s,i)=><React.Fragment key={s.key}><div className={`track-row-line ${current?.chapterId&&s.chapterId===current.chapterId||current?.key===s.key?'is-current':''}`} style={{top:s.top,height:s.height}}/>

@@ -1,7 +1,7 @@
 const object = v => v && typeof v === 'object' && !Array.isArray(v);
 const fail = message => { throw Object.assign(new Error(message), {code:'INVALID_PRESET'}); };
 export function presetBlockReason(block) {
-  return block.marker && !block.content?.trim() ? '动态占位条目没有提示词正文，内容由催更姬按自己的方式读取' : '';
+  return block.marker && !block.content?.trim() ? '动态占位条目没有提示词正文，内容由墨叽按自己的方式读取' : '';
 }
 export function presetBlockNotice(block) {
   if (presetBlockReason(block)) return presetBlockReason(block);

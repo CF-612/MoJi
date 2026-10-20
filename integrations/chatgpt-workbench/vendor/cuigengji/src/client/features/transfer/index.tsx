@@ -9,7 +9,7 @@ import {BatchImport} from './BatchImport.tsx';
 type Report = Pick<TransferPreview, 'counts' | 'dependencies' | 'warnings'>;
 type Props = BackProps & {call: Call; run: Run; busy: boolean; novelId?: string; initial?: TransferShortcut; onOpen?: (id: string) => unknown};
 const errorMessage = (e: unknown) => e instanceof Error ? e.message : String(e);
-const caption: Record<ExportKind, string> = {chapters: '整本、某卷或几章，选好再带走。', memory: '按人物、世界或分组选择，条目之间的关系一起保留。', planning: '带走一张或多张画布，以及连线、讨论框和便签。', preset: '单独保存当前的写作要求，保留修改后的文本。', works: '选择要迁移的作品，包含各自的历史与回收站。', workspace: '换电脑或迁移工作台 时，完整保留催更姬工作数据。'};
+const caption: Record<ExportKind, string> = {chapters: '整本、某卷或几章，选好再带走。', memory: '按人物、世界或分组选择，条目之间的关系一起保留。', planning: '带走一张或多张画布，以及连线、讨论框和便签。', preset: '单独保存当前的写作要求，保留修改后的文本。', works: '选择要迁移的作品，包含各自的历史与回收站。', workspace: '换电脑或迁移工作台 时，完整保留墨叽工作数据。'};
 
 export function TransferPage({call, run, busy, novelId, initial, onOpen, onBack, backLabel}: Props) {
   const {revision: refreshRevision} = useWorkbenchRefresh();
@@ -62,7 +62,7 @@ export function TransferPage({call, run, busy, novelId, initial, onOpen, onBack,
   const allowedKinds: ExportKind[] = options.mode === 'restore' ? identified?.kind === 'workspace' ? ['works', 'workspace'] : ['works'] : canExtract ? ['chapters', 'memory', 'planning', 'preset', 'works'] : identified ? [identified.kind] : [];
   const importTarget = library?.books.find(b => b.id === options.targetId);
   const changeImportKind = (kind: ExportKind) => editOptions({...options, selection: defaultSelection(kind, identified!.catalog, importSelection?.novelId, true), ...(kind === 'works' || kind === 'workspace' ? {targetId: null} : {})});
-  const footer = mode === 'export' ? <div className="transfer-footer"><span>{exportReport ? countLabel(exportReport.counts, selection.kind) : exportError || '选择要导出的内容'}<small>{format === 'package' ? '催更姬数据包 · JSON' : format === 'md' ? 'Markdown · UTF-8' : 'TXT · UTF-8'}</small></span><button className="primary" disabled={busy || !exportReport} onClick={exportFile}>下载文件</button></div>
+  const footer = mode === 'export' ? <div className="transfer-footer"><span>{exportReport ? countLabel(exportReport.counts, selection.kind) : exportError || '选择要导出的内容'}<small>{format === 'package' ? '墨叽数据包 · JSON' : format === 'md' ? 'Markdown · UTF-8' : 'TXT · UTF-8'}</small></span><button className="primary" disabled={busy || !exportReport} onClick={exportFile}>下载文件</button></div>
     : mode==='import'&&identified && !result ? <div className="transfer-footer"><span>{preview ? countLabel(preview.counts, importSelection?.kind || 'works') : previewPending ? '正在核对内容…' : '选择范围与目标'}<small>{preview ? preview.target : '导入前自动备份当前工作库'}</small></span><button className="primary" disabled={busy || !preview?.valid || previewPending} onClick={confirmImport}>{options.replaceExisting?'确认替换恢复':'确认导入'}</button></div> : null;
   return <ManagementPage title="导入 / 导出" description="带走作品，也把需要的写作内容带进来。" {...{onBack, backLabel}} documentClass="transfer-document" footer={footer}
     actions={<div className="transfer-mode" role="group" aria-label="导入导出切换"><button disabled={busy} aria-pressed={mode === 'import'} onClick={() => {setMode('import'); setNotice('');}}>导入 / 恢复</button><button disabled={busy} aria-pressed={mode === 'batch'} onClick={()=>setMode('batch')}>批量导入</button><button disabled={busy} aria-pressed={mode === 'export'} onClick={() => {setMode('export'); setNotice('');}}>导出</button></div>}>
@@ -73,9 +73,9 @@ export function TransferPage({call, run, busy, novelId, initial, onOpen, onBack,
       <KindPicker value={selection.kind} disabled={busy} change={kind => editExport(defaultSelection(kind, library, selection.novelId || novelId))}/>
       <p className="transfer-caption">{caption[selection.kind]}</p>
       <div className="transfer-grid"><section className="transfer-form" aria-label="导出范围"><ScopePicker key={`${selection.kind}:${selection.novelId}`} catalog={library} selection={selection} change={editExport} disabled={busy}/>
-        <label className="management-field">文件格式<select aria-label="导出格式" value={format} disabled={busy} onChange={e => {setFormat(e.target.value as ExportFormat); setNotice('');}}><option value="package">催更姬数据包（JSON）</option>{selection.kind === 'chapters' && <><option value="txt">纯文本（TXT）</option><option value="md">Markdown</option></>}</select></label>
+        <label className="management-field">文件格式<select aria-label="导出格式" value={format} disabled={busy} onChange={e => {setFormat(e.target.value as ExportFormat); setNotice('');}}><option value="package">墨叽数据包（JSON）</option>{selection.kind === 'chapters' && <><option value="txt">纯文本（TXT）</option><option value="md">Markdown</option></>}</select></label>
         {format === 'package' && ['memory', 'planning'].includes(selection.kind) && <label className="transfer-checkbox transfer-dependency-choice"><input type="checkbox" aria-label="携带关联正文与设定" disabled={busy} checked={!!selection.includeDependencies} onChange={e => editExport({...selection, includeDependencies: e.target.checked})}/><span>携带关联正文与设定<small>预览会列出额外带走的内容</small></span></label>}
-        {format !== 'package' && <p className="management-hint">仅导出当前正文与标题，版本历史保留在催更姬数据包中。</p>}
+        {format !== 'package' && <p className="management-hint">仅导出当前正文与标题，版本历史保留在墨叽数据包中。</p>}
       </section><aside className="transfer-summary" aria-label="导出预览"><h3>这次带走</h3>{exportReport ? <ReportSummary report={exportReport} kind={selection.kind}/> : <p className="management-hint" role={exportError ? 'alert' : 'status'}>{exportError || '正在读取所选范围…'}</p>}</aside></div>
     </>}
     {mode === 'import' && <>
@@ -83,7 +83,7 @@ export function TransferPage({call, run, busy, novelId, initial, onOpen, onBack,
       <ImportSteps preview={!!identified} done={!!result}/>
       {!result && <div className={'transfer-upload ' + (dragging ? 'is-dragging' : '')} onDragOver={e => {e.preventDefault(); if (!busy) setDragging(true);}} onDragLeave={e => {if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false);}} onDrop={e => {e.preventDefault(); setDragging(false); if (!busy && e.dataTransfer.files[0]) selectFile(e.dataTransfer.files[0]);}}>
         <div className="transfer-upload-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M8 26H5V17M27 17v9h-3M16 23V5M9 12l7-7 7 7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg></div>
-        <div><h3>{file ? file.name : '选择文件，或拖到这里'}</h3><p>{identified ? identified.label : '催更姬数据包、酒馆角色卡／世界书／预设、TXT、Markdown'}</p></div>
+        <div><h3>{file ? file.name : '选择文件，或拖到这里'}</h3><p>{identified ? identified.label : '墨叽数据包、酒馆角色卡／世界书／预设、TXT、Markdown'}</p></div>
         <FilePicker label={file ? '更换文件' : '选择文件'} name="导入文件" hint="" accept=".json,.png,.txt,.md" disabled={busy} onChange={choose}/>
       </div>}
       {identified && importSelection && !result && <>
@@ -111,7 +111,7 @@ export function TransferPage({call, run, busy, novelId, initial, onOpen, onBack,
       {result && <div className="transfer-complete" role="status"><div className="transfer-complete-mark" aria-hidden="true">✓</div><h3>{result.repeated ? '这份内容已经导入过了' : '导入完成'}</h3><p>{result.repeated ? '保留上次导入的结果，没有重复创建。' : countLabel(result.counts, importSelection?.kind || 'works')}{result.skipped.length > 0 && ` · ${result.skipped.length} 部相同作品跳过`}</p><div className="management-actions">{result.novelIds.length === 1 && onOpen && <button className="primary" disabled={busy} onClick={() => onOpen(result.novelIds[0])}>打开作品</button>}<button disabled={busy} onClick={() => {setFile(null); setIdentified(null); setPreview(null); setResult(null);}}>继续导入</button></div>{result.backupDir && <details className="management-disclosure"><summary>导入前备份位置</summary><code className="work-data-path">{result.backupDir}</code></details>}</div>}
     </>}
     {notice && <p className="transfer-notice" role="status">{notice}</p>}
-    {library?.dataRoot && <details className="management-disclosure transfer-storage"><summary>存储位置与备份范围</summary><code className="work-data-path">{library.dataRoot}</code><p>{library.books.length} 部作品 · {library.bindings || 0} 个绑定会话。导出使用已保存内容，请先保存正在编辑的草稿。</p><p>催更姬管理小说工作数据；聊天记录和附件由聊天客户端保存，不包含在作品备份中。</p></details>}
+    {library?.dataRoot && <details className="management-disclosure transfer-storage"><summary>存储位置与备份范围</summary><code className="work-data-path">{library.dataRoot}</code><p>{library.books.length} 部作品 · {library.bindings || 0} 个绑定会话。导出使用已保存内容，请先保存正在编辑的草稿。</p><p>墨叽管理小说工作数据；聊天记录和附件由聊天客户端保存，不包含在作品备份中。</p></details>}
   </ManagementPage>;
 }
 function Snapshots({call,run,busy,revision,choose}:{call:Call;run:Run;busy:boolean;revision:string;choose:(file:TransferFile)=>Promise<unknown>}){

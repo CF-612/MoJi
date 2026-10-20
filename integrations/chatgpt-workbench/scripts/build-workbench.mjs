@@ -4,7 +4,7 @@ import {fileURLToPath} from 'node:url';
 import {Script} from 'node:vm';
 import {buildNativePaused} from './build-native-paused.mjs';
 const root=new URL('../',import.meta.url);
-const output=await build({entryPoints:[fileURLToPath(new URL('client/workbench.tsx',root))],bundle:true,write:false,format:'iife',loader:{'.png':'dataurl'},nodePaths:[fileURLToPath(new URL('node_modules/',root))],define:{'process.env.NODE_ENV':'"production"'},minify:true,metafile:true});
+const output=await build({entryPoints:[fileURLToPath(new URL('client/workbench.tsx',root))],bundle:true,write:false,format:'iife',loader:{'.png':'dataurl','.jpg':'dataurl'},nodePaths:[fileURLToPath(new URL('node_modules/',root))],define:{'process.env.NODE_ENV':'"production"'},minify:true,metafile:true});
 const code=output.outputFiles[0].text.replaceAll('</script','<\\/script');new Script(code);
 const template=await readFile(new URL('client/workbench.html',root),'utf8');
 await mkdir(new URL('dist/',root),{recursive:true});

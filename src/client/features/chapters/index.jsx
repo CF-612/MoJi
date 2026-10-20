@@ -10,6 +10,7 @@ import { formatProse } from './format.ts';
 import { countManuscript } from '../../../domain/manuscript.ts';
 import { useChapterSync, prepareChapterRemoval } from './useChapterSync.ts';
 import { useManuscriptTextarea } from './useManuscriptTextarea.ts';
+import { ManuscriptHistory } from './ManuscriptHistory.jsx';
 import { useChapterReorder } from './useChapterReorder.ts';
 import { chapterChanges } from './sync.ts';
 import { groupHistory } from './history.ts';
@@ -131,7 +132,7 @@ function ChapterEditor({call,novelId,chapterId,latest,tick,run,busy,volumes,back
     <header className="editor-heading"><div className="row compact chapter-title-row"><button className="directory-back" onClick={back}>‹ 目录</button><div className="grow chapter-title"><label className="chapter-volume"><select aria-label="章节所属卷" disabled={busy||base.deleted} value={draft.volumeId||''} onChange={e=>set('volumeId',e.target.value||null)}><option value="">未分卷</option>{volumes.map(v=><option key={v.id} value={v.id}>{v.title}</option>)}</select></label><InlineTitle value={draft.title} label="修改章节标题" disabled={busy||base.deleted} commit={title=>set('title',title)}/></div><details className="menu"><summary aria-label="章节设置" title="章节操作">···</summary><div className="menu-panel chapter-settings-panel"><button disabled={busy||base.deleted||dirty||phase==='saving'} title={dirty?'等待正文自动保存后导出':undefined} onClick={()=>onTransfer({mode:'export',selection:{kind:'chapters',novelId,chapterIds:[chapterId]}})}>导出本章</button>
       <button type="button" onClick={e=>{setHistoryOpen(true);e.currentTarget.closest('details').open=false;}}>版本历史</button>
     </div></details></div>
-    <div className="chapter-toolbar"><div className="prose-tools"><button type="button" className="format-button" disabled={busy||base.deleted||!draft.content.trim()} onClick={format}>自动排版</button>{formatUndo&&formatUndo.after===draft.content&&<button className="icon-button" aria-label="撤销排版" disabled={busy||base.deleted} onClick={()=>{set('content',formatUndo.before);setFormatUndo(null);}}>↶</button>}</div><ProseDisplay/></div>
+    <div className="chapter-toolbar"><div className="prose-tools"><ManuscriptHistory target={textareaRef} content={draft.content} disabled={busy||base.deleted}/><button type="button" className="format-button" disabled={busy||base.deleted||!draft.content.trim()} onClick={format}>自动排版</button>{formatUndo&&formatUndo.after===draft.content&&<button className="icon-button" aria-label="撤销排版" disabled={busy||base.deleted} onClick={()=>{set('content',formatUndo.before);setFormatUndo(null);}}>↶</button>}</div><ProseDisplay/></div>
     </header>
     <div className="editor-scroll is-editing" ref={scrollRef}>
       {conflict&&<div className="notice">你与 AI 或其他窗口修改了同一处，双方内容均已保留。<button disabled={busy} onClick={()=>setComparison(remote)}>比较最新正文</button><button disabled={busy||phase==='saving'} onClick={reload}>放弃草稿并读取最新</button></div>}

@@ -6,7 +6,7 @@ export async function createService(directory) {
   const actor = {kind: 'human', sessionId: 'cuigengji-demo'};
   let books = await store.dispatch('novel.list', {}, actor);
   if (!books.length) {
-    const novel = await store.dispatch('novel.create', {title: '催更姬 · 侧栏协作演示'}, actor);
+    const novel = await store.dispatch('novel.create', {title: '墨叽 · 侧栏协作演示'}, actor);
     await store.dispatch('chapter.create', {
       novelId: novel.id, title: '第一章 雨夜来信',
       content: '　　雨停以后，街道重新安静下来。\n\n　　窗边的灯仍亮着，故事还在继续。', reason: '创建演示章节'

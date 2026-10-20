@@ -1,7 +1,8 @@
 import {timelineNodes,chapterLabel,narrationCompare} from './story-workspace.js';
 // Display spans join existing references; they never manufacture a new event
 // for each chapter, or infer that an event happened in an unreferenced gap.
-export function timelineTracks(board,mode='narration',filter='all'){
+export function timelineTracks(board,mode='narration',filter='all',zoom=1){
+ const includes=kind=>Array.isArray(filter)?filter.includes(kind):filter==='all'||kind===filter;
  const chapters=board.chapters||[],events=(board.events||[]).filter(e=>!e.deleted),rank=new Map(chapters.map((c,i)=>[c.id,i]));
  const ordered=timelineNodes(board,'story'),slots=mode==='story'?ordered.map(r=>({...r,title:r.event.storyTime||r.event.storyDate||'时间未注明',subtitle:r.chapterId?chapterLabel(board,r.chapterId):r.event.plannedChapter||'待写事件',plans:board.planning.filter(p=>r.event.planningRefs.includes(p.id))})):chapters.map(c=>({key:`chapter:${c.id}`,chapterId:c.id,eventId:null,event:null,title:c.title,subtitle:board.stats.volumes.find(v=>(v.id||null)===(c.volumeId||null))?.title||'未分卷',plans:board.planning.filter(p=>p.chapterRefs.some(r=>r.chapterId===c.id)||events.some(e=>e.planningRefs.includes(p.id)&&e.chapterRefs.some(r=>!r.excluded&&r.chapterId===c.id)))}));
  if(mode==='narration')for(const e of events.filter(e=>!e.chapterRefs.some(r=>!r.excluded&&rank.has(r.chapterId))).sort((a,b)=>narrationCompare(a,b)))slots.push({key:e.id,eventId:e.id,event:e,chapterId:null,title:e.plannedChapter||'待写位置',subtitle:e.storyTime||'未关联正文',plans:board.planning.filter(p=>e.planningRefs.includes(p.id))});
@@ -17,10 +18,10 @@ export function timelineTracks(board,mode='narration',filter='all'){
   }
   for(const f of board.foreshadows)if(!markers.some(m=>m.kind==='foreshadow'&&m.id===f.id))waiting.push({kind:'foreshadow',...f});
  }
- const kindOrder={event:0,person:1,foreshadow:2},shown=markers.filter(m=>filter==='all'||m.kind===filter).sort((a,b)=>a.start-b.start||kindOrder[a.kind]-kindOrder[b.kind]||b.end-a.end||a.key.localeCompare(b.key)),lanes=[];
+ const kindOrder={event:0,person:1,foreshadow:2},shown=markers.filter(m=>includes(m.kind)).sort((a,b)=>a.start-b.start||kindOrder[a.kind]-kindOrder[b.kind]||b.end-a.end||a.key.localeCompare(b.key)),lanes=[];
  for(const m of shown){let lane=lanes.findIndex(end=>end<m.start);if(lane<0)lane=lanes.length;lanes[lane]=m.end;m.lane=lane;}
- let height=44;for(const slot of slots){slot.top=height;slot.height=Math.max(160,120+slot.plans.length*72);height+=slot.height;}
- return {slots,markers:shown,allMarkers:markers,lanes:Math.max(1,lanes.length),height,waiting:waiting.filter(m=>filter==='all'||m.kind===filter),policy:'跨度连接已引用的章节；中间未引用的章不自动成为事件呈现。伏笔章节依据不推断同章事件先后。'};
+ let height=44;const scale=Number.isFinite(zoom)?Math.max(.35,Math.min(1.6,zoom)):1;for(const slot of slots){slot.top=height;slot.height=Math.max(100,Math.max(160,120+slot.plans.length*72)*scale);height+=slot.height;}
+ return {slots,markers:shown,allMarkers:markers,lanes:Math.max(1,lanes.length),height,waiting:waiting.filter(m=>includes(m.kind)),policy:'跨度连接已引用的章节；中间未引用的章不自动成为事件呈现。伏笔章节依据不推断同章事件先后。'};
 }
 export function trackSelections(board,mode='narration'){
  const track=timelineTracks(board,mode,'event');if(mode==='story')return track.slots;

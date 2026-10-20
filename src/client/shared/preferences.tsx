@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import manifest from '../../../package.json' with { type: 'json' };
-import aboutSticker from '../assets/haoye.png';
+import aboutSticker from '../assets/moji.png';
+import {brand} from '../../domain/brand.js';
+import {UpdatePanel} from './UpdateNotice.tsx';
 
 export interface Preferences {
   fontSize: number; leading: number; directory: boolean;
@@ -62,43 +64,19 @@ export function ProseDisplay() {
   </div></details>;
 }
 export function AboutDialog({close}: {close: () => void}) {
-  const [copyStatus, setCopyStatus] = useState('');
-  const groupNumber = useRef<HTMLElement>(null);
-  const copyGroup = async () => {
-    try {
-      await navigator.clipboard.writeText('1026457465');
-      setCopyStatus('群号已复制');
-    } catch {
-      const selection = window.getSelection();
-      if (groupNumber.current && selection) {
-        const range = document.createRange();
-        range.selectNodeContents(groupNumber.current);
-        selection.removeAllRanges(); selection.addRange(range);
-      }
-      setCopyStatus('可选中群号，按 Ctrl+C 复制。');
-    }
-  };
-  return <Modal title="关于催更姬" close={close} className="about-modal">
+  return <Modal title="关于墨叽" close={close} className="about-modal">
     <section className="about-overview">
       <div>
-        <div className="about-identity"><h2>催更姬</h2><span className="about-version">v{manifest.version}</span></div>
-        <p className="about-tagline">让大肥鱼成为你的小说写作助手。</p>
+        <div className="about-identity"><h2>墨叽</h2><span className="about-version">v{brand.version}</span></div>
+        <p className="about-tagline">一只陪你写故事的烟灰蛸。</p>
       </div>
-      <img className="about-sticker" src={aboutSticker} width={384} height={384} alt="好耶！紫发少女的欢呼贴纸"/>
-      <p className="about-description">为 DSH 打造的小说写作插件。把正文、情节规划、人物与世界设定放在同一个工作台，让你和 AI 一起讨论、整理并推进故事。</p>
+      <img className="about-sticker" src={aboutSticker} width={384} height={384} alt="墨叽的烟灰蛸形象"/>
+      <p className="about-description">把正文、情节规划、人物与世界放在同一张书桌上，和 AI 一起把故事写下去。墨叽基于 mistnest 的开源催更姬开发，保留上游 MIT 许可与署名。</p>
     </section>
-    <div className="about-contacts" aria-label="交流与支持">
-      <button type="button" className="about-contact" onClick={copyGroup} aria-label="复制交流群号 1026457465" title="复制群号">
-        <span className="about-contact-label">交流群</span><strong ref={groupNumber}>1026457465</strong><span className="about-contact-mark" aria-hidden="true">{copyStatus === '群号已复制' ? '✓' : '⧉'}</span>
-      </button>
-      <a className="about-contact" href="https://ifdian.net/a/cuigengji" target="_blank" rel="noopener noreferrer">
-        <span className="about-contact-label">爱发电</span><strong>支持催更姬</strong><span className="about-contact-mark" aria-hidden="true">↗</span>
-      </a>
-      <a className="about-contact" href="https://github.com/mistnest/dsh-cuigengji-plugin" target="_blank" rel="noopener noreferrer">
-        <span className="about-contact-label">GitHub</span><strong>查看开源项目</strong><span className="about-contact-mark" aria-hidden="true">↗</span>
-      </a>
+    <UpdatePanel/><div className="about-contacts" aria-label="项目源码">
+      <a className="about-contact" href="https://github.com/mistnest/dsh-cuigengji-plugin" target="_blank" rel="noopener noreferrer"><span className="about-contact-label">GitHub · 原版</span><strong>催更姬 / mistnest</strong><span className="about-contact-mark" aria-hidden="true">↗</span></a>
+      <a className="about-contact" href="https://github.com/CF-612/MoJi" target="_blank" rel="noopener noreferrer"><span className="about-contact-label">GitHub · 现版</span><strong>墨叽 / MoJi</strong><span className="about-contact-mark" aria-hidden="true">↗</span></a>
     </div>
-    <p className="about-copy-status" role="status">{copyStatus}</p>
-    <footer className="about-welcome"><p>欢迎交流、合作与投喂。</p><p>每一份支持都会化作开发所需的 Token，让催更姬更新得更快一点。</p></footer>
+    <footer className="about-welcome"><p>墨叽 · 小说工作台</p><p>基于 mistnest 的开源催更姬开发，遵循 MIT 许可。</p></footer>
   </Modal>;
 }

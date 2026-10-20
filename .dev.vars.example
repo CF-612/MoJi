@@ -1,0 +1,3 @@
+# Set your own random private key (24-256 characters). It is the only login secret.
+# Do not use this example value. No Auth0 account or configuration is required.
+MOJI_OWNER_KEY=replace-with-your-own-secret-key

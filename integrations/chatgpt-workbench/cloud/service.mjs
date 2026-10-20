@@ -16,7 +16,7 @@ export function createCloudService(db,owner){
     let row=await database.prepare('SELECT * FROM workspaces WHERE owner=?').bind(owner).first();
     if(!row){
       const state=empty();
-      const novel=engine.execute(state,'novel.create',{title:'催更姬 · 云端协作演示'},{kind:'human'});
+      const novel=engine.execute(state,'novel.create',{title:'墨叽 · 云端协作演示'},{kind:'human'});
       engine.execute(state,'chapter.create',{novelId:novel.id,title:'第一章 雨夜来信',content:'　　雨停了。\n\n“请进。”——她说。'},{kind:'human'});
       await database.prepare('INSERT OR IGNORE INTO workspaces(owner,state,event,updated_at) VALUES(?,?,?,?)').bind(owner,JSON.stringify(state),'{}',new Date().toISOString()).run();
       row=await database.prepare('SELECT * FROM workspaces WHERE owner=?').bind(owner).first();
@@ -66,7 +66,7 @@ export function createCloudService(db,owner){
         if(!saved)fail('NOT_FOUND','快照不存在');
         return {name:`云端快照-${revision}.json`,gzipBase64:gzipSync(JSON.stringify(workData.archive(await decodeWorkspace(saved.state,database,owner),[]))).toString('base64')};
       }
-      if(method==='export'&&args.selection?.kind==='workspace')return download({filename:`催更姬云端工作库-${new Date().toISOString().slice(0,10)}.json`,mime:'application/json',content:JSON.stringify(await rpc('workspace.export',{},sessionId),null,2)});
+      if(method==='export'&&args.selection?.kind==='workspace')return download({filename:`墨叽云端工作库-${new Date().toISOString().slice(0,10)}.json`,mime:'application/json',content:JSON.stringify(await rpc('workspace.export',{},sessionId),null,2)});
       const result=await transfer[method](args,actor);
       if(saved)await commit(row,state,{id:randomUUID(),action,actor,novelIds:result.novelIds,novelId:result.novelIds?.length===1?result.novelIds[0]:null,reason:args.reason||(kind==='agent'?'AI 按作者授权导入／恢复作品':args.options?.replaceExisting?'作者从备份恢复':'作者导入作品资料'),timestamp:new Date().toISOString()});
       return method==='export'?download(result):result;
@@ -83,7 +83,7 @@ export function createCloudService(db,owner){
     return structuredClone(result);
   };
   return {rpc,async bootstrap(sessionId){
-    const books=await rpc('novel.list',{},sessionId);let binding=await rpc('binding.get',{},sessionId);
+    const books=await rpc('novel.list',{includeImages:false},sessionId);let binding=await rpc('binding.get',{},sessionId);
     if(!binding&&books[0])binding=await rpc('binding.set',{novelId:books[0].id},sessionId);
     return {books,binding,sessionId};
   },async collaborationHistory({novelId,entityId,limit=20}){

@@ -1,7 +1,16 @@
 import React from 'react';
 
-export type IconName = 'home' | 'refresh' | 'settings' | 'filter' | 'edit' | 'about' | 'person' | 'world' | 'search';
+export type IconName = 'home' | 'refresh' | 'settings' | 'filter' | 'edit' | 'about' | 'person' | 'world' | 'search' | 'book' | 'arrow' | 'chevron' | 'plus' | 'flag' | 'bookmark' | 'route' | 'folder' | 'format';
 const paths: Record<IconName, React.ReactNode> = {
+  format:<><path d="M4 5h16M8 10h12M4 15h16M4 20h12M3 9l3 2-3 2"/></>,
+  book:<><path d="M4 3h14v18H4zM7 3v18M10 7h5"/></>,
+  arrow:<path d="M4 12h15m-6-6 6 6-6 6"/>,
+  chevron:<path d="m9 5 7 7-7 7"/>,
+  plus:<path d="M12 4v16M4 12h16"/>,
+  flag:<><path d="M5 21V4m0 0c4-4 9 4 14 0v10c-5 4-10-4-14 0"/></>,
+  bookmark:<path d="M6 3h12v18l-6-4-6 4Z"/>,
+  route:<><circle cx="6" cy="5" r="2"/><circle cx="18" cy="19" r="2"/><path d="M8 5h8a4 4 0 0 1 0 8H8a3 3 0 0 0 0 6h8"/></>,
+  folder:<path d="M3 6h7l2 3h9v11H3Z"/>,
   search: <><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></>,
   home: <><path d="m3 10 9-7 9 7"/><path d="M5 9v11h5v-6h4v6h5V9"/></>,
   refresh: <><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.5 6.5A8 8 0 0 1 20 12M4 12a8 8 0 0 0 13.5 5.5"/></>,

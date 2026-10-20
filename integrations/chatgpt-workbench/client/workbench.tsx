@@ -61,7 +61,7 @@ async function start(){
   try{
     if(embedded){
       // 宿主决定侧栏尺寸；默认自动测量会临时改根节点高度，不能用于此布局。
-      app=new App({name:'cuigengji-workbench',version:'0.2.0'}, {}, {autoResize:false});
+      app=new App({name:'moji-workbench',version:'0.2.0'}, {}, {autoResize:false});
       let resolveInitial:()=>void;
       const initial=new Promise<void>(resolve=>{resolveInitial=resolve;});
       app.ontoolresult=result=>{

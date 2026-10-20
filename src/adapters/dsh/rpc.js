@@ -24,7 +24,7 @@ export function registerRpcRoute(ctx, { dispatch, dataRoot, workData, transfer, 
   const dispatchRpc = async (payload, signal) => {
     try {
       signal.throwIfAborted();
-      if (!record(payload) || !HUMAN_ACTIONS.includes(payload.action)) throw invalid('无效的催更姬操作');
+      if (!record(payload) || !HUMAN_ACTIONS.includes(payload.action)) throw invalid('无效的墨叽操作');
       const { action, args = {}, sessionId } = payload;
       if (!record(args)) throw invalid('args 必须是对象');
       if (sessionId !== undefined && (typeof sessionId !== 'string' || !sessionId.trim() || sessionId.length > 512)) {

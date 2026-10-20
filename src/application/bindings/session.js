@@ -15,7 +15,7 @@ export function createSessionPolicy({ store, audit, ready = async () => undefine
       // Inspecting an unbound session is valid and lets the agent explain how
       // to begin; all novel data operations still require an author binding.
       if (action === 'binding.get') return binding;
-      if (!binding) throw new Error('请先在催更姬面板绑定小说');
+      if (!binding) throw new Error('请先在墨叽面板绑定小说');
       if (args.novelId && args.novelId !== binding.novelId) throw new Error('不能访问另一部小说');
       args = { ...args, novelId: binding.novelId };
 

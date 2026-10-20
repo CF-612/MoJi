@@ -35,7 +35,7 @@ export function attachWorkbench(service) {
   };
   service.bootstrap=async(sessionId='desktop')=>{
     const actor={kind:'human',sessionId:`native:${sessionId}`};
-    const books=await store.dispatch('novel.list',{},actor);
+    const books=await store.dispatch('novel.list',{includeImages:false},actor);
     let binding=await store.dispatch('binding.get',{},actor);
     if(!binding && books[0]) binding=await store.dispatch('binding.set',{novelId:books[0].id,chapterId:books[0].id===service.novelId?service.chapterId:undefined},actor);
     return {books,binding,sessionId};

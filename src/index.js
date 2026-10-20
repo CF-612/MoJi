@@ -76,7 +76,7 @@ export async function apply(ctx, config = {}) {
   }
   ctx.tools.register(defineTool({
     name: 'cuigengji_maintenance',
-    description: '查询催更姬插件升级、数据迁移和完整性校验结果。这个工具不要求绑定小说；更新后先调用 status，再用 verify 核对实际加载版本、数据目录和记录数量。迁移由插件启动阶段自动完成，Agent 不应直接改小说文件。',
+    description: '查询墨叽插件升级、数据迁移和完整性校验结果。这个工具不要求绑定小说；更新后先调用 status，再用 verify 核对实际加载版本、数据目录和记录数量。迁移由插件启动阶段自动完成，Agent 不应直接改小说文件。',
     parameters: {
       action: { type: 'string', enum: ['status', 'verify'], required: true },
       args: { type: 'object', additionalProperties: true, description: 'verify 可选 expectedVersion、expectedDataRoot、expectedNovelIds（原作品ID数组）。' },
