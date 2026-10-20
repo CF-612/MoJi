@@ -9,7 +9,8 @@ const escape=value=>String(value).replace(/[&<>"']/g,c=>`&#${c.charCodeAt(0)};`)
 function page(body,status=200,headers=new Headers()){
   headers.set('Content-Type','text/html; charset=utf-8');headers.set('Cache-Control','no-store');
   headers.set('Content-Security-Policy',"default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
-  headers.set('Referrer-Policy','no-referrer');headers.set('X-Frame-Options','DENY');
+  // Preserve same-origin form Origin while withholding cross-origin referrers.
+  headers.set('Referrer-Policy','same-origin');headers.set('X-Frame-Options','DENY');
   return new Response(`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>墨叽 · 小说工作台</title><style>body{margin:0;background:#edf4ff;color:#12345b;font:16px/1.7 system-ui}main{max-width:480px;margin:8vh auto;padding:32px;background:white;border-top:5px solid #245deb;box-shadow:8px 8px 0 #d6e5ff}h1{font-size:26px}input{box-sizing:border-box;width:100%;padding:12px;border:1px solid #b5ccec;font:inherit}button{padding:10px 22px;background:#245deb;color:white;border:0;font:inherit;cursor:pointer;margin:16px 12px 0 0}small{color:#607895}hr{border:0;border-top:1px solid #d6e5ff}a{color:#245deb}@media(max-width:560px){main{margin:32px 16px;padding:24px}}</style><main>${body}</main></html>`,{status,headers});
 }
 // An atomic, durable rate counter survives Worker restarts and concurrent attempts.

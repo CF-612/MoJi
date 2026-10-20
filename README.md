@@ -8,7 +8,7 @@
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https%3A%2F%2Fgithub.com%2FCF-612%2FMoJi%2Ftree%2Fmoji-release)
 
-[下载 Windows 免安装版](https://github.com/CF-612/MoJi/releases/tag/moji-v0.10.1) · 源码发布分支：`moji-release`。
+[下载 Windows 免安装版](https://github.com/CF-612/MoJi/releases/tag/moji-v0.10.2) · 源码发布分支：`moji-release`。
 
 
 它想解决的是长篇创作里的一个常见问题：**AI 能写出一段像样的文字，却未必知道你整本书想怎么写。** 人物为什么沉默、哪条伏笔还不能揭开、下一章要走向哪里，这些往往都在正文之外。

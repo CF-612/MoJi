@@ -1,6 +1,6 @@
 {
   "product": "moji",
-  "version": "0.10.1",
-  "downloadUrl": "https://github.com/CF-612/MoJi/releases/tag/moji-v0.10.1",
-  "notes": "墨叽首次独立发行：Windows 免安装版、个人云端一键部署、自带 OAuth 自动续期；保留自由画布、卡片连线、正文与资料功能。"
+  "version": "0.10.2",
+  "downloadUrl": "https://github.com/CF-612/MoJi/releases/tag/moji-v0.10.2",
+  "notes": "修复个人云端浏览器授权表单；保留手机正文撤销重做、免安装版、一键部署和内置自动续期。"
 }

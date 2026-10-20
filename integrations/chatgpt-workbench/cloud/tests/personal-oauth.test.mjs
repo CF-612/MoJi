@@ -20,9 +20,10 @@ test('个人实例 OAuth：PKCE、密钥/CSRF、到期后静默续期、重启�
     const register=await mf.dispatchFetch(origin+'/oauth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_name:'MoJi test',redirect_uris:['https://client.example/callback'],grant_types:['authorization_code','refresh_token'],response_types:['code'],token_endpoint_auth_method:'none'})});assert.equal(register.status,201,await register.clone().text());const client=await register.json();
     const verifier=randomBytes(48).toString('base64url'),challenge=createHash('sha256').update(verifier).digest('base64url');
     const query=new URLSearchParams({client_id:client.client_id,redirect_uri:'https://client.example/callback',response_type:'code',scope:'novel:read novel:write offline_access',state:'test-state',code_challenge:challenge,code_challenge_method:'S256',resource:origin+'/mcp'});
-    const authorize=await mf.dispatchFetch(origin+'/authorize?'+query);assert.equal(authorize.status,200);const html=await authorize.text(),handle=/name="handle" value="([^"]+)"/.exec(html)[1];
+    const authorize=await mf.dispatchFetch(origin+'/authorize?'+query);assert.equal(authorize.status,200);assert.equal(authorize.headers.get('referrer-policy'),'same-origin','browser form POST must preserve its origin');const html=await authorize.text(),handle=/name="handle" value="([^"]+)"/.exec(html)[1];
     const cookie=authorize.headers.get('set-cookie').split(';')[0];
     assert.equal((await form('/authorize',{handle,key,decision:'approve'},{Cookie:cookie,Origin:'https://evil.example'})).status,403);
+    assert.equal((await form('/authorize',{handle,key,decision:'approve'},{Cookie:cookie,Origin:'null'})).status,403,'opaque origins remain rejected');
     assert.equal((await form('/authorize',{handle,key:'wrong',decision:'approve'},{Cookie:cookie,Origin:origin})).status,403);
     const approved=await form('/authorize',{handle,key,decision:'approve'},{Cookie:cookie,Origin:origin});assert.equal(approved.status,302,await approved.clone().text());
     const redirect=new URL(approved.headers.get('location'));assert.equal(redirect.searchParams.get('state'),'test-state');const code=redirect.searchParams.get('code');assert.ok(code);
