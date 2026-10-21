@@ -1,3 +1,5 @@
+import {ToolSheet} from './ToolSheet.tsx';
+import moji from '../assets/moji.png';
 import React from 'react';
 import {useModules} from '../modules/context.tsx';
 import {navigationModules} from '../modules/registry.mjs';
@@ -11,13 +13,10 @@ interface Props {
 export function WorkbenchHeader({home, novelTitle, tab, busy, refreshing, onHome, onTab, onRefresh, onSettings, onAbout, onSearch}: Props) {
   const modules=useModules();
   return <header className="workbench-header workbench-navigation">
-    <div className="navigation-origin"><button className="navigation-home" aria-label="作品首页" aria-current={home ? 'page' : undefined} disabled={busy} onClick={onHome}><Icon name="home"/><span>首页</span></button>
-      {novelTitle && !home && <span className="navigation-book" title={novelTitle}>{novelTitle}</span>}
+    <div className="navigation-origin"><button className="navigation-home" aria-label="作品首页" aria-current={home ? 'page' : undefined} disabled={busy} onClick={onHome}><img src={moji} width={24} height={24} alt=""/><span>{home?'墨叽':'作品库'}</span></button>
     </div>
-    {novelTitle && !home && <nav className="navigation-tabs" aria-label="小说功能">{[['chapters','正文'], ['plan','规划'], ['memory','设定'], ...navigationModules(modules), ['preset','写作要求']].map(([id, name]) => <button key={id} disabled={busy} className={tab === id ? 'selected' : ''} aria-pressed={tab === id} onClick={() => onTab(id)}>{name}</button>)}</nav>}
-    <div className="navigation-actions">{novelTitle&&!home&&onSearch&&<button className="navigation-action" aria-label="搜索作品" title="搜索当前作品（Ctrl / ⌘ + K）" disabled={busy} onClick={onSearch}><Icon name="search"/><span>搜索</span></button>}<button className={`navigation-action ${refreshing ? 'is-refreshing' : ''}`} aria-label="刷新当前页面" aria-busy={refreshing} title="刷新数据，保留草稿与当前视野" disabled={busy || refreshing} onClick={onRefresh}><Icon name="refresh"/><span>刷新</span></button>
-      <button className="navigation-action" aria-label="设置" onClick={onSettings}><Icon name="settings"/><span>设置</span></button>
-      <button className="navigation-action navigation-about" aria-label="关于催更姬" title="关于催更姬 · 交流与支持" onClick={onAbout}><Icon name="about"/><span>关于</span></button>
+    {novelTitle && !home && <nav className="navigation-tabs" aria-label="小说功能">{[['detail','详情'],['chapters','正文'], ['plan','规划'], ['memory','资料'], ...navigationModules(modules).filter(([id])=>id!=='overview')].map(([id, name]) => <button key={id} disabled={busy} className={tab === id ? 'selected' : ''} aria-pressed={tab === id} onClick={() => onTab(id)}>{name}</button>)}</nav>}
+    <div className="navigation-actions"><ToolSheet icon="more-horizontal" label="工作台更多功能" title="工作台" dismissOnAction>{novelTitle&&!home&&onSearch&&<button aria-label="搜索作品" disabled={busy} onClick={onSearch}><Icon name="search"/>搜索作品</button>}<button aria-label="刷新当前页面" disabled={busy||refreshing} onClick={onRefresh}><Icon name="refresh"/>刷新当前页面</button>{novelTitle&&!home&&<><button onClick={()=>onTab('preset')}>写作要求</button><button onClick={()=>onTab('manage')}>作品与备份</button></>}<button aria-label="设置" onClick={onSettings}><Icon name="settings"/>设置</button><button aria-label="关于墨叽" onClick={onAbout}><Icon name="about"/>关于与来源</button></ToolSheet>
     </div>
   </header>;
 }

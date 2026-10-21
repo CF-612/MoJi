@@ -8,7 +8,7 @@ import {readPackage} from './packages.ts';
 export const MAX_TRANSFER_BYTES = 64 * 1024 * 1024;
 export interface Recognized extends Omit<Inspection, 'catalog'> {projects: Novel[]; workspace?: unknown}
 const object = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
-const labels: Record<ExportKind, string> = {works: '催更姬作品备份', chapters: '催更姬正文数据包', memory: '催更姬设定数据包', planning: '催更姬规划数据包', preset: '催更姬写作预设', workspace: '催更姬完整工作库'};
+const labels: Record<ExportKind, string> = {works: '墨叽作品备份', chapters: '墨叽正文数据包', memory: '墨叽设定数据包', planning: '墨叽规划数据包', preset: '墨叽写作预设', workspace: '墨叽完整工作库'};
 const fileTitle = (name: string) => name.replace(/^.*[\\/]/, '').replace(/\.(json|png|md|txt)$/i, '').slice(0, 200) || '导入内容';
 
 export function recognize(file: TransferFile, options: ImportOptions = {}): Recognized {
@@ -54,7 +54,7 @@ export function recognize(file: TransferFile, options: ImportOptions = {}): Reco
     const {backup, report} = convertLegacyExport(raw);
     return {...base, label: '旧版小说项目', kind: 'works', projects: [backup.novel as Novel], warnings: report.warnings, restorable: true};
   }
-  fail('未识别到小说内容。支持催更姬数据包、酒馆角色卡／世界书／预设，以及 TXT、Markdown 正文。');
+  fail('未识别到小说内容。支持墨叽数据包、酒馆角色卡／世界书／预设，以及 TXT、Markdown 正文。');
 }
 
 function tavern(preview: ReturnType<typeof previewTavern>): Recognized {

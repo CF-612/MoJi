@@ -121,7 +121,7 @@ export class UpgradeCoordinator {
   async start() {this.starting ??= this.run(); return this.starting;}
   async ensureReady() {
     const report = await this.start();
-    if (report.status !== 'ready') return failure('UPGRADE_REQUIRED',`催更姬升级未完成：${report.error?.message || '请查询维护工具'}`);
+    if (report.status !== 'ready') return failure('UPGRADE_REQUIRED',`墨叽升级未完成：${report.error?.message || '请查询维护工具'}`);
     return report;
   }
   async status() {

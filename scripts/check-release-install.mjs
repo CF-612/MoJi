@@ -7,9 +7,11 @@ import {mkdtemp,mkdir,readFile,writeFile,copyFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {resolve,join,dirname} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {existsSync} from 'node:fs';
 import {runPluginCommand} from '@deepseek-ai/dsh-plugin-manager/operations';
 
 const args = process.argv.slice(2), arg = name => {const index=args.indexOf(name);return index < 0 ? undefined : args[index+1];};
+const currentManifest=JSON.parse(await readFile(new URL('../package.json',import.meta.url),'utf8'));
 const desktopExe = arg('--desktop-exe'), packageSpec = arg('--package'), oldPackage = args.includes('--old-package') ? arg('--old-package') : undefined;
 if (!desktopExe || !packageSpec || process.platform !== 'win32') throw new Error('Windows: --desktop-exe <exe> --package <local.tgz or URL> [--old-package <tgz>] [--report <json>]');
 const workspace = await mkdtemp(join(tmpdir(),'cuigengji-native-install-')), profile = join(workspace,'profile'), data = join(workspace,'novel-data');
@@ -20,7 +22,9 @@ delete env.NODE_OPTIONS;
 assert.notEqual(spawnSync(join(windows,'System32/where.exe'),['git'],{env,encoding:'utf8',windowsHide:true}).status,0,'Git must not be on PATH');
 const nodePaths = spawnSync(join(windows,'System32/where.exe'),['node'],{env,encoding:'utf8',windowsHide:true}).stdout.trim();
 assert.ok(nodePaths.includes('runtime\\bin\\node.cmd'),'only the desktop Node shim should be available');
-const options = {command:resolve(desktopExe),args:['--expose-internals',join(runtime,'pnpm/bin/pnpm.mjs')],env,
+const pnpmEntry=[join(runtime,'primary-runtime/dependencies/pnpm/bin/pnpm.mjs'),join(runtime,'pnpm/bin/pnpm.mjs')].find(existsSync);
+assert.ok(pnpmEntry,'desktop bundled pnpm must exist');
+const options = {command:resolve(desktopExe),args:['--expose-internals',pnpmEntry],env,
   execution:'service',outputBytes:4000,activateNewBundles:true,lockWaitMs:10000,idleTimeoutMs:120000,lookupTimeoutMs:20000};
 const context = {profile:'desktop',dir:profile,cwd:process.cwd(),installAnchor:fileURLToPath(import.meta.resolve('@deepseek-ai/dsh/package.json')),home:join(workspace,'home')};
 const report = {gitAvailable:false,globalNode:false,packageSpec,steps:[],ok:false};
@@ -41,12 +45,12 @@ try {
     await copyFile(new URL('../tests/fixtures/public-0.3.13/store.json',import.meta.url),join(data,'store.json'));
     report.steps.push({operation:'install-old',version:'0.3.13'});
   }
-  assert.equal(await install(/^https?:/.test(packageSpec) ? packageSpec : resolve(packageSpec)),'0.4.0');
+  assert.equal(await install(/^https?:/.test(packageSpec) ? packageSpec : resolve(packageSpec)),currentManifest.version);
   for (const path of ['runtime/index.js','runtime/application/maintenance/upgrade.js','runtime/infrastructure/persistence/upgrade-backup.js','lib/client.js','skills/cuigengji-maintenance/SKILL.md']) {
     const hash = bytes => createHash('sha256').update(bytes).digest('hex');
     assert.equal(hash(await readFile(join(profile,'node_modules/dsh-cuigengji',path))),hash(await readFile(new URL('../'+path,import.meta.url))),`installed ${path} must match this build`);
   }
-  report.steps.push({operation:oldPackage?'update':'fresh-install',version:'0.4.0'});
+  report.steps.push({operation:oldPackage?'update':'fresh-install',version:currentManifest.version});
   const smoke = spawnSync(resolve(desktopExe),['--expose-internals',fileURLToPath(new URL('./installed-release-smoke.mjs',import.meta.url)),join(profile,'node_modules/dsh-cuigengji'),data],
     {env,encoding:'utf8',windowsHide:true,timeout:120000});
   assert.equal(smoke.status,0,smoke.stderr || smoke.stdout);

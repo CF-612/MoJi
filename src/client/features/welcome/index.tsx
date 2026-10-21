@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import avatar from '../../assets/avatar.png';
+import avatar from '../../assets/moji.png';
 
 interface Book {id: string; title: string; updatedAt?: string}
 interface Props {books: Book[]; busy: boolean; onOpen: (id: string) => unknown; onCreate: () => unknown; onImport: () => unknown; onManage: () => unknown}
@@ -16,9 +16,9 @@ export function Welcome({books, busy, onOpen, onCreate, onImport, onManage}: Pro
   const matching = sorted.filter(book => book.title.toLowerCase().includes(query.trim().toLowerCase()));
   const visible = query || expanded ? matching : matching.slice(0, 6);
   return <div className="welcome-scroll"><div className="welcome-document">
-    <section className="welcome-hero" aria-label="欢迎使用催更姬">
-      <img className="welcome-avatar" src={avatar} width={180} height={180} alt="催更姬头像，抱着玩偶的紫发少女"/>
-      <div className="welcome-intro"><span className="welcome-brand">催更姬 <span>· 你的写作助手</span></span>
+    <section className="welcome-hero" aria-label="欢迎使用墨叽">
+      <img className="welcome-avatar" src={avatar} width={180} height={180} alt="墨叽头像，抱着玩偶的紫发少女"/>
+      <div className="welcome-intro"><span className="welcome-brand">墨叽 <span>· 你的写作助手</span></span>
         <h1>{books.length ? '故事，等你继续。' : '你的故事，从这里开始。'}</h1>
         <p>写正文，聊情节，整理人物与世界。<br/>和 AI 一起，把脑海里的故事写下来。</p>
         <div className="welcome-actions"><button className="primary" disabled={busy} onClick={onCreate}>＋ 新建作品</button><button disabled={busy} onClick={onImport}>导入 / 导出</button></div>

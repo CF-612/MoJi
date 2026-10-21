@@ -1,7 +1,7 @@
 {
   "name": "dsh-cuigengji",
-  "version": "0.4.0",
-  "description": "催更姬：给大肥鱼一个小说工作台，一起写正文、讨论情节、整理人物与世界设定。",
+  "version": "0.10.2",
+  "description": "墨叽：陪你写故事的烟灰蛸小说工作台，支持正文、自由画布、情节连线与人物世界资料。",
   "type": "module",
   "main": "runtime/index.js",
   "exports": {
@@ -104,5 +104,11 @@
     "deepseek-harness",
     "novel-writing",
     "writing-assistant"
-  ]
+  ],
+  "displayName": "墨叽 · 小说工作台",
+  "moji": {
+    "id": "moji",
+    "englishName": "MoJi",
+    "updateManifestUrl": "https://raw.githubusercontent.com/CF-612/MoJi/moji-release/distribution/latest.json"
+  }
 }

@@ -1,7 +1,7 @@
 import React, {useEffect, useRef, useState} from 'react';
 import type {SnapshotSelectorHook} from '@deepseek-ai/dsh-client-store';
 import {styles} from './style.ts';
-import avatar from './assets/avatar.png';
+import avatar from './assets/moji.png';
 
 interface Workspace {workspaceId:string;title?:string;name?:string;cwd?:string;path?:string}
 interface Props {
@@ -67,10 +67,10 @@ export function Launcher({wide,useNovelSession,useNovelWorkspaces,useSessions,op
     finally {setBusy(false);}
   };
   return <div className="cg-launcher"><style>{launcherStyle}</style>
-    <button ref={trigger} className="cg-launcher-button" data-compact={!wide} type="button" title="催更姬 · 写作工作台" aria-label="打开催更姬" onClick={open}><BookIcon/>{wide&&<span>催更姬</span>}</button>
+    <button ref={trigger} className="cg-launcher-button" data-compact={!wide} type="button" title="墨叽 · 写作工作台" aria-label="打开墨叽" onClick={open}><BookIcon/>{wide&&<span>墨叽</span>}</button>
     {error&&!choosing&&<div className="cg-launcher-hint" role="alert">{error}</div>}
     {choosing&&<dialog ref={dialog} className="cuigengji cg-launcher-dialog" aria-label="打开写作工作台" onCancel={e=>{e.preventDefault();if(!busy)close();}}><style>{styles}</style>
-      <div className="launcher-intro"><img src={avatar} width={76} height={76} alt="催更姬头像"/><div><span>催更姬 · 写作助手</span><h2>故事，从这里开始。</h2></div></div><p className="muted">选择一个 DSH 工作区即可开始，无需先发消息。</p>
+      <div className="launcher-intro"><img src={avatar} width={76} height={76} alt="墨叽头像"/><div><span>墨叽 · 写作助手</span><h2>故事，从这里开始。</h2></div></div><p className="muted">选择一个 DSH 工作区即可开始，无需先发消息。</p>
       {workspaces.items.length?<label>工作区<select aria-label="工作区" value={workspace} disabled={busy} onChange={e=>setWorkspace(e.target.value)}>{workspaces.items.map(w=><option key={w.workspaceId} value={w.workspaceId}>{w.title||w.name||w.cwd||w.path||w.workspaceId}</option>)}</select></label>:<p>{workspaces.phase==='ready'?'请先在 DSH 左侧添加一个工作区，然后从这里进入。':'正在读取工作区…'}</p>}
       {error&&<p role="alert">{error}</p>}<div className="launcher-actions"><button onClick={close} disabled={busy}>取消</button><button className="primary" onClick={connect} disabled={busy||!workspace}>{busy?'正在打开…':'进入工作台'}</button></div>
     </dialog>}

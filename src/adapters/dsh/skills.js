@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs';
 export const skillSpecs = [
-  ['cuigengji-project', '接手催更姬小说项目，定位作者的协作目标，按需读取资料并安全保存正文、规划与设定。'],
+  ['cuigengji-project', '接手墨叽小说项目，定位作者的协作目标，按需读取资料并安全保存正文、规划与设定。'],
   ['cuigengji-plan', '讨论剧情走向、人物行动、因果或备选方案时使用；主动把结构性讨论维护到相关共享画布页，用事件、并行动线与分支帮助作者对齐思路。'],
   ['cuigengji-write', '按作者意图写作或续写小说正文，用章节工具保存，并按实际结果维护相关规划与设定。'],
   ['cuigengji-revise', '审阅或修订已保存正文，定位具体问题，用版本检查保留作者并行修改，并核对受影响的规划与设定。'],
   ['cuigengji-memory', '讨论、设计或完善人物动机、世界规则、阵营与关系时使用；主动复用设定卡与关系图，保留未决提案并区分既定事实。'],
-  ['cuigengji-maintenance', '安装或更新催更姬后，查询自动迁移、备份和完整性校验结果；不要求绑定小说。'],
+  ['cuigengji-maintenance', '安装或更新墨叽后，查询自动迁移、备份和完整性校验结果；不要求绑定小说。'],
 ];
 export function registerSkills(ctx) {
   const shared = readFileSync(new URL('../../../skills/cuigengji-project/SKILL.md', import.meta.url), 'utf8');

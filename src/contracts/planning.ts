@@ -1,10 +1,16 @@
 export interface Point { x: number; y: number }
+/** 剧情卡上的出场语义：appearance 为出场/参与，mention 只记录被提及，不进入头像组。 */
+export type CastKind = 'appearance' | 'mention';
+export interface CastRef { nodeId: string; kind: CastKind }
 export interface PlanningNode {
   id: string; revision: number; title: string; summary: string; content: string;
   scope: 'long' | 'phase' | 'near' | 'unspecified';
   status: 'idea' | 'selected' | 'written' | 'dropped';
   parentId: string | null; groupId?: string | null; pageId?: string | null; position?: Point | null;
   threads: string[]; chapterRefs: { chapterId: string; revision: number }[]; memoryRefs: string[];
+  cast?: CastRef[];
+  /** 该剧情卡关联的伏笔 id；伏笔被删除后仍保留，旧卡片照常可读。 */
+  foreshadowRefs?: string[];
   deleted: boolean; updatedAt: string; lastSequence?: number;
   actor?: { kind: string; sessionId?: string | null };
 }

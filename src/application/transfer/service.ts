@@ -142,11 +142,11 @@ export class TransferService {
   }
   private checkFormat(selection: Selection, format: ExportFormat) {
     if (!['package', 'txt', 'md'].includes(format)) fail('导出格式无效');
-    if (format !== 'package' && selection.kind !== 'chapters') fail('这个范围请使用催更姬数据包导出');
+    if (format !== 'package' && selection.kind !== 'chapters') fail('这个范围请使用墨叽数据包导出');
   }
   async export({selection, format = 'package'}: {selection: Selection; format?: ExportFormat}): Promise<DownloadFile> {
     this.checkFormat(selection, format);
-    if (selection.kind === 'workspace') return {filename: `催更姬工作库-${new Date().toISOString().slice(0, 10)}.json`, mime: 'application/json', content: JSON.stringify(await this.workData.export(), null, 2)};
+    if (selection.kind === 'workspace') return {filename: `墨叽工作库-${new Date().toISOString().slice(0, 10)}.json`, mime: 'application/json', content: JSON.stringify(await this.workData.export(), null, 2)};
     return this.locked(state => {
       const slice = selectProjects(Object.values(state.novels), selection);
       const name = (slice.projects.length === 1 ? slice.projects[0].title : `${slice.projects.length}部作品`).replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-').slice(0, 100);

@@ -1,6 +1,7 @@
 // The workbench is the typed migration boundary; legacy JSX modules are intentionally
 // consumed without declaration generation while they are migrated incrementally.
 // @ts-nocheck
+import {UpdateNotice} from './shared/UpdateNotice.tsx';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {PreferencesProvider, PreferencesDialog, AboutDialog, useWorkbenchPreferences} from './shared/preferences.tsx';
 import { styles } from './style.ts';
@@ -33,7 +34,7 @@ export function apply(ctx) {
 }
 
 export function applyWithRPC(ctx, rpc) {
-  const t = ctx.locale ? registerLocale(ctx) : key => ({ title: '催更姬', open: '打开小说目录、正文和设定' }[key]);
+  const t = ctx.locale ? registerLocale(ctx) : key => ({ title: '墨叽', open: '打开小说目录、正文和设定' }[key]);
   ctx.effect(() => ctx.sidebarRightTabs.register({
     id: ID, kind: 'cuigengji', keepMounted: true,
     patterns: ['dsh-resource://cuigengji/**'], title: () => t('title'),
@@ -102,8 +103,8 @@ function WorkbenchContent({ sessionId, rpc }) {
   const returnFromManagement=()=>{setReturnTarget(null);setHomeOpen(managementReturn==='welcome');setTab(['chapters','plan','memory','preset','manage'].includes(managementReturn)?managementReturn:'chapters');};
   const managementBack={onBack:returnFromManagement,backLabel:managementReturn==='welcome'?'返回作品首页':novelId?'返回'+({plan:'规划',memory:'设定',chapters:'正文',preset:'写作预设',manage:'作品与备份'}[managementReturn]||'正文'):'返回作品选择'};
   const jump=(page,key,id)=>{setReturnTarget(tab);try{localStorage.setItem(`cuigengji:ui:${sessionId}:${novelId}:${key}`,JSON.stringify(id));}catch{}setTab(page);};
-  return <section className="cuigengji" data-motion={preferences.motion} style={{'--prose-size':`${preferences.fontSize}px`,'--prose-leading':preferences.leading}} aria-label="催更姬小说工作台">
-    <style>{styles}</style>
+  return <section className="cuigengji" data-motion={preferences.motion} style={{'--prose-size':`${preferences.fontSize}px`,'--prose-leading':preferences.leading}} aria-label="墨叽小说工作台">
+    <style>{styles}</style><UpdateNotice/>
     <WorkbenchHeader home={showHome} novelTitle={novel?.title} tab={tab} busy={busy} refreshing={resource.loading} onHome={()=>{setHomeOpen(true);setReturnTarget(null);}} onTab={page=>{setReturnTarget(null);setTab(page);}} onRefresh={refresh} onSettings={()=>setUtility('settings')} onAbout={()=>setUtility('about')}/>
     {error && <div className="notice error" role="alert">{error}<button onClick={()=>setError('')}>关闭提示</button></div>}
 

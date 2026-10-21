@@ -1,7 +1,7 @@
 {
   "name": "dsh-cuigengji",
-  "version": "0.4.0",
-  "description": "催更姬：给大肥鱼一个小说工作台，一起写正文、讨论情节、整理人物与世界设定。",
+  "version": "0.10.2",
+  "description": "墨叽：陪你写故事的烟灰蛸小说工作台，支持正文、自由画布、情节连线与人物世界资料。",
   "type": "module",
   "main": "runtime/index.js",
   "exports": {
@@ -31,7 +31,8 @@
         "@deepseek-ai/dsh-client-ui-sidebar-right",
         "@deepseek-ai/dsh-client-ui-session",
         "@deepseek-ai/dsh-client-ui-sidebar",
-        "@deepseek-ai/dsh-client-ui-workspace"
+        "@deepseek-ai/dsh-client-ui-workspace",
+        "@deepseek-ai/dsh-client-ui-conversation"
       ]
     }
   },
@@ -59,11 +60,13 @@
     "test:navigation": "node tests/ui-navigation.mjs",
     "test:manuscript": "node tests/ui-manuscript.mjs",
     "test:chapter-order": "node tests/ui-chapter-order.mjs",
-    "test:author-workflow": "node tests/ui-author-workflow.mjs"
+    "test:author-workflow": "node tests/ui-author-workflow.mjs",
+    "deploy": "node scripts/deploy-personal-cloud.mjs",
+    "package:moji": "node scripts/package-moji.mjs"
   },
   "engines": {
     "node": ">=24",
-    "dsh": "0.2.0-rc.2"
+    "dsh": "0.2.0-rc.2 || 0.2.1-rc.2"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",
@@ -71,7 +74,7 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "~4.0.4",
-    "@deepseek-ai/dsh-tools": "0.2.0-rc.2",
+    "@deepseek-ai/dsh-tools": "0.2.0-rc.2 || 0.2.1-rc.2",
     "@deepseek-ai/schemastery": "~3.18.4"
   },
   "devDependencies": {
@@ -93,16 +96,35 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mistnest/dsh-cuigengji-plugin.git"
+    "url": "git+https://github.com/CF-612/MoJi.git"
   },
-  "homepage": "https://github.com/mistnest/dsh-cuigengji-plugin#readme",
+  "homepage": "https://github.com/CF-612/MoJi#readme",
   "bugs": {
-    "url": "https://github.com/mistnest/dsh-cuigengji-plugin/issues"
+    "url": "https://github.com/CF-612/MoJi/issues"
   },
   "keywords": [
     "dsh",
     "deepseek-harness",
     "novel-writing",
     "writing-assistant"
-  ]
+  ],
+  "displayName": "墨叽 · 小说工作台",
+  "moji": {
+    "id": "moji",
+    "englishName": "MoJi",
+    "updateManifestUrl": "https://raw.githubusercontent.com/CF-612/MoJi/moji-release/distribution/latest.json"
+  },
+  "cloudflare": {
+    "bindings": {
+      "MOJI_OWNER_KEY": {
+        "description": "为你自己的墨叽设置一个至少 24 位的随机密钥；连接客户端时使用。无需 Auth0。"
+      }
+    }
+  },
+  "imports": {
+    "#moji-shared-ui": {
+      "types": "./src/client/shared-ui.d.ts",
+      "default": "./integrations/chatgpt-workbench/client/native-shared-ui.mjs"
+    }
+  }
 }

@@ -1,3 +1,4 @@
+import {testCredentials} from './helpers/credentials.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
@@ -10,7 +11,7 @@ test('registered DSH tools execute through session policy and real MCP', async t
   const root = await mkdtemp(join(tmpdir(), 'cuigengji-host-'));
   const registered = new Map();
   const effects = [];
-  const ctx = {
+  const ctx = {credentials:testCredentials(),
     tools: { register: tool => registered.set(tool.name, tool), guard() {} },
     skills: { register() {} }, connection: { fetch: { register() {} } },
     on() {}, effect: fn => effects.push(fn()), provide: (key, value) => { ctx[key] = value; },

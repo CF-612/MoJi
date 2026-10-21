@@ -13,7 +13,7 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
   const token=await new SignJWT({scope:'novel:read novel:write'}).setProtectedHeader({alg:'RS256',kid:'test'}).setSubject(env.OWNER_SUB).setIssuer(env.AUTH0_ISSUER).setAudience(env.MCP_RESOURCE).setIssuedAt().setExpirationTime('5m').sign(privateKey);
   const bundle=await build({entryPoints:[fileURLToPath(new URL('../entry.mjs',import.meta.url))],bundle:true,write:false,format:'esm',platform:'neutral',conditions:['workerd','worker','browser'],external:['node:*','cloudflare:*'],mainFields:['module','main']});
   const html=await readFile(new URL('../public/index.html',import.meta.url),'utf8');
-  const mf=new Miniflare(convertV4MiniflareOptions({resourcePersistencePath:persist,resourceTmpPath:persist+'/tmp',modules:true,script:bundle.outputFiles[0].text,compatibilityDate:'2026-10-10',compatibilityFlags:['nodejs_compat'],d1Databases:{DB:'worker-demo'},durableObjects:{WORKBENCH_RUNTIME:{className:'WorkbenchRuntime',useSQLite:true}},bindings:env,serviceBindings:{ASSETS:()=>new Response(html)},outboundService:request=>request.url==='https://tenant.auth0.com/.well-known/jwks.json'?Response.json(jwks):new Response('Blocked in test',{status:403})}));
+  const testOptions={resourcePersistencePath:persist,resourceTmpPath:persist+'/tmp',modules:true,script:bundle.outputFiles[0].text,compatibilityDate:'2026-10-10',compatibilityFlags:['nodejs_compat'],d1Databases:{DB:'worker-demo'},durableObjects:{WORKBENCH_RUNTIME:{className:'WorkbenchRuntime',useSQLite:true}},bindings:env,serviceBindings:{ASSETS:()=>new Response(html)},outboundService:request=>request.url==='https://tenant.auth0.com/.well-known/jwks.json'?Response.json(jwks):new Response('Blocked in test',{status:403})};const mf=new Miniflare(convertV4MiniflareOptions(testOptions));
   try{
     const db=await mf.getD1Database('DB');const sql=await Promise.all(['../migrations/0001_workspace.sql','../migrations/0002_workspace_blobs.sql'].map(p=>readFile(new URL(p,import.meta.url),'utf8'))).then(v=>v.join('\n'));for(const s of sql.match(/CREATE TABLE[\s\S]*?;|CREATE TRIGGER[\s\S]*?END;/g))await db.prepare(s).run();
     assert.equal((await mf.dispatchFetch('http://localhost/mcp')).status,401);
@@ -26,8 +26,10 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
     assert.ok(listing.tools.some(t=>t.name==='workbench_import_preview'),'聊天 AI 必须有导入预览工具');
     assert.ok(listing.tools.some(t=>t.name==='workbench_import'),'聊天 AI 必须有携带预览证明的导入工具');
     const openTool=listing.tools.find(t=>t.name==='workbench_open');
-    assert.equal(openTool._meta.ui.resourceUri,'ui://cuigengji/cloud-v096');
+    assert.equal(openTool._meta.ui.resourceUri,'ui://moji/cloud-v0102');
     assert.equal(openTool._meta['openai/outputTemplate'],openTool._meta.ui.resourceUri);
+    const updateResource=await call('resources/read',{uri:openTool._meta.ui.resourceUri});
+    assert.ok(updateResource.contents[0]._meta.ui.csp.connectDomains.includes('https://raw.githubusercontent.com'));
     for(const name of ['workbench_bootstrap','workbench_ui_rpc']){
       const tool=listing.tools.find(t=>t.name===name);
       assert.equal(tool._meta['openai/widgetAccessible'],true,'旧组件桥接也必须允许界面调用 '+name);
@@ -44,6 +46,10 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
     const chapters=await call('tools/call',{name:'workbench_query',arguments:{action:'chapter.list',args:{novelId}}});assert.equal(chapters.structuredContent.result.length,1);
     const ui=async(action,args={})=>{const result=await call('tools/call',{name:'workbench_ui_rpc',arguments:{action,args,sessionId:'mobile-qa'}});assert.equal(result.isError,undefined,JSON.stringify(result.content));return result.structuredContent.result;};
     const edit=async(action,args)=>{const result=await call('tools/call',{name:'workbench_edit',arguments:{action,args:{novelId,requestId:crypto.randomUUID(),...args}}});assert.equal(result.isError,undefined,JSON.stringify(result.content));return result.structuredContent.result;};
+    const initialLayout=await ui('timeline.layout.get',{novelId});
+    const nextLayout=await ui('timeline.layout.save',{novelId,expectedRevision:initialLayout.revision,value:{tracks:initialLayout.tracks,placements:{}}});
+    assert.equal(nextLayout.revision,initialLayout.revision+1);
+    assert.deepEqual(await ui('timeline.layout.get',{novelId}),nextLayout);
     const organization=await edit('writing.card.create',{type:'world_book',name:'测试组织',values:{'world:category':'组织'}});
     const actor=await edit('writing.card.create',{type:'character_card',name:'角色甲',organizationIds:[organization.id],organizationRevisions:{[organization.id]:organization.revision}});
     const other=await edit('writing.card.create',{type:'character_card',name:'角色乙'});
@@ -81,6 +87,12 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
     const imported=await call('tools/call',{name:'workbench_import',arguments:aiArgs});assert.equal(imported.isError,undefined);assert.equal(imported.structuredContent.result.counts.chapters,1);
     assert.ok((await call('tools/call',{name:'workbench_import',arguments:aiArgs})).structuredContent.result.repeated);
     const created=await call('tools/call',{name:'workbench_edit',arguments:{action:'novel.create',args:{title:'AI 新建作品',requestId:crypto.randomUUID()}}});assert.equal(created.isError,undefined);
+    const quick=await ui('chapter.create',{novelId,title:'快捷创建验收',summary:'梗概',characters:[{name:'新人物'}],events:[{title:''}]});
+    assert.equal((await ui('writing.link.list',{novelId,chapterId:quick.id}))[0].manual,true);
+    assert.equal((await ui('writing.event.list',{novelId,chapterId:quick.id}))[0].title,'未命名事件');
     assert.equal((await mf.dispatchFetch('http://localhost/index.html')).status,404);
+    await mf.setOptions(convertV4MiniflareOptions({...testOptions,bindings:{...env,MOJI_AUTH:'builtin'}}));
+    assert.ok((await call('tools/list')).tools.some(t=>t.name==='workbench_open'),'切换内置授权后，原作者已签发的旧令牌仍可安全过渡');
+    assert.equal((await mf.dispatchFetch('http://localhost/mcp',{headers:{Authorization:'Bearer forged.invalid.signature'}})).status,401,'旧令牌兼容分支仍必须验签');
   }finally{await mf.dispose();}
 });

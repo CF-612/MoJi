@@ -15,7 +15,7 @@ export function createSessionPolicy({ store, audit, ready = async () => undefine
       // Inspecting an unbound session is valid and lets the agent explain how
       // to begin; all novel data operations still require an author binding.
       if (action === 'binding.get') return binding;
-      if (!binding) throw new Error('请先在催更姬面板绑定小说');
+      if (!binding) throw new Error('请先在墨叽面板绑定小说');
       if (args.novelId && args.novelId !== binding.novelId) throw new Error('不能访问另一部小说');
       args = { ...args, novelId: binding.novelId };
 
@@ -33,15 +33,15 @@ export function createSessionPolicy({ store, audit, ready = async () => undefine
       void memory.disconnect(sessionId).catch(error => ctx.logger?.warn?.(`cuigengji memory cleanup: ${error.message}`));
     };
     ctx.on('agent/pre-step', async ({ agent }, next) => {
-      const sessionId = String(agent.id);
+      const sessionId = String(agent.session?.id || agent.id);
       try {await resolveBinding(sessionId);}
-      catch (error) {if (error.code !== 'UPGRADE_REQUIRED') throw error;}
+      catch (error) {if (!['UPGRADE_REQUIRED','UNAUTHENTICATED','NOT_AUTHENTICATED','UNAUTHORIZED','NETWORK_ERROR','TIMEOUT','REFRESH_FAILED'].includes(error.code)) throw error;}
       // pre-step is admitted only while the agent is running (DSH contract).
       active.add(sessionId);
       return next();
     });
     ctx.on('agent/status', ({ agent, status }) => {
-      const sessionId = String(agent.id);
+      const sessionId = String(agent.session?.id || agent.id);
       if (status === 'running') active.add(sessionId);
       else {
         active.delete(sessionId);
@@ -49,10 +49,10 @@ export function createSessionPolicy({ store, audit, ready = async () => undefine
       }
     });
     ctx.on('agent/disposed', ({ agent }) => {
-      const sessionId = String(agent.id);
+      const sessionId = String(agent.session?.id || agent.id);
       active.delete(sessionId);
       disconnect(sessionId);
     });
   }
-  return { dispatch, resolveBinding, register };
+  return { dispatch, resolveBinding, register, isBusy: () => active.size > 0, isSessionBusy: id => active.has(id) };
 }

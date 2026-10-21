@@ -12,7 +12,7 @@ test('session policy scopes novel data access without restricting host tools', a
   } };
   const policy = createSessionPolicy({ store, audit: async () => {} });
   assert.equal(await policy.dispatch('binding.get', {}, { kind: 'agent', sessionId: 's1' }), null);
-  await assert.rejects(policy.dispatch('novel.get', {}, { kind: 'agent', sessionId: 's1' }), /先在催更姬/);
+  await assert.rejects(policy.dispatch('novel.get', {}, { kind: 'agent', sessionId: 's1' }), /先在墨叽/);
   assert.equal(calls[0].actor.sessionId, 's1');
 });
 

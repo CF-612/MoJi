@@ -1,3 +1,4 @@
+﻿import {useModules} from '../../modules/context.tsx';
 import {CanvasEditorSurface} from '../../shared/CanvasEditorSurface.tsx';
 import React,{useEffect,useId,useMemo,useState} from 'react';
 import {arrange} from './layout.ts';
@@ -8,6 +9,7 @@ import {DecorationCard} from './Decorations.tsx';
 import {CanvasMenu} from './CanvasMenu.tsx';
 import type {MenuItem} from './CanvasMenu.tsx';
 import type {Decoration,NodeIndex,PlanningEdge,PlanningGroup,Point} from '../../../contracts/planning.ts';
+import type {CastPerson} from '../../shared/CastAvatars.tsx';
 import {CanvasDraft} from './CanvasDraft.tsx';
 import type {CanvasCreation,CanvasDraftValue} from './CanvasDraft.tsx';
 import {SceneCard} from './SceneCard.tsx';
@@ -30,8 +32,11 @@ interface Props {
   creation:CanvasCreation|null;saveCreation:(value:CanvasDraftValue,requestId:string)=>Promise<boolean|undefined>;cancelCreation:()=>void;
   editingDecoration:Decoration|null;saveDecoration:(value:Decoration,requestId:string)=>Promise<boolean|undefined>;closeDecoration:()=>void;
   focusId?:string|null;focused:()=>void;
+  /** 剧情卡右上角出场人物头像组使用的资料卡索引 */
+  people?:CastPerson[];onOpenPerson?:(nodeId:string)=>void;onExpandCast?:(node:NodeIndex)=>void;
 }
 export function PlanningCanvas(props:Props){
+  const modules=useModules();
   const {nodes,allNodes,edges,groups,decorations,busy,filtered,onSelect,onLayout,onConnect,onDisconnect,onNew,onDecorate,onEditDecoration}=props;
   const marker=useId(),[menu,setMenu]=useState<GraphContext|null>(null);
   const objects=useMemo(()=>[...allNodes,...decorations],[allNodes,decorations]);
@@ -62,8 +67,8 @@ export function PlanningCanvas(props:Props){
     if(edge)items=[{label:'断开连线',action:()=>{void onDisconnect([edge]);},danger:true}];
     else if(menu.hit.kind==='port')items=[{label:'断开此连接点的连线',disabled:!linkedPort.length,action:()=>{void onDisconnect(linkedPort);},danger:true}];
     else if(decoration)items=[{label:'打开内容',action:()=>onEditDecoration(decoration)},...(decoration.kind==='frame'?[{label:decoration.moveContents?'仅移动讨论框':'带动内部卡片',action:()=>props.onToggleFrame(decoration)}]:[]),{label:decoration.kind==='frame'?'删除框，保留内容':'删除批注',action:()=>props.onRemove([decoration.id]),danger:true}];
-    else if(currentIds.length>1&&menu.hit.kind==='node')items=[{label:'创建讨论框',action:()=>createFrame(currentIds)},moveItem,{label:'复制卡片',action:()=>props.onDuplicate(currentIds,points)},{label:`删除 ${currentIds.length} 张卡片`,action:()=>props.onRemove(currentIds),danger:true}];
-    else if(menu.hit.kind==='node')items=[{label:'快捷设置',action:()=>props.onQuick(menu.hit.id!)},{label:'打开内容',action:()=>onSelect(menu.hit.id!)},moveItem,{label:'复制卡片',action:()=>props.onDuplicate([menu.hit.id!],points)},{label:'删除卡片',action:()=>props.onRemove([menu.hit.id!]),danger:true}];
+    else if(currentIds.length>1&&menu.hit.kind==='node')items=[{label:'创建讨论框',action:()=>createFrame(currentIds)},...(modules.groups?[moveItem]:[]),{label:'复制卡片',action:()=>props.onDuplicate(currentIds,points)},{label:`删除 ${currentIds.length} 张卡片`,action:()=>props.onRemove(currentIds),danger:true}];
+    else if(menu.hit.kind==='node')items=[{label:'快捷设置',action:()=>props.onQuick(menu.hit.id!)},{label:'打开内容',action:()=>onSelect(menu.hit.id!)},...(modules.groups?[moveItem]:[]),{label:'复制卡片',action:()=>props.onDuplicate([menu.hit.id!],points)},{label:'删除卡片',action:()=>props.onRemove([menu.hit.id!]),danger:true}];
     else items=[{label:'新建情节',action:()=>onNew(menu.point)},{label:'文字批注',action:()=>onDecorate('note',menu.point)},{label:'讨论框',action:()=>currentIds.length?createFrame(currentIds):onDecorate('frame',menu.point)}];
   }
   return <><div ref={graph.scroll} className={`planning-canvas-scroll ${graph.dragging?'graph-dragging':''} ${zoom<.6?'graph-overview':''}`} style={graph.viewportStyle} {...graph.scrollProps} onKeyDown={e=>{if(['Delete','Backspace'].includes(e.key)&&!busy&&!graph.saving&&!graph.failed&&!graph.wire&&!(e.target as HTMLElement).closest('input,textarea,select,[contenteditable=true],summary,.graph-view-controls,.graph-help,.graph-status,[role=menu]')){e.preventDefault();const active=edges.find(v=>v.id===graph.selectedEdge);if(active)void onDisconnect([active]);else if(graph.selected.length)props.onRemove(graph.selected);}}}>
@@ -73,7 +78,7 @@ export function PlanningCanvas(props:Props){
         {links.map(e=>{const a=points[e.from],b=points[e.to],path=curve({x:a.x+CARD_WIDTH,y:a.y+PORT_Y},{x:b.x,y:b.y+PORT_Y});return <g key={e.id} className={graph.selectedEdge===e.id?'edge-selected':''}><path d={path} className="graph-line" markerEnd={`url(#${marker})`}/><path data-edge-id={e.id} className="edge-hit" d={path} role="button" tabIndex={0} aria-label={`连线：${nodes.find(n=>n.id===e.from)?.title} → ${nodes.find(n=>n.id===e.to)?.title}`} aria-pressed={graph.selectedEdge===e.id} onClick={()=>graph.setSelectedEdge(e.id)} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();graph.setSelectedEdge(e.id);}}}/></g>;})}
         {graph.preview&&<path className="graph-preview" d={graph.preview}/>}
       </svg>
-      {nodes.map(n=><SceneCard key={n.id} node={n} point={points[n.id]} onQuick={()=>props.onQuick(n.id)} busy={busy||graph.saving||graph.failed} selected={graph.selected.includes(n.id)} dragProps={graph.cardProps(n.id,()=>onSelect(n.id))} inPort={graph.portProps(n.id,'in',n.title)} outPort={graph.portProps(n.id,'out',n.title)}/>)}
+      {nodes.map(n=><SceneCard key={n.id} node={n} point={points[n.id]} busy={busy||graph.saving||graph.failed} selected={graph.selected.includes(n.id)} dragProps={graph.cardProps(n.id,()=>onSelect(n.id))} inPort={graph.portProps(n.id,'in',n.title)} outPort={graph.portProps(n.id,'out',n.title)} people={props.people} onOpen={()=>onSelect(n.id)} onOpenPerson={props.onOpenPerson} onExpandCast={props.onExpandCast}/>)}
       {props.creation&&<CanvasEditorSurface><CanvasDraft key={props.creation.key} creation={props.creation} draftKey={`${props.scopeKey}:create:${props.creation.kind}:${props.creation.source?.id||'new'}`} busy={busy} save={props.saveCreation} close={props.cancelCreation}/></CanvasEditorSurface>}
       {props.editingDecoration&&points[props.editingDecoration.id]&&<CanvasEditorSurface><DecorationInlineEditor key={props.editingDecoration.id} initial={props.editingDecoration} latest={decorations.find(d=>d.id===props.editingDecoration!.id)} point={points[props.editingDecoration.id]} scopeKey={props.scopeKey} busy={busy} save={props.saveDecoration} close={props.closeDecoration}/></CanvasEditorSurface>}
     </div>

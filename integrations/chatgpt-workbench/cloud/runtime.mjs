@@ -6,7 +6,7 @@ import {createCloudService} from './service.mjs';
 export class WorkbenchRuntime extends DurableObject {
   constructor(ctx,env){super(ctx,env);this.tail=Promise.resolve();}
   async invoke(owner,method,args){
-    if(owner!==this.env.OWNER_SUB||!['rpc','bootstrap','collaborationHistory'].includes(method))return {error:{code:'FORBIDDEN',message:'不允许访问此工作库'}};
+    if(owner!==(this.env.OWNER_SUB || (this.env.MOJI_AUTH==='builtin'?'moji-owner':null))||!['rpc','bootstrap','collaborationHistory'].includes(method))return {error:{code:'FORBIDDEN',message:'不允许访问此工作库'}};
     const run=this.tail.then(async()=>{
       try{if(this.env.TRANSFER_DISABLED==='1'&&method==='rpc'&&args[0]==='transfer.import')throw Object.assign(new Error('兼容回退版暂停导入；作品与最新数据保留。'),{code:'NOT_AVAILABLE'});return {result:await createCloudService(this.env.DB,owner)[method](...args)};}
       catch(e){return {error:{code:e.code||'ERROR',message:e.message}};}

@@ -1,6 +1,6 @@
 {
   "name": "cuigengji-chatgpt-workbench",
-  "version": "0.2.0",
+  "version": "0.10.2",
   "private": true,
   "type": "module",
   "engines": {
@@ -14,9 +14,11 @@
     "cloud:check": "wrangler deploy --config cloud/wrangler.jsonc --dry-run",
     "start": "node server/index.mjs",
     "test": "node --test tests/*.test.mjs",
-    "test:cloud": "node --test cloud/tests/*.test.mjs"
+    "test:cloud": "node --test cloud/tests/*.test.mjs",
+    "build:workbench": "node scripts/build-workbench.mjs"
   },
   "dependencies": {
+    "@cloudflare/workers-oauth-provider": "1.2.3",
     "@modelcontextprotocol/ext-apps": "^1.7.5",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "esbuild": "^0.25.0",
@@ -29,5 +31,12 @@
   },
   "devDependencies": {
     "wrangler": "^4.149.0"
+  },
+  "displayName": "墨叽 · 小说工作台",
+  "description": "墨叽：陪你写故事的烟灰蛸小说工作台，支持正文、自由画布、情节连线与人物世界资料。",
+  "moji": {
+    "id": "moji",
+    "englishName": "MoJi",
+    "updateManifestUrl": "https://raw.githubusercontent.com/CF-612/MoJi/moji-release/distribution/latest.json"
   }
 }

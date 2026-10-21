@@ -1,3 +1,4 @@
+import {testCredentials} from './helpers/credentials.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp, rm, readFile} from 'node:fs/promises';
@@ -15,7 +16,7 @@ for (const skill of ['plan','memory','write']) {
 async function fixture(t, {independentPage = false} = {}) {
   const root = await mkdtemp(join(tmpdir(), 'cuigengji-skill-example-'));
   const tools = new Map(), effects = [];
-  const ctx = {tools:{register:tool=>tools.set(tool.name,tool)}, skills:{register(){}},
+  const ctx = {credentials:testCredentials(),tools:{register:tool=>tools.set(tool.name,tool)}, skills:{register(){}},
     connection:{fetch:{register(){}}}, on(){}, effect:fn=>effects.push(fn()),
     provide:(key,value)=>{ctx[key]=value;}};
   t.after(async()=>{for(const dispose of effects)await dispose();await rm(root,{recursive:true,force:true});});

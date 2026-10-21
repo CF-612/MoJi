@@ -1,0 +1,30 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,mkdir} from 'node:fs/promises';
+import {join} from 'node:path';
+import {Store} from '../src/application/store.js';
+import {HUMAN_ACTIONS} from '../src/contracts/actions.js';
+
+test('正式安排跨实例保存、进入整本备份，冲突和越权不覆盖原文',async()=>{
+ await mkdir('.test-runtime',{recursive:true});
+ const root=await mkdtemp(join('.test-runtime','moji-layout-')),store=new Store(root),actor={kind:'human',sessionId:'test'};
+ const novel=await store.dispatch('novel.create',{title:'安排验证'},actor),novelId=novel.id;
+ const chapter=await store.dispatch('chapter.create',{novelId,title:'第一章',content:'必须保留的原文'},actor);
+ const initial=await store.dispatch('timeline.layout.get',{novelId},actor);
+ const value={tracks:initial.tracks,placements:{'planning:test':{trackId:'main',narration:{start:{anchorId:chapter.id,offset:.2},end:{anchorId:chapter.id,offset:.8}}}}};
+ const saved=await store.dispatch('timeline.layout.save',{novelId,expectedRevision:0,value},actor);
+ assert.equal(saved.revision,1);
+ assert.deepEqual(await new Store(root).dispatch('timeline.layout.get',{novelId},actor),saved);
+ await assert.rejects(store.dispatch('timeline.layout.save',{novelId,expectedRevision:0,value},actor),{code:'CONFLICT'});
+ await assert.rejects(store.dispatch('timeline.layout.save',{novelId,expectedRevision:1,value},{kind:'agent'}),{code:'FORBIDDEN'});
+ await assert.rejects(store.dispatch('timeline.layout.save',{novelId,expectedRevision:1,value:{...value,placements:{'planning:test':{chapterRefs:[]}}}},actor));
+ const backup=await store.dispatch('novel.export',{novelId},actor);
+ assert.deepEqual(backup.novel.timelineLayout,saved);
+ const restored=new Store(await mkdtemp(join('.test-runtime','moji-layout-import-')));
+ await restored.dispatch('novel.import',{backup},actor);
+ assert.deepEqual(await restored.dispatch('timeline.layout.get',{novelId},actor),saved);
+ const body=await store.dispatch('chapter.get',{novelId,chapterId:chapter.id},actor);
+ assert.equal(body.content,'必须保留的原文');
+ assert.equal(body.revision,1);
+ assert.ok(HUMAN_ACTIONS.includes('timeline.layout.save'));
+});

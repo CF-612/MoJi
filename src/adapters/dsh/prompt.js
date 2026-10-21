@@ -10,18 +10,18 @@ export function registerPrompt(ctx, { store, resolveBinding } = {}) {
     const result = await next();
     if (!context.agent?.id) return result;
     context.signal?.throwIfAborted();
-    const actor = { kind: 'agent', sessionId: String(context.agent.id) };
-    let binding;
+    const actor = { kind: 'agent', sessionId: String(context.agent.session?.id || context.agent.id) };
+    let binding,preset;
     try {binding = store && await (resolveBinding
       ? resolveBinding(actor.sessionId)
-      : store.dispatch('binding.get', {}, actor));}
+      : store.dispatch('binding.get', {}, actor));
+      preset=binding ? await store.dispatch('preset.read', {}, actor) : null;}
     catch (error) {
-      if (error.code !== 'UPGRADE_REQUIRED') throw error;
+      if (!['UPGRADE_REQUIRED','UNAUTHENTICATED','NOT_AUTHENTICATED','UNAUTHORIZED','TOKEN_EXPIRED','NETWORK_ERROR','TIMEOUT','REFRESH_FAILED'].includes(error.code)) throw error;
       // A broken project must not prevent the host agent from calling the
       // unbound maintenance tool or the native plugin manager.
       return {...result,sections:result.sections.filter(entry => !OWN_NAMES.has(entry.name)),contexts:result.contexts.filter(entry => !OWN_NAMES.has(entry.name))};
     }
-    const preset = binding ? await store.dispatch('preset.read', {}, actor) : null;
     context.signal?.throwIfAborted();
     return {
       ...result,

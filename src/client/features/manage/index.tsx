@@ -12,7 +12,7 @@ export function Manage({call, novelId, novel, run, busy, onTransfer, onBack, bac
       <button className="primary" disabled={busy} onClick={() => onTransfer({mode: 'export', selection: {kind: 'works', novelIds: [novelId]}})}>导出这部作品</button>
     </ManagementSection>}
     <ManagementSection title="导入与迁移">
-      <button className="management-action-link" aria-label="恢复或导入作品" disabled={busy} onClick={() => onTransfer({mode: 'import'})}><span><strong>恢复或导入作品</strong><small>催更姬备份、旧项目和写作内容，统一识别并预览</small></span><span aria-hidden="true">›</span></button>
+      <button className="management-action-link" aria-label="恢复或导入作品" disabled={busy} onClick={() => onTransfer({mode: 'import'})}><span><strong>恢复或导入作品</strong><small>墨叽备份、旧项目和写作内容，统一识别并预览</small></span><span aria-hidden="true">›</span></button>
       <button className="management-action-link" aria-label="备份整个工作库" disabled={busy} onClick={() => onTransfer({mode: 'export', selection: {kind: 'workspace'}})}><span><strong>备份整个工作库</strong><small>保留所有作品、历史和会话绑定，适合迁移到新电脑</small></span><span aria-hidden="true">›</span></button>
     </ManagementSection>
   </ManagementPage>;

@@ -1,0 +1,26 @@
+// 仅更新已安装的桌面 profile；保留旧包及配置备份，不重启宿主。
+import {readFile,writeFile,copyFile,mkdir} from 'node:fs/promises';
+import {existsSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import {spawn} from 'node:child_process';
+import {join,resolve} from 'node:path';
+import assert from 'node:assert/strict';
+const home=join(process.env.USERPROFILE,'.dsh'),profile=join(home,'profiles/desktop');
+const exe=join(process.env.LOCALAPPDATA,'Programs/DeepSeek Harness/DeepSeek Harness.exe');
+const cli=join(process.env.LOCALAPPDATA,'Programs/DeepSeek Harness/resources/app.asar/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js');
+const candidate=resolve(process.argv[2]),bytes=await readFile(candidate),digest=createHash('sha256').update(bytes).digest('hex');
+const before=JSON.parse(await readFile(join(profile,'package.json'),'utf8'));assert.ok(before.dependencies['dsh-cuigengji'],'必须是已安装的桌面插件');
+const backup=resolve('.data/dsh-candidate/profile-backup-'+Date.now());await mkdir(backup,{recursive:true});
+for(const file of ['package.json','pnpm-lock.yaml','cordis.patch.yml'])if(existsSync(join(profile,file)))await copyFile(join(profile,file),join(backup,file));
+const patch=await readFile(join(profile,'cordis.patch.yml'),'utf8');
+const installed=join(home,'plugin-packages',`dsh-cuigengji-0.10.2-native-${digest.slice(0,10)}.tgz`);
+if(existsSync(installed))assert.equal(createHash('sha256').update(await readFile(installed)).digest('hex'),digest);else await copyFile(candidate,installed);
+const result=await new Promise((done,reject)=>{let output='';const child=spawn(exe,['--expose-internals',cli,'plugin','--profile','desktop','add',installed],{env:{...process.env,ELECTRON_RUN_AS_NODE:'1',DSH_DESKTOP_NODE_EXECUTABLE:exe},windowsHide:true,stdio:['ignore','pipe','pipe']});child.stdout.on('data',data=>output+=data);child.stderr.on('data',data=>output+=data);child.on('error',reject);child.on('close',code=>done({code,output}));});
+await writeFile(join(backup,'install.log'),result.output);assert.equal(result.code,0,'DSH 原生更新失败，详见 '+join(backup,'install.log'));
+const after=JSON.parse(await readFile(join(profile,'package.json'),'utf8'));
+for(const [name,value] of Object.entries(before.dependencies))if(name!=='dsh-cuigengji')assert.equal(after.dependencies[name],value,'其他插件依赖应保留');
+assert.deepEqual(after.dsh,before.dsh,'原有插件启用配置应保留');assert.equal(await readFile(join(profile,'cordis.patch.yml'),'utf8'),patch);
+const manifest=JSON.parse(await readFile(join(profile,'node_modules/dsh-cuigengji/package.json'),'utf8'));assert.equal(manifest.version,'0.10.2');
+assert.deepEqual(await readFile(join(profile,'node_modules/dsh-cuigengji/lib/client.js')),await readFile('lib/client.js'));
+const report={ok:true,installedVersion:manifest.version,profile:'desktop',packageSha256:digest,otherPluginsPreserved:true,patchPreserved:true,backup,hostRestarted:false};
+await writeFile('.data/dsh-candidate/user-install-report.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));

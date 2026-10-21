@@ -71,4 +71,14 @@ export const navigationStyles = `
 }
 @media(prefers-reduced-motion:reduce) {.cuigengji .is-refreshing .app-icon {animation:none;}}
 .cuigengji[data-motion=reduce] .is-refreshing .app-icon {animation:none;}
+
+.cuigengji .manuscript-history {display:none;align-items:center;gap:2px;padding-right:6px;margin-right:2px;border-right:1px solid var(--cg-line);}
+@container(max-width:759px) {
+ .cuigengji .manuscript-history {display:inline-flex;}
+ .cuigengji .chapter-toolbar .prose-tools .manuscript-history .icon-button {width:44px;min-width:44px;height:44px;min-height:44px;padding:10px;display:inline-flex;align-items:center;justify-content:center;touch-action:manipulation;}
+}
+@media(pointer:coarse) {
+ .cuigengji .manuscript-history {display:inline-flex;}
+ .cuigengji .chapter-toolbar .prose-tools .manuscript-history .icon-button {width:44px;min-width:44px;height:44px;min-height:44px;padding:10px;display:inline-flex;align-items:center;justify-content:center;touch-action:manipulation;}
+}
 `;

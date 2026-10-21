@@ -19,6 +19,9 @@ if (process.argv.includes('--stdio')) {
       res.setHeader('Cache-Control', 'no-store');
       if (req.headers.host !== `127.0.0.1:${port}`) {res.writeHead(403).end();return;}
       if (req.headers.origin && req.headers.origin !== origin) {res.writeHead(403).end();return;}
+      if (req.url === '/health' && req.method === 'GET') {
+        res.setHeader('Content-Type', 'application/json');res.end(JSON.stringify({product:'moji',version:'0.10.2'}));return;
+      }
       if (req.url === '/mcp') {
         if (req.method !== 'POST') {res.writeHead(405).end();return;}
         const mcp = createMcp(service);

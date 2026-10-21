@@ -67,6 +67,9 @@ export function useGraph(options:Options){
   const gesture=useRef<Gesture|null>(null),locked=useRef(false),suppress=useRef(false),rightEnd=useRef(0),space=useRef(false);
   const touches=useRef(new Map<number,Point>()),pinch=useRef<{before:Camera;center:Point;distance:number}|null>(null);
   const touchOpen=useRef(new Map<string,()=>void>());
+  // 触屏长按等于桌面右键：卡片不再常驻齿轮按钮，长按卡片弹出同一个菜单（含「快捷设置」）。
+  const longPress=useRef<{timer:number;fired:boolean}|null>(null);
+  const clearLongPress=()=>{const press=longPress.current;if(press)window.clearTimeout(press.timer);longPress.current=null;return press;};
   const editable=(target:EventTarget|null)=>target instanceof Element&&!!target.closest('input,textarea,select,[contenteditable=true],[data-graph-editor]');
   const touchPair=()=>{const [a,b]=[...touches.current.values()];return a&&b?{center:relative((a.x+b.x)/2,(a.y+b.y)/2),distance:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y))}:null;};
   const layoutKey=storageKey+':draft';
@@ -100,7 +103,7 @@ export function useGraph(options:Options){
     const node=element?.closest<HTMLElement>('[data-node-id]');return node?{kind:'node',id:node.dataset.nodeId}:{kind:'blank'};
   };
   const context=(x:number,y:number,hit:GraphHit)=>{if(opts.current.busy||locked.current)return;if((hit.kind==='node'||hit.kind==='decoration')&&!selection.current.includes(hit.id!))select([hit.id!]);if(hit.kind==='edge')chooseEdge(hit.id!);opts.current.onContext?.({x,y,point:clientPoint(x,y),hit,selected:selection.current});};
-  const cancel=()=>{touches.current.clear();pinch.current=null;const g=gesture.current;if(g?.kind==='card'&&g.moved){const next={...localRef.current};for(const id of g.ids)next[id]=g.before[id];setLocal(next);suppress.current=true;}if(g?.kind==='pan')updateCamera(g.before);gesture.current=null;updateWire(null);setDragging(false);setLasso(null);};
+  const cancel=()=>{clearLongPress();touches.current.clear();pinch.current=null;const g=gesture.current;if(g?.kind==='card'&&g.moved){const next={...localRef.current};for(const id of g.ids)next[id]=g.before[id];setLocal(next);suppress.current=true;}if(g?.kind==='pan')updateCamera(g.before);gesture.current=null;updateWire(null);setDragging(false);setLasso(null);};
   const fit=(persist=true)=>{const el=scroll.current;if(!el)return;const ids=visible().filter(id=>pointsRef.current[id]),chosen=ids.filter(id=>selection.current.includes(id));const next=fitCamera((chosen.length?chosen:ids).map(bounds),el.clientWidth,el.clientHeight);if(next)updateCamera(next,persist);};
   const zoomTo=(next:number,anchor?:Point)=>{const el=scroll.current;if(!el||gesture.current)return;updateCamera(zoomAt(cameraRef.current,next,anchor||{x:el.clientWidth/2,y:el.clientHeight/2}),true);};
   const fitted=useRef(Boolean(validSaved));
@@ -140,7 +143,11 @@ export function useGraph(options:Options){
     if(e.pointerType==='touch'&&!(e.target as Element).closest('[data-graph-port],.decoration-resize')){
       touches.current.set(e.pointerId,{x:e.clientX,y:e.clientY});e.currentTarget.setPointerCapture(e.pointerId);
       const pair=touchPair();if(pair){gesture.current=null;updateWire(null);setLasso(null);suppress.current=true;pinch.current={...pair,before:{...cameraRef.current}};return;}
-      gesture.current={kind:'pan',pointer:e.pointerId,start:{x:e.clientX,y:e.clientY},before:{...cameraRef.current},button:0,hit:hitAt(e.target),moved:false};return;
+      const hit=hitAt(e.target),pointerId=e.pointerId,touchX=e.clientX,touchY=e.clientY;
+      gesture.current={kind:'pan',pointer:e.pointerId,start:{x:e.clientX,y:e.clientY},before:{...cameraRef.current},button:0,hit,moved:false};
+      clearLongPress();
+      if(hit.kind==='node'||hit.kind==='decoration')longPress.current={fired:false,timer:window.setTimeout(()=>{const g=gesture.current,p=longPress.current;if(!p||!g||g.moved||g.pointer!==pointerId)return;if(opts.current.busy||locked.current)return;p.fired=true;context(touchX,touchY,hit);},520)};
+      return;
     }
     if(e.button===2||e.button===1||(e.button===0&&space.current)){e.preventDefault();scroll.current?.focus({preventScroll:true});updateWire(null);suppress.current=false;gesture.current={kind:'pan',pointer:e.pointerId,start:{x:e.clientX,y:e.clientY},before:{...cameraRef.current},button:e.button,hit:hitAt(e.target),moved:false};e.currentTarget.setPointerCapture(e.pointerId);return;}
     if(e.button!==0||gesture.current||(e.target as Element).closest('button,summary,.planning-card,[data-graph-drag],.relation-label,.edge-hit,.planning-decoration'))return;
@@ -151,13 +158,13 @@ export function useGraph(options:Options){
     const pair=touchPair(),p=pinch.current;
     if(p&&pair){const next=zoomAt(p.before,p.before.zoom*pair.distance/p.distance,p.center);updateCamera({...next,x:next.x+pair.center.x-p.center.x,y:next.y+pair.center.y-p.center.y});setDragging(true);return;}
     const g=gesture.current;if(g&&g.pointer!==e.pointerId)return;
-    if(g){const dx=e.clientX-g.start.x,dy=e.clientY-g.start.y;if(!g.moved&&Math.hypot(dx,dy)<5)return;g.moved=true;if(g.kind==='pan'){updateCamera({...g.before,x:g.before.x+dx,y:g.before.y+dy});setDragging(true);return;}
+    if(g){const dx=e.clientX-g.start.x,dy=e.clientY-g.start.y;if(!g.moved&&Math.hypot(dx,dy)<5)return;g.moved=true;clearLongPress();if(g.kind==='pan'){updateCamera({...g.before,x:g.before.x+dx,y:g.before.y+dy});setDragging(true);return;}
       if(g.kind==='card'){scroll.current?.setPointerCapture(e.pointerId);suppress.current=true;setDragging(true);const next={...localRef.current};for(const id of g.ids)next[id]={x:g.before[id].x+dx/cameraRef.current.zoom,y:g.before[id].y+dy/cameraRef.current.zoom};setLocal(next);return;}
       if(g.kind==='lasso'){const a=relative(g.start.x,g.start.y),b=relative(e.clientX,e.clientY);setLasso({x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),width:Math.abs(b.x-a.x),height:Math.abs(b.y-a.y)});const wa=clientPoint(g.start.x,g.start.y),wb=clientPoint(e.clientX,e.clientY),box={x:Math.min(wa.x,wb.x),y:Math.min(wa.y,wb.y),width:Math.abs(wb.x-wa.x),height:Math.abs(wb.y-wa.y)};select([...new Set([...g.append,...visible().filter(id=>opts.current.nodes.find(n=>n.id===id)?.kind!=='frame'&&intersects(box,bounds(id)))])]);return;}}
     if(wireRef.current)updateWire({...wireRef.current,point:clientPoint(e.clientX,e.clientY),target:targetAt(e.clientX,e.clientY)});
   };
-  const up=(e:React.PointerEvent)=>{touches.current.delete(e.pointerId);if(pinch.current){pinch.current=null;gesture.current=null;setDragging(false);rememberCamera();const [pointer,point]=[...touches.current.entries()][0]||[];if(point)gesture.current={kind:'pan',pointer,start:point,before:{...cameraRef.current},button:0,hit:{kind:'blank'},moved:false};return;}const g=gesture.current;if(!g||g.pointer!==e.pointerId)return;gesture.current=null;setDragging(false);setLasso(null);
-    if(g.kind==='pan'){if(e.pointerType==='touch'&&!g.moved&&g.hit.id&&!opts.current.busy&&!locked.current){touchOpen.current.get(g.hit.id)?.();suppress.current=true;}if(g.button===2){rightEnd.current=Date.now();if(!g.moved)context(e.clientX,e.clientY,g.hit);}if(g.moved){suppress.current=g.button===0;rememberCamera();}return;}
+  const up=(e:React.PointerEvent)=>{touches.current.delete(e.pointerId);if(pinch.current){pinch.current=null;gesture.current=null;setDragging(false);rememberCamera();const [pointer,point]=[...touches.current.entries()][0]||[];if(point)gesture.current={kind:'pan',pointer,start:point,before:{...cameraRef.current},button:0,hit:{kind:'blank'},moved:false};return;}const g=gesture.current;if(!g||g.pointer!==e.pointerId)return;const pressed=clearLongPress();gesture.current=null;setDragging(false);setLasso(null);
+    if(g.kind==='pan'){if(e.pointerType==='touch'&&!g.moved&&g.hit.id&&!opts.current.busy&&!locked.current){if(!pressed?.fired)touchOpen.current.get(g.hit.id)?.();suppress.current=true;}if(g.button===2){rightEnd.current=Date.now();if(!g.moved)context(e.clientX,e.clientY,g.hit);}if(g.moved){suppress.current=g.button===0;rememberCamera();}return;}
     if(g.kind==='card'&&g.moved){select(selection.current.includes(g.ids[0])?selection.current:[g.ids[0]]);void save({before:g.before,after:Object.fromEntries(g.ids.map(id=>[id,localRef.current[id]])),revisions:g.revisions},g.persist);return;}
     if(g.kind==='lasso'&&!g.moved)select(g.append);
     if(g.kind==='wire'&&g.moved){const target=targetAt(e.clientX,e.clientY),current=wireRef.current;if(target)void connect(target);else{updateWire(null);if(current&&!hitAt(document.elementFromPoint(e.clientX,e.clientY)).id)opts.current.onCreateConnected?.(current.id,current.side,clientPoint(e.clientX,e.clientY));}}

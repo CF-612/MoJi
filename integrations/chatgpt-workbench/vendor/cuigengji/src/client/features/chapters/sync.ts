@@ -5,7 +5,7 @@ export interface Chapter {
   title: string; content: string; volumeId: string | null; order: number;
   [key: string]: any;
 }
-const fields = ['content','title','volumeId','order'] as const;
+const fields = ['content','summary','title','volumeId','order'] as const;
 const same = (a: Chapter, b: Chapter) => fields.every(key => a[key] === b[key]);
 /** Autosave never re-sends untouched placement fields from an older draft. */
 export function chapterChanges(value: Chapter, base: Chapter): Partial<Chapter> {
@@ -31,9 +31,9 @@ export function mergeChapter(base: Chapter, local: Chapter, remote: Chapter): Ch
   if(remote.deleted&&!same(base,local))return null;
   const value={...remote};
   for(const key of fields){
-    if(key==='content'){
-      const merged=mergeText(base.content,local.content,remote.content);
-      if(merged===null)return null;value.content=merged;
+    if(key==='content'||key==='summary'){
+      const merged=mergeText(base[key]||'',local[key]||'',remote[key]||'');
+      if(merged===null)return null;value[key]=merged;
     }else if(local[key]===base[key])value[key]=remote[key] as never;
     else if(remote[key]===base[key]||remote[key]===local[key])value[key]=local[key] as never;
     else return null;
@@ -90,7 +90,7 @@ export class ChapterSync {
   rebase=(remote:Chapter)=>{
     if(this.saving||remote.deleted)return;
     this.pending=null;
-    const value={...remote,...Object.fromEntries(fields.map(key=>[key,this.state.value[key]]))};
+    const value={...remote,...Object.fromEntries(['content','summary','title'].map(key=>[key,this.state.value[key]]))};
     this.publish({base:remote,value,remote:null,phase:'waiting',error:'',notice:''});this.schedule();
   };
   private reconcile(remote:Chapter){

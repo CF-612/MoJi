@@ -6,17 +6,18 @@ import {resolve,join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 const [packagePath,dataRoot] = process.argv.slice(2);
 const manifest = JSON.parse(await readFile(join(packagePath,'package.json'),'utf8'));
-assert.equal(manifest.version,'0.4.0');
+assert.ok(manifest.engines.dsh.includes('0.2.1-rc.2'));
 const {apply} = await import(pathToFileURL(join(packagePath,manifest.main)));
-const registered = new Map(), effects = [], routes = [];
+const registered = new Map(), effects = [], routes = [], records=new Map();
 const ctx = {tools:{register:tool=>registered.set(tool.name,tool)},skills:{register(){}},connection:{fetch:{register:route=>routes.push(route)}},
+  credentials:{readRecord:async key=>records.get(key),modifyRecord:async(key,fn)=>{const value=await fn(records.get(key));records.set(key,value);return value;},deleteRecord:async key=>records.delete(key)},
   on(){},effect:fn=>effects.push(fn()),provide:(key,value)=>{ctx[key]=value;}};
 try {
   await apply(ctx,{dataRoot});
   const execute = async (name,action,args={}) => JSON.parse(await registered.get(name).execute({action,args},
     {agent:{id:'synthetic-upgrade-author'},callId:'smoke-read',signal:new AbortController().signal}));
   const status = await execute('cuigengji_maintenance','status'); assert.equal(status.status,'ready',JSON.stringify(status.error));
-  const verification = await execute('cuigengji_maintenance','verify',{expectedVersion:'0.4.0',expectedDataRoot:resolve(dataRoot)});
+  const verification = await execute('cuigengji_maintenance','verify',{expectedVersion:manifest.version,expectedDataRoot:resolve(dataRoot)});
   assert.equal(verification.verified,true);
   if (verification.summary.counts.novels) {
     const info = await execute('cuigengji_project','novel.handoff'); assert.equal(info.novel.title,'雾港 · 公开合成升级样例');

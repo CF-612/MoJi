@@ -1,3 +1,4 @@
+import {createHostLayout} from './host-layout.mjs';
 import React from 'react';
 import {createRoot} from 'react-dom/client';
 import {App} from '@modelcontextprotocol/ext-apps';
@@ -30,12 +31,10 @@ async function discuss(reference:Reference,selection:string){
   if(embedded){const result=await app.sendMessage({role:'user',content:[{type:'text',text}]});if(result.isError)throw new Error('客户端拒绝接收引用');return '引用已交给当前聊天';}
   await navigator.clipboard.writeText(text);return '引用已复制，请粘贴到当前聊天';
 }
+const layoutHost=createHostLayout();
 function hostContext(context:any){
+  layoutHost(context);
   if(context?.theme)document.documentElement.dataset.theme=context.theme;
-  if(context?.safeAreaInsets)for(const edge of ['top','right','bottom','left']){
-    const value=context.safeAreaInsets[edge];
-    if(Number.isFinite(value))document.documentElement.style.setProperty(`--cg-host-${edge}`,`${Math.max(0,value)}px`);
-  }
   const mode=context?.displayMode||lastHostMode||app.getHostContext()?.displayMode||'inline';
   document.documentElement.dataset.hostMode=mode;
   // 聊天内的摘要卡片只上报一次固定高度，侧栏由宿主控制尺寸。
@@ -61,7 +60,7 @@ async function start(){
   try{
     if(embedded){
       // 宿主决定侧栏尺寸；默认自动测量会临时改根节点高度，不能用于此布局。
-      app=new App({name:'cuigengji-workbench',version:'0.2.0'}, {}, {autoResize:false});
+      app=new App({name:'moji-workbench',version:'0.2.0'}, {}, {autoResize:false});
       let resolveInitial:()=>void;
       const initial=new Promise<void>(resolve=>{resolveInitial=resolve;});
       app.ontoolresult=result=>{

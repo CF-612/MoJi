@@ -17,10 +17,12 @@ await build({
 
 await mkdir('lib', { recursive: true });
 await build({
-  entryPoints: ['src/client/index.tsx'], outfile: 'lib/client.js', bundle: true,
+  entryPoints: ['src/client/dsh-entry.tsx'], outfile: 'lib/client.js', bundle: true,
   platform: 'browser', format: 'cjs', target: 'es2022', jsx: 'automatic',
-  loader: {'.png': 'dataurl'},
+  loader: {'.png': 'dataurl','.jpg':'dataurl','.svg':'dataurl'},
   external: ['react', 'react/jsx-runtime', 'react-dom', '@deepseek-ai/*'],
   banner: { js: `window.__ModuleLoader__.load({id:${loaderId},factory:(require)=>{var module={exports:{}};var exports=module.exports;` },
   footer: { js: 'return module.exports;}});' },
 });
+
+await build({entryPoints:['src/adapters/dsh/transfer-service.js'],outfile:'runtime/adapters/dsh/transfer-service.js',bundle:true,platform:'node',format:'esm',target:'node24'});
