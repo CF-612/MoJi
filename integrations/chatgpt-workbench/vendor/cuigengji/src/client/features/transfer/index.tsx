@@ -1,9 +1,11 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, {useContext, useEffect, useRef, useState} from 'react';
 import {ManagementPage, FilePicker, ImportSteps, type Call, type Run, type BackProps} from '../../shared/management-page.tsx';
 import type {Catalog, Selection, ExportFormat, TransferFile, Inspection, ImportOptions, TransferPreview, Counts, ImportResult, TransferShortcut, ExportKind} from '../../../contracts/transfer.ts';
 import {ScopePicker, KindPicker, defaultSelection} from './ScopePicker.tsx';
 import {readTransferFile, downloadFile} from './file.ts';
 import {useWorkbenchRefresh} from '../../shared/refresh.tsx';
+import {SessionScope} from '../../shared/state.js';
+import {prepareTransferDrafts} from '../chapters/chapterSessions.ts';
 import {BatchImport} from './BatchImport.tsx';
 
 type Report = Pick<TransferPreview, 'counts' | 'dependencies' | 'warnings'>;
@@ -12,6 +14,7 @@ const errorMessage = (e: unknown) => e instanceof Error ? e.message : String(e);
 const caption: Record<ExportKind, string> = {chapters: '整本、某卷或几章，选好再带走。', memory: '按人物、世界或分组选择，条目之间的关系一起保留。', planning: '带走一张或多张画布，以及连线、讨论框和便签。', preset: '单独保存当前的写作要求，保留修改后的文本。', works: '选择要迁移的作品，包含各自的历史与回收站。', workspace: '换电脑或迁移工作台 时，完整保留墨叽工作数据。'};
 
 export function TransferPage({call, run, busy, novelId, initial, onOpen, onBack, backLabel}: Props) {
+  const scope=useContext(SessionScope);
   const {revision: refreshRevision} = useWorkbenchRefresh();
   const initialized = useRef(false);
   const [mode, setMode] = useState<'import'|'export'|'batch'>(initial?.mode || 'import');
@@ -53,10 +56,14 @@ export function TransferPage({call, run, busy, novelId, initial, onOpen, onBack,
   const choose = (event: React.ChangeEvent<HTMLInputElement>) => {const chosen = event.target.files?.[0]; event.target.value = ''; if (chosen) selectFile(chosen);};
   const refresh = async () => setLibrary(await call<Catalog>('transfer.catalog'));
   const confirmImport = () => {if (!preview?.valid || !file || previewPending) return; void run(async () => {
+    const protection=await prepareTransferDrafts({scope,novelIds:library?.books.map(book=>book.id)||[],call});
+    const checked=await call<TransferPreview>('transfer.preview',{file,options});
+    if(!checked.valid||checked.proof!==preview.proof){setPreview(checked);throw new Error('当前草稿已检查保存，恢复预览已更新；请核对后再次确认。');}
+    protection.assertClean();
     const done = await call<ImportResult>('transfer.import', {file, options, proof: preview.proof, requestId: requestId.current});
-    setResult(done); await refresh();
+    setResult(done); await protection.refresh(); await refresh();
   });};
-  const exportFile = () => run(async () => {await downloadFile(await call('transfer.export', {selection, format})); setNotice('已开始下载，请在下载列表确认文件已保存。');});
+  const exportFile = () => run(async () => {const novelIds=selection.kind==='workspace'?library?.books.map(book=>book.id)||[]:selection.kind==='works'?selection.novelIds||library?.books.map(book=>book.id)||[]:selection.novelId?[selection.novelId]:[];const protection=await prepareTransferDrafts({scope,novelIds,call});protection.assertClean();await downloadFile(await call('transfer.export', {selection, format})); setNotice('已开始下载，请在下载列表确认文件已保存。');});
   const importSelection = options.selection;
   const canExtract = identified?.kind === 'works' || identified?.kind === 'workspace';
   const allowedKinds: ExportKind[] = options.mode === 'restore' ? identified?.kind === 'workspace' ? ['works', 'workspace'] : ['works'] : canExtract ? ['chapters', 'memory', 'planning', 'preset', 'works'] : identified ? [identified.kind] : [];
@@ -111,7 +118,7 @@ export function TransferPage({call, run, busy, novelId, initial, onOpen, onBack,
       {result && <div className="transfer-complete" role="status"><div className="transfer-complete-mark" aria-hidden="true">✓</div><h3>{result.repeated ? '这份内容已经导入过了' : '导入完成'}</h3><p>{result.repeated ? '保留上次导入的结果，没有重复创建。' : countLabel(result.counts, importSelection?.kind || 'works')}{result.skipped.length > 0 && ` · ${result.skipped.length} 部相同作品跳过`}</p><div className="management-actions">{result.novelIds.length === 1 && onOpen && <button className="primary" disabled={busy} onClick={() => onOpen(result.novelIds[0])}>打开作品</button>}<button disabled={busy} onClick={() => {setFile(null); setIdentified(null); setPreview(null); setResult(null);}}>继续导入</button></div>{result.backupDir && <details className="management-disclosure"><summary>导入前备份位置</summary><code className="work-data-path">{result.backupDir}</code></details>}</div>}
     </>}
     {notice && <p className="transfer-notice" role="status">{notice}</p>}
-    {library?.dataRoot && <details className="management-disclosure transfer-storage"><summary>存储位置与备份范围</summary><code className="work-data-path">{library.dataRoot}</code><p>{library.books.length} 部作品 · {library.bindings || 0} 个绑定会话。导出使用已保存内容，请先保存正在编辑的草稿。</p><p>墨叽管理小说工作数据；聊天记录和附件由聊天客户端保存，不包含在作品备份中。</p></details>}
+    {library?.dataRoot && <details className="management-disclosure transfer-storage"><summary>存储位置与备份范围</summary><code className="work-data-path">{library.dataRoot}</code><p>{library.books.length} 部作品 · {library.bindings || 0} 个绑定会话。导出前会检查并保存此设备的正文草稿；存在冲突、离线或未保存资料时中止。其他设备的未同步内容不在备份内。</p><p>墨叽管理小说工作数据；聊天记录和附件由聊天客户端保存，不包含在作品备份中。</p></details>}
   </ManagementPage>;
 }
 function Snapshots({call,run,busy,revision,choose}:{call:Call;run:Run;busy:boolean;revision:string;choose:(file:TransferFile)=>Promise<unknown>}){

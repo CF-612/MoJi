@@ -20,19 +20,24 @@ export function reconcile(state,sources){
   else if(p.parent!==ROOT&&!valid[p.parent]){p.parent=rescue(p.parent);p.manual=true;changed=true;}
   else if(!p.manual){if(p.parent!==defaultParent(ref)){p.parent=defaultParent(ref);changed=true;}if(Number.isFinite(obj.order)&&p.order!==obj.order){p.order=obj.order;changed=true;}}
  }
- // Repair only invalid source ancestry. Card content and valid manual arrangements stay intact.
- for(const ref of Object.keys(valid))if(treeError(state,valid,ref)){
-  const p=state.placements[ref];p.parent=defaultParent(ref);p.manual=true;
-  if(treeError(state,valid,ref))p.parent=ROOT;changed=true;
- }
+ // Existing invalid ancestry is reported, never silently reparented. Authors can
+ // repair it explicitly through the same validated move operation used by canvas.
+
  for(const p of Object.values(state.placements))if(p.attachment&&!valid[p.attachment.ref]){delete p.attachment;changed=true;}
- for(const page of state.pages)for(const ref of Object.keys(page.instances))if(!valid[ref]){delete page.instances[ref];changed=true;}
+ for(const page of state.pages){
+  for(const ref of Object.keys(page.instances))if(!valid[ref]){delete page.instances[ref];changed=true;}
+  if(page.outline){const refs=page.outline.refs.filter(ref=>valid[ref]&&page.instances[ref]);if(refs.length!==page.outline.refs.length){page.outline.refs=refs;changed=true;}}
+ }
  state.precedence=state.precedence.filter(e=>{const ok=valid[e.from]&&valid[e.to];if(!ok)changed=true;return ok;});
  for(const card of Object.values(state.cards)){
   card.scope=(card.scope||[]).filter(id=>valid[refOf('chapter',id)]);
   if(card.time?.narration&&!['startChapterId','endChapterId'].every(k=>valid[refOf('chapter',card.time.narration[k])])){card.time.narration=null;changed=true;}
  }
  return changed;
+}
+export function hierarchyIssues(state,sources){
+ const objects=objectIndex(state,sources);
+ return Object.keys(objects).flatMap(ref=>{const message=treeError(state,objects,ref);return message?[{ref,message}]:[];});
 }
 export function assertTree(state,sources){
  const objects=objectIndex(state,sources);
@@ -55,7 +60,7 @@ export function moveError(state,sources,refs,parent=ROOT){
  const next=clone(state),objects=objectIndex(next,sources);
  try{for(const ref of refs)move(next,ref,parent,objects);assertTree(next,sources);return '';}catch(e){return e.message;}
 }
-export function descendants(state,ref){const result=[];for(const [id,p] of Object.entries(state.placements))if(p.parent===ref)result.push(id,...descendants(state,id));return result;}
+export function descendants(state,ref,seen=new Set([ref])){const result=[];for(const [id,p] of Object.entries(state.placements))if(p.parent===ref&&!seen.has(id)){seen.add(id);result.push(id,...descendants(state,id,seen));}return result;}
 function move(state,ref,parent,objects){
  if(!objects[ref]||parent!==ROOT&&!objects[parent])fail('移动对象或目标已不存在。');
  if(ref===parent)fail('不能把对象放到自己里面。');
@@ -88,6 +93,43 @@ function validateCard(card,sources,state){
   }else if(!Number.isFinite(time.start)||!Number.isFinite(time.end)||Math.abs(time.start)>1000000||Math.abs(time.end)>1000000||time.end<=time.start)fail('故事时间终点必须晚于起点。');
  }
  // 采用进度不等于已确认正文事实。事实只由后续证据确认接口写入。
+}
+// Geometry matches the current canvas card (248 × 208), not the old export size.
+// Layout is a containment forest: siblings branch horizontally, parents are centered
+// above their descendant span. Precedence never participates in this projection.
+export function treeLayout(state,sources,refs=Object.keys(objectIndex(state,sources)),{origin={x:60,y:60},width=248,height=208,gapX=64,gapY=100}={}){
+ const objects=objectIndex(state,sources),included=new Set(refs.filter(ref=>objects[ref])),children=new Map(),roots=[];
+ const ordered=[...included].sort((a,b)=>(state.placements[a]?.order??0)-(state.placements[b]?.order??0)||a.localeCompare(b));
+ for(const ref of ordered){const parent=state.placements[ref]?.parent;if(included.has(parent)){if(!children.has(parent))children.set(parent,[]);children.get(parent).push(ref);}else roots.push(ref);}
+ const spans=new Map(),visiting=new Set();
+ const measure=ref=>{if(spans.has(ref))return spans.get(ref);if(visiting.has(ref))fail('不能为循环包含关系生成大纲，请先修复层级。');visiting.add(ref);const rows=children.get(ref)||[],span=Math.max(width,rows.reduce((n,child)=>n+measure(child),0)+Math.max(0,rows.length-1)*gapX);visiting.delete(ref);spans.set(ref,span);return span;};
+ for(const ref of ordered)measure(ref);
+ const points={},place=(ref,left,depth)=>{const span=spans.get(ref);points[ref]={x:left+(span-width)/2,y:origin.y+depth*(height+gapY)};let cursor=left;for(const child of children.get(ref)||[]){place(child,cursor,depth+1);cursor+=spans.get(child)+gapX;}};
+ let cursor=origin.x;for(const ref of roots){place(ref,cursor,0);cursor+=spans.get(ref)+gapX;}
+ return points;
+}
+/** Only structural sources and 篇章 cards (plus their linking ancestors) can be
+ * explicitly adopted from a free canvas. Standalone plot ideas remain untouched. */
+export function outlineHierarchyRefs(state,sources){
+ const objects=objectIndex(state,sources),refs=new Set(Object.keys(objects).filter(ref=>objects[ref].kind!=='card'||objects[ref].purpose==='篇章'));
+ for(const ref of [...refs]){let parent=state.placements[ref]?.parent;const seen=new Set([ref]);while(parent&&parent!==ROOT&&objects[parent]&&!seen.has(parent)){seen.add(parent);refs.add(parent);parent=state.placements[parent]?.parent;}}
+ return [...refs];
+}
+export function generatedOutline(state,sources,page,{relayoutExisting=false,adoptHierarchy=false}={}){
+ const objects=objectIndex(state,sources),refs=Object.keys(objects),instances=page?.instances||{};
+ // Old generated pages have no ownership marker: preserve their positions on the
+ // first update, rather than guessing which cards the author has arranged.
+ if(relayoutExisting&&!page?.generated)fail('只有独立大纲页可以确认重排已有展示；自由画布的手工位置保持不变。');
+ const adopted=adoptHierarchy?outlineHierarchyRefs(state,sources):[];
+ const previous=new Set([...(relayoutExisting?Object.keys(instances):page?.outline?.refs||[]),...adopted].filter(ref=>objects[ref]&&instances[ref]));
+ const added=refs.filter(ref=>!instances[ref]),updated=refs.filter(ref=>previous.has(ref)),preserved=refs.filter(ref=>instances[ref]&&!previous.has(ref));
+ const ownedRefs=[...new Set([...updated,...added])];
+ const manual=Object.entries(instances).filter(([ref])=>!previous.has(ref));
+ const origin=page?.outline?.origin||{x:manual.length?Math.max(...manual.map(([,p])=>p.x+248))+100:60,y:manual.length?Math.min(...manual.map(([,p])=>p.y)):60};
+ // Preserve one instance per source reference. An already visible manual card is
+ // not duplicated; only explicit hierarchy adoption can change its coordinates.
+ const points=treeLayout(state,sources,ownedRefs,{origin});
+ return {points,added,updated,preserved,ownedRefs,origin};
 }
 export function applyStory(input,sources,operation,newId){
  const state=clone(input),objects=objectIndex(state,sources),op=operation;
@@ -151,7 +193,7 @@ export function applyStory(input,sources,operation,newId){
    const ref=refOf('card',op.id);if(!state.cards[op.id])fail('剧情卡不存在。');const parent=state.placements[ref].parent;
    for(const child of Object.keys(state.placements))if(state.placements[child].parent===ref)move(state,child,parent,objects);
    delete state.cards[op.id];delete state.placements[ref];
-   for(const page of state.pages)delete page.instances[ref];state.precedence=state.precedence.filter(e=>e.from!==ref&&e.to!==ref);break;
+   for(const page of state.pages){delete page.instances[ref];if(page.outline)page.outline.refs=page.outline.refs.filter(id=>id!==ref);}state.precedence=state.precedence.filter(e=>e.from!==ref&&e.to!==ref);break;
   }
   case 'precedence':{
    if(!objects[op.from]||!objects[op.to]||op.from===op.to)fail('先后关系需要两个不同对象。');
@@ -160,17 +202,21 @@ export function applyStory(input,sources,operation,newId){
   }
   case 'page.create':if(!String(op.name||'').trim())fail('请填写页面名称。');else state.pages.push({id:newId(),name:op.name.trim(),instances:{}});break;
   case 'page.generate':{
-   // 独立的展示页，反复生成更新原页；不移动自由构思中的任何实例。
-   let page=state.pages.find(p=>p.generated);if(!page){page={id:newId(),name:'大纲可视化',generated:true,instances:{}};state.pages.push(page);}
-   const previous=page.instances;let row=0;const visit=(parent,depth)=>{for(const ref of Object.keys(state.placements).filter(r=>state.placements[r].parent===parent).sort((a,b)=>state.placements[a].order-state.placements[b].order)) {page.instances[ref]={x:depth*340+60,y:row++*220+60,revision:(previous[ref]?.revision||0)+1};visit(ref,depth+1);}};
-   page.instances={};visit(ROOT,0);break;
+   // A request chooses its target explicitly; switching the module never migrates.
+   let page=op.pageId?state.pages.find(p=>p.id===op.pageId):state.pages.find(p=>p.generated);
+   if(op.pageId&&!page)fail('画布页面不存在。');
+   if(!page){page={id:newId(),name:'大纲可视化',generated:true,instances:{}};state.pages.push(page);}
+   const layout=generatedOutline(state,sources,page,{relayoutExisting:op.relayoutExisting===true,adoptHierarchy:op.adoptHierarchy===true});
+   for(const [ref,point] of Object.entries(layout.points))page.instances[ref]={...point,revision:(page.instances[ref]?.revision||0)+1};
+   page.outline={refs:layout.ownedRefs,origin:layout.origin};
+   break;
   }
   case 'instance.add':{
    const page=state.pages.find(p=>p.id===op.pageId);if(!page||!objects[op.ref])fail('页面或内容对象不存在。');
    if(!page.instances[op.ref])page.instances[op.ref]={x:op.position?.x??60,y:op.position?.y??60,revision:1};break;
   }
   case 'instance.remove':{
-   const page=state.pages.find(p=>p.id===op.pageId);if(!page)fail('页面不存在。');delete page.instances[op.ref];break;
+   const page=state.pages.find(p=>p.id===op.pageId);if(!page)fail('页面不存在。');delete page.instances[op.ref];if(page.outline)page.outline.refs=page.outline.refs.filter(ref=>ref!==op.ref);break;
   }
   case 'instance.layout':{
    const page=state.pages.find(p=>p.id===op.pageId);if(!page)fail('页面不存在。');
@@ -201,6 +247,9 @@ export function validateRestore(value,sources){
  for(const ref of Object.keys(value.placements))if(!objects[ref])fail('备份包含当前目录中不存在的卷章；请使用配套测试作品。');
  assertTree(value,sources);
  for(const card of Object.values(value.cards))validateCard(card,sources,value);
- for(const page of value.pages)for(const [ref,p] of Object.entries(page.instances))if(!objects[ref]||!Number.isFinite(p.x)||!Number.isFinite(p.y))fail('备份中的展示实例无效。');
+ for(const page of value.pages){
+  for(const [ref,p] of Object.entries(page.instances))if(!objects[ref]||!Number.isFinite(p.x)||!Number.isFinite(p.y))fail('备份中的展示实例无效。');
+  if(page.outline&&(!Array.isArray(page.outline.refs)||new Set(page.outline.refs).size!==page.outline.refs.length||page.outline.refs.some(ref=>!page.instances[ref])||!Number.isFinite(page.outline.origin?.x)||!Number.isFinite(page.outline.origin?.y)))fail('备份中的大纲布局范围无效。');
+ }
  return clone(value);
 }

@@ -86,6 +86,7 @@ export const studioStyles=`
 .cuigengji .shadow-score{display:flex;align-items:baseline;gap:7px}.cuigengji .shadow-score strong{font-size:31px;font-weight:850;font-style:italic}
 .cuigengji .detail-progress{height:5px;background:var(--cg-wash);margin:12px 0}.cuigengji .detail-progress span{display:block;height:100%;background:var(--cg-accent)}
 .cuigengji .detail-materials{grid-column:1/-1;display:flex;align-items:center;gap:14px;min-height:84px}
+.cuigengji .detail-panels.without-foreshadow .detail-materials{grid-column:auto;flex-direction:column;align-items:flex-start;justify-content:center;min-height:190px;gap:14px}.cuigengji .detail-panels.without-foreshadow .detail-materials>.app-icon{align-self:flex-end}.cuigengji .detail-metrics.without-foreshadow{grid-template-columns:1.35fr 1fr}
 .cuigengji .detail-materials h3{margin-bottom:7px}.cuigengji .detail-materials>.app-icon{color:var(--cg-accent)}
 .cuigengji .detail-avatars{display:flex;flex:none;padding-left:3px}.cuigengji .detail-avatars>span{display:grid;place-items:center;width:36px;height:36px;margin-left:-3px;overflow:hidden;border:2px solid var(--cg-paper);border-radius:50%;background:var(--cg-wash);color:var(--cg-accent)}
 .cuigengji .detail-avatars>span:nth-child(2){background:var(--cg-orange-soft)}.cuigengji .detail-avatars img{width:100%;height:100%;object-fit:cover}

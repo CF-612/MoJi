@@ -1,0 +1,63 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {build} from 'esbuild';
+import {createRequire} from 'node:module';
+import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
+import {join} from 'node:path';
+import {tmpdir} from 'node:os';
+import {emptyWorkspace,reconcile,applyStory,objectIndex} from '../vendor/cuigengji/src/domain/story-workspace.mjs';
+import {createService} from '../server/service.mjs';
+import {legacyCanvasSvg} from '../vendor/cuigengji/src/client/shared/canvas-export-legacy.mjs';
+import {planningConnection,planningSvg,planningPalette} from '../vendor/cuigengji/src/client/shared/planning-canvas-geometry.mjs';
+const root=new URL('../../../',import.meta.url).pathname,ui=new URL('../vendor/cuigengji/src/client/',import.meta.url).pathname;
+const source=ui+'features/planning/UnifiedPlanning.jsx',folder=await mkdtemp(join(tmpdir(),'moji-planning-ui-'));
+const stub=`export const useModules=()=>globalThis.testPlanningModules||({pages:true,timeline:true,foreshadow:true,evolution:true}),useDialog=()=>({ask:async()=>null,confirm:async()=>true}),useRelationClock=()=>({}),useResource=()=>({value:[]}),usePreference=(key,value)=>[key.endsWith('area')?'canvas':value,()=>{}],SessionScope={};
+export const InternalPoints=()=>null,CanvasExport=()=>null,RelationPointManager=()=>null,Modal=()=>null,GraphControls=()=>null,CastAvatars=()=>null,CardChapterLinks=()=>null,Foreshadows=()=>null,PlotForeshadows=()=>null,UnifiedTimeline=()=>null,Icon=()=>null,PlanningToolsDialog=()=>null,PlanningToolGroup=()=>null;
+export const relationEditStyle='',foreshadowStyle='',unifiedStoryStyle='',useGraph=()=>({}),curve=()=>'',CARD_WIDTH=248,CARD_HEIGHT=208,narrationChapters=()=>[];`;
+await build({stdin:{contents:`export{UnifiedPlanning}from${JSON.stringify(source)};import React from'react';export{React};`,resolveDir:root},outfile:join(folder,'ui.cjs'),bundle:true,platform:'node',format:'cjs',alias:{react:root+'node_modules/react'},plugins:[{name:'contexts-only',setup(b){b.onResolve({filter:/.*/},a=>a.importer===source&&!a.path.startsWith('react')&&!/story-workspace\.mjs|story-create-intent\.mjs|planning-canvas-geometry\.mjs|resource-error\.mjs|drafts\.js/.test(a.path)?{path:'contexts',namespace:'qa'}:undefined);b.onLoad({filter:/.*/,namespace:'qa'},()=>({contents:stub}));}}]});
+const require=createRequire(import.meta.url),{UnifiedPlanning,React}=require(join(folder,'ui.cjs'));
+const all=el=>!el||typeof el!=='object'?[]:[el,...React.Children.toArray(el.props?.children).flatMap(all)];
+const text=el=>typeof el==='string'?el:!el||typeof el!=='object'?'':React.Children.toArray(el.props?.children).map(text).join('');
+function mount(call,novelId,initial){let index=0,seeded=false;const slots=[];const dispatcher={useContext(){return 'stable-user';},useState(initialValue){const i=index++;if(!(i in slots)){if(initialValue===null&&!seeded){slots[i]=initial;seeded=true;}else slots[i]=typeof initialValue==='function'?initialValue():initialValue;}return[slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef(value){const i=index++;return slots[i]??={current:value};},useEffect(){}};const render=()=>{index=0;const holder=React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.ReactCurrentDispatcher;holder.current=dispatcher;try{return UnifiedPlanning({call,novelId,tick:0,busy:false});}finally{holder.current=null;}};return {render,button:label=>all(render()).find(e=>e.type==='button'&&text(e)===label),editor:()=>all(render()).find(e=>e.type?.name==='CardEditor')};}
+const value={title:'same author intent',summary:'保留原创建',content:'',status:'idea',purpose:'情节',cast:[],scope:[],time:{}};
+function memoryStorage(){const map=new Map();return {getItem:k=>map.get(k)??null,setItem:(k,v)=>map.set(k,v),removeItem:k=>map.delete(k),map};}
+async function setup(){const base=join(folder,'data');await mkdir(base,{recursive:true});const service=await createService(await mkdtemp(join(base,'service-'))),novelId=(await service.rpc('novel.create',{title:'Synthetic planning UI'},'qa','human')).id,rpc=(action,args={})=>service.rpc(action,{novelId,...args},'qa','human');return {rpc,novelId};}
+test('actual create handler preserves exact request through response loss, duplicate clicks, refresh/remount and newer data',async()=>{
+ globalThis.localStorage=memoryStorage();const {rpc,novelId}=await setup(),initial=await rpc('story.get'),calls=[];let lose=true;
+ const call=async(action,args)=>{if(action==='story.apply')calls.push(structuredClone(args));const result=await rpc(action,args);if(action==='story.apply'&&lose){lose=false;throw Object.assign(new Error('lost AFTER commit'),{code:'NETWORK_ERROR'});}return result;};
+ let ui=mount(call,novelId,initial);ui.button('＋ 新建').props.onClick();ui.button('新建剧情卡').props.onClick();const save=ui.editor().props.save;await Promise.all([save(value),save({...value,title:'second accidental click'})]);
+ assert.equal(calls.length,1);assert.equal(Object.keys((await rpc('story.get')).state.cards).length,1);assert.ok(ui.button('核对上次创建'));assert.equal(ui.editor(),undefined);
+ const current=await rpc('story.get');await rpc('story.apply',{expectedRevision:current.state.revision,operation:{type:'card.create',value:{...value,title:'other device'},pageId:'main'}});
+ ui=mount(call,novelId,await rpc('story.get'));assert.ok(ui.button('核对上次创建'));await ui.button('核对上次创建').props.onClick();assert.deepEqual(calls[1],calls[0]);assert.equal(Object.keys((await rpc('story.get')).state.cards).length,2);assert.equal(globalThis.localStorage.map.size,0);assert.equal(ui.button('核对上次创建'),undefined);
+ const canvas=all(ui.render()).find(e=>e.type?.name==='UnifiedCanvas');assert.equal(Object.keys(canvas.props.state.cards).length,2,'receipt does not roll UI back over newer state');
+});
+test('actual create handler blocks send if durable retry intent cannot be saved',async()=>{
+ globalThis.localStorage={getItem:()=>null,setItem(){throw new Error('QuotaExceededError');},removeItem(){}};const {rpc,novelId}=await setup();let writes=0;const ui=mount(async(a,args)=>{if(a==='story.apply')writes++;return rpc(a,args);},novelId,await rpc('story.get'));ui.button('＋ 新建').props.onClick();ui.button('新建剧情卡').props.onClick();await ui.editor().props.save(value);assert.equal(writes,0);assert.ok(text(ui.render()).includes('尚未发出新的创建请求'));assert.ok(ui.editor(),'draft remains editable');
+});
+test('actual create handler keeps editable draft after definitive validation failure rather than trapping pending receipt',async()=>{
+ globalThis.localStorage=memoryStorage();const {rpc,novelId}=await setup();const ui=mount(async(a,args)=>{if(a==='story.apply')throw Object.assign(new Error('invalid time'),{code:'STORY_INVALID'});return rpc(a,args);},novelId,await rpc('story.get'));ui.button('＋ 新建').props.onClick();ui.button('新建剧情卡').props.onClick();await ui.editor().props.save(value);assert.ok(ui.editor());assert.equal(ui.button('核对上次创建'),undefined);assert.equal(globalThis.localStorage.map.size,0);
+});
+test('SVG uses live card dimensions, vertical containment, horizontal precedence arrow and theme-consistent colors',()=>{
+ const nodes=[{id:'a',title:'卷<&',kind:'volume',width:248,height:208},{id:'b',title:'章',kind:'chapter',width:248,height:208}],points={a:{x:-300,y:40},b:{x:120,y:500}},edges=[{from:'a',to:'b',type:'contains'},{from:'b',to:'a',type:'precedence'}];
+ const containment=planningConnection(edges[0],points,nodes),precedence=planningConnection(edges[1],points,nodes);assert.deepEqual(containment.from,{x:-176,y:248});assert.deepEqual(containment.to,{x:244,y:500});assert.deepEqual(precedence.from,{x:368,y:604});
+ for(const theme of ['light','dark']){const {svg,w,h}=planningSvg(nodes,edges,points,theme);assert.match(svg,/width="248" height="208"/);assert.ok(svg.includes(containment.path));assert.ok(svg.includes(precedence.path));assert.ok(svg.includes(`stroke="${planningPalette[theme].contains}" stroke-width="2" stroke-dasharray="7 5"`));assert.ok(svg.includes(`stroke="${planningPalette[theme].precedence}" stroke-width="2" marker-end=`));assert.ok(svg.includes('卷&lt;&amp;'));assert.ok(w>668&&h>668);}
+});
+
+test('planning survives blocked localStorage getter and ignores malformed cached intent',async()=>{
+ const {rpc,novelId}=await setup(),initial=await rpc('story.get');
+ Object.defineProperty(globalThis,'localStorage',{configurable:true,get(){throw new Error('SecurityError');}});
+ let calls=0;const ui=mount(async(a,args)=>{if(a==='story.apply')calls++;return rpc(a,args);},novelId,initial);assert.ok(ui.render());ui.button('＋ 新建').props.onClick();ui.button('新建剧情卡').props.onClick();await ui.editor().props.save(value);assert.equal(calls,0);assert.ok(text(ui.render()).includes('尚未发出新的创建请求'));
+ const storage=memoryStorage();Object.defineProperty(globalThis,'localStorage',{configurable:true,writable:true,value:storage});
+ storage.setItem(`cuigengji:story-create:stable-user:${novelId}`,JSON.stringify({novelId,requestId:'malformed',expectedRevision:0,operation:{type:'card.create'}}));
+ const next=mount(rpc,novelId,initial);assert.ok(next.render());assert.equal(next.button('核对上次创建'),undefined);
+});
+
+test('actual Generate UI requires opt-in before relayout of all-already-visible hierarchy, preserves unrelated card',async()=>{
+ globalThis.localStorage=memoryStorage();globalThis.testPlanningModules={pages:false,timeline:true,foreshadow:true};const sources={volumes:[{id:'v',title:'卷',order:0}],chapters:[{id:'a',title:'甲章',volumeId:'v',order:0},{id:'b',title:'乙章',volumeId:'v',order:1}]};let state=emptyWorkspace();reconcile(state,sources);state=applyStory(state,sources,{type:'card.create',value:{title:'自由卡'},pageId:'main',position:{x:999,y:111}},()=> 'loose');for(const [i,ref]of Object.keys(objectIndex(state,sources)).entries())if(!state.pages[0].instances[ref])state=applyStory(state,sources,{type:'instance.add',ref,pageId:'main',position:{x:30,y:50+i*250}},()=> 'unused');
+ const before=structuredClone(state),writes=[],ui=mount(async(action,args)=>{writes.push(args);state=applyStory(state,sources,args.operation,()=> 'unused');return {state,sources,history:[{revision:state.revision,at:Date.now(),reason:'generation'}]};},'synthetic-generate',{state,sources,history:[]});
+ all(ui.render()).find(e=>e.type==='button'&&text(e).includes('生成大纲视图')).props.onClick();assert.equal(ui.button('确认生成').props.disabled,true);assert.ok(text(ui.render()).includes('尚未选择重排范围'));const checkbox=all(ui.render()).find(e=>e.type==='input'&&e.props.type==='checkbox');assert.ok(checkbox);checkbox.props.onChange({target:{checked:true}});assert.equal(ui.button('确认生成').props.disabled,false);await ui.button('确认生成').props.onClick();assert.equal(writes.length,1);assert.equal(writes[0].operation.pageId,'main');assert.equal(writes[0].operation.adoptHierarchy,true);assert.equal(writes[0].expectedRevision,before.revision);assert.deepEqual(state.pages[0].instances['card:loose'],before.pages[0].instances['card:loose']);assert.equal(state.pages[0].instances['chapter:a'].y,state.pages[0].instances['chapter:b'].y);delete globalThis.testPlanningModules;
+});
+
+test('unrelated material graph export keeps relationship names instead of reclassifying them as plot precedence',()=>{
+ const {svg}=legacyCanvasSvg([{id:'a',name:'甲'},{id:'b',name:'乙'}],[{from:'a',to:'b',name:'师徒'}],{a:{x:0,y:0},b:{x:400,y:40}});assert.ok(svg.includes('师徒'));assert.ok(!svg.includes('data-relation="precedence"'));
+});

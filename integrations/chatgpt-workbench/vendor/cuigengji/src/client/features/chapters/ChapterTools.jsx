@@ -1,37 +1,43 @@
+import {mapSelection} from './selection.ts';
 import React,{useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {Icon} from '../../shared/icons.tsx';
 import {ReferenceButton} from '../../shared/collaboration.tsx';
-import {defaults,useWorkbenchPreferences} from '../../shared/preferences.tsx';
-import {ProseFind} from './ProseFind.jsx';
+import {ChapterTypography,ChapterLayout,ChapterFormat,ChapterEditingPreferences} from './ChapterAppearance.jsx';
+import {chapterCopy} from './editor-text.mjs';
 import {chapterToolsStyle} from './chapter-tools-style.mjs';
 
-/** One native dialog, with a compact action grid and secondary pages. */
-export function ChapterTools({busy,deleted,onUndoFormat,onMaterials,onReview,reference,find,children}){
- const [page,setPage]=useState(null),[working,setWorking]=useState(false),returnTo=useRef(null);
+/** One action grid, small focused secondary pages. Find lives in the editor, not this modal. */
+export function ChapterTools({busy,deleted,onUndoFormat,onFormat,onMaterials,onReview,onFind,onHistory,onBackup,reference,title,content,quickSettings,speedSettings,share,children,target,scrollTarget}){
+ const [page,setPage]=useState(null),returnTo=useRef(null),snapshot=useRef(null);
  const open=next=>{returnTo.current=next;setPage(next);};
- const close=()=>setPage(null);
- const action=fn=>()=>{close();fn();};
- return <><style>{chapterToolsStyle}</style><button type="button" className="tool-trigger" aria-label="正文其他操作" aria-expanded={page!==null} aria-haspopup="dialog" title="正文其他操作" onClick={()=>{document.querySelectorAll('details.menu[open]').forEach(el=>el.removeAttribute('open'));returnTo.current=null;setPage('menu');}}><Icon name="more"/></button>
- {page&&<ChapterToolDialog page={page} returnTo={returnTo.current} working={working} close={close} back={()=>setPage('menu')}>
+ const close=()=>{setPage(null);requestAnimationFrame(()=>{const el=target?.current,saved=snapshot.current;if(el&&saved){el.focus({preventScroll:true});const mapped=mapSelection(saved.content,el.value,saved);el.setSelectionRange(mapped.start,mapped.end,mapped.direction);if(scrollTarget?.current)scrollTarget.current.scrollTop=saved.top;}});};
+ const action=fn=>()=>{close();fn?.();};
+ const button=(id,label,icon,tone)=> <button data-tool={id} data-tone={tone} disabled={busy||deleted} onClick={()=>open(id)}><Icon name={icon}/><span>{label}</span></button>;
+ return <><style>{chapterToolsStyle}</style><button type="button" className="tool-trigger" aria-label="正文其他操作" aria-expanded={page!==null} aria-haspopup="dialog" title="正文其他操作" onClick={()=>{const el=target?.current;snapshot.current=el?{content:el.value,start:el.selectionStart,end:el.selectionEnd,direction:el.selectionDirection,top:scrollTarget?.current?.scrollTop||0}:null;document.querySelectorAll('details.menu[open]').forEach(el=>el.removeAttribute('open'));returnTo.current=null;setPage('menu');}}><Icon name="more"/></button>
+ {page&&<ChapterToolDialog page={page} returnTo={returnTo.current} working={false} close={close} back={()=>setPage('menu')}>
   {page==='menu'&&<>
    <section className="chapter-tool-group" aria-label="常用"><h3>常用</h3><div className="chapter-tool-grid">
-    <button data-tool="find" data-tone="purple" disabled={busy||deleted} onClick={()=>open('find')}><Icon name="search"/><span>查找与替换</span></button>
-    <button data-tone="blue" disabled={busy||deleted} onClick={action(onMaterials)}><Icon name="book"/><span>本章资料</span></button>
-    <button data-tone="green" disabled={busy||deleted} onClick={action(onReview)}><Icon name="list"/><span>整理建议</span></button>
+    <button data-tool="find" data-tone="purple" disabled={busy||deleted} onClick={action(()=>requestAnimationFrame(onFind))}><Icon name="search"/><span>查找与替换</span></button>
+    {button('copy','快捷复制','book','blue')}
+    {onUndoFormat&&<button onClick={action(onUndoFormat)}><Icon name="undo"/><span>撤销文本操作</span></button>}
+    <button data-tone="blue" disabled={busy||deleted} onClick={action(onMaterials)}><Icon name="folder"/><span>本章资料</span></button>
     <ReferenceButton reference={reference}><Icon name="message"/><span>围绕此内容讨论</span></ReferenceButton>
-    {onUndoFormat&&<button disabled={busy||deleted} onClick={action(onUndoFormat)}><Icon name="undo"/><span>撤销快速排版</span></button>}
    </div></section>
-   <section className="chapter-tool-group" aria-label="外观"><h3>外观</h3><div className="chapter-tool-grid"><button data-tool="display" data-tone="red" onClick={()=>open('display')}><Icon name="type"/><span>字体字号</span></button></div></section>
-   <section className="chapter-tool-group" aria-label="章节"><h3>章节</h3><div className="chapter-tool-grid" onClick={e=>{if(e.target.closest('button:not(:disabled)'))close();}}>{children}</div></section>
+   <section className="chapter-tool-group" aria-label="写作工具"><h3>写作工具</h3><div className="chapter-tool-grid">
+    {button('speed','码字时速','history','green')}{button('quick','快捷输入','edit','blue')}{button('share','长图分享','download','purple')}
+    <button disabled={busy} onClick={action(onHistory)}><Icon name="history"/><span>版本历史</span></button>
+    <button data-tone="green" disabled={busy||deleted} onClick={action(onReview)}><Icon name="list"/><span>整理建议</span></button>
+   </div></section>
+   <section className="chapter-tool-group" aria-label="外观"><h3>外观与排版</h3><div className="chapter-tool-grid">{button('display','字体字号','type','red')}{button('layout','页面布局','canvas','blue')}{button('format','正文排版','format','green')}{button('editing','编辑偏好','settings','purple')}</div></section>
+   <section className="chapter-tool-group" aria-label="章节"><h3>章节与数据</h3><div className="chapter-tool-grid" onClick={e=>{if(e.target.closest('button:not(:disabled)'))close();}}>{children}{onBackup&&<button onClick={onBackup}><Icon name="download"/><span>整本备份</span></button>}</div></section>
   </>}
-  {page==='display'&&<ChapterTypography/>}
-  {page==='find'&&<ProseFind {...find} embedded onBusyChange={setWorking} close={close}/>}
+  {page==='display'&&<ChapterTypography/>}{page==='layout'&&<ChapterLayout/>}{page==='format'&&<ChapterFormat apply={onFormat} undo={onUndoFormat} disabled={busy||deleted}/>}{page==='editing'&&<ChapterEditingPreferences/>}
+  {page==='copy'&&<ChapterCopy title={title} content={content}/>}{page==='quick'&&quickSettings}{page==='speed'&&speedSettings}{page==='share'&&share}
  </ChapterToolDialog>}</>;
 }
-
+const titles={display:'字体设置',layout:'页面布局',format:'正文排版',editing:'编辑偏好',copy:'快捷复制',quick:'快捷输入',speed:'码字时速',share:'长图分享'};
 function ChapterToolDialog({page,returnTo,working,close,back,children}){
- const ref=useRef(null),outsidePress=useRef(false);
- const title=page==='display'?'字体设置':page==='find'?'查找与替换':'正文选项';
+ const ref=useRef(null),outsidePress=useRef(false),title=titles[page]||'正文选项';
  useLayoutEffect(()=>{const previous=document.activeElement,dialog=ref.current;dialog.showModal();return()=>{dialog.close();if(previous?.isConnected)previous.focus({preventScroll:true});};},[]);
  useEffect(()=>{const dialog=ref.current;dialog.querySelector('.chapter-tool-content').scrollTop=0;const focus=page==='menu'&&returnTo?dialog.querySelector(`[data-tool="${returnTo}"]`):dialog.querySelector(page==='menu'?'.chapter-tool-close':'.chapter-tool-back');focus?.focus({preventScroll:true});},[page,returnTo]);
  const outside=e=>{if(e.target!==e.currentTarget)return false;const r=e.currentTarget.getBoundingClientRect();return e.clientX<r.left||e.clientX>=r.right||e.clientY<r.top||e.clientY>=r.bottom;};
@@ -40,14 +46,4 @@ function ChapterToolDialog({page,returnTo,working,close,back,children}){
   <div className="chapter-tool-content">{children}</div>
  </dialog>;
 }
-
-function ChapterTypography(){
- const {preferences:p,update,error}=useWorkbenchPreferences();
- return <div className="chapter-typography">
-  <p className="chapter-tool-note">调整正文的字号与行距，立即生效。</p>
-  <div className="chapter-font-row"><label htmlFor="chapter-font-size">大小</label><input id="chapter-font-size" aria-label="正文字号" type="range" min="16" max="22" step="2" value={p.fontSize} onChange={e=>update({fontSize:Number(e.target.value)})}/><output htmlFor="chapter-font-size">{p.fontSize}</output><button type="button" className="chapter-font-reset" aria-label="恢复默认字号与行距" title="恢复默认字号与行距" onClick={()=>update({fontSize:defaults.fontSize,leading:defaults.leading})}><Icon name="refresh"/></button></div>
-  <div className="chapter-leading"><span id="chapter-leading-label">行距</span><div role="group" aria-labelledby="chapter-leading-label">{[[1.7,'紧凑'],[1.95,'适中'],[2.2,'宽松']].map(([value,label])=><button type="button" key={value} aria-pressed={p.leading===value} onClick={()=>update({leading:value})}>{label}</button>)}</div></div>
-  <div className="chapter-font-preview"><small>正文预览</small><p style={{fontSize:p.fontSize,lineHeight:p.leading}}>雨停以后，街道重新安静下来。窗边的灯仍亮着，故事还在继续。</p></div>
-  <p className="chapter-tool-note" role="status">{error||'偏好自动保存在此浏览器'}</p>
- </div>;
-}
+function ChapterCopy({title='',content=''}){const [message,setMessage]=useState(''),[manual,setManual]=useState(null);const copy=async mode=>{const text=chapterCopy(title,content,mode);try{if(!navigator.clipboard?.writeText)throw new Error();await navigator.clipboard.writeText(text);setManual(null);setMessage('已复制，不修改原文。');}catch{setManual(text);setMessage('宿主未允许自动复制，请选择下方文本复制。');}};return <div className="chapter-settings"><p className="chapter-tool-note">复制眼前的草稿；无空行正文会保留非空行缩进、标点和段落换行。</p>{[['all','标题 + 正文'],['title','仅标题'],['body','仅正文'],['compact','无空行正文']].map(([id,label])=><button key={id} onClick={()=>copy(id)}>{label}</button>)}<p role="status">{message}</p>{manual!==null&&<textarea aria-label="待复制文本" readOnly value={manual} onFocus={e=>e.target.select()}/>}</div>;}

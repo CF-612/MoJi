@@ -1,3 +1,4 @@
+import {editorDefaults,normalizeEditorPreferences,proseAppearance} from './editor-preferences.mjs';
 import {normalizeModules,modules,profiles,profileModules,toggleModule} from '../modules/registry.mjs';
 import {normalizeCardColors,defaultCardColors} from './card-colors.js';
 import {CardColorFields,CardLegend} from './card-appearance.tsx';
@@ -14,15 +15,15 @@ export interface Preferences {
   cardColors: Record<string,string>;
   numbering: 'chinese'|'arabic';
   fontSize: number; leading: number; directory: boolean;
+  fontFamily:string; fontColor:string; fontWeight:number; fontItalic:boolean; fontUnderline:boolean; letterSpacing:number; titleAlign:string; pageMargin:number; mobilePageMargin:number; bottomSpace:number; showInfoBar:boolean; transparentTitle:boolean; countPunctuation:boolean; backdropBlur:boolean; openAtEnd:boolean; quickInput:boolean; pairedPunctuation:boolean; writingSpeed:boolean; writingSpeedCompact:boolean;
   planningView: 'canvas' | 'timeline'; memoryView: 'canvas' | 'list'; motion: 'system' | 'reduce';
 }
-export const defaults: Preferences = { modules:normalizeModules(), numbering:'chinese', theme:'system', cardColors: {...defaultCardColors}, fontSize: 18, leading: 1.95, directory: true, planningView: 'timeline', memoryView: 'list', motion: 'system' };
+export const defaults: Preferences = { ...editorDefaults, modules:normalizeModules(), numbering:'chinese', theme:'system', cardColors: {...defaultCardColors}, fontSize: 18, leading: 1.95, directory: true, planningView: 'timeline', memoryView: 'list', motion: 'system' };
 const key = 'cuigengji:workbench:preferences:v1';
 function read(): Preferences {
   try {
     const p = JSON.parse(localStorage.getItem(key) || '{}');
-    return {modules:normalizeModules(p.modules),numbering:p.numbering==='arabic'?'arabic':'chinese',theme:['light','dark'].includes(p.theme)?p.theme:'system',cardColors:normalizeCardColors(p.cardColors),fontSize: [16,18,20,22].includes(p.fontSize) ? p.fontSize : defaults.fontSize,
-      leading: [1.7,1.95,2.2].includes(p.leading) ? p.leading : defaults.leading,
+    return {modules:normalizeModules(p.modules),numbering:p.numbering==='arabic'?'arabic':'chinese',theme:['light','dark'].includes(p.theme)?p.theme:'system',cardColors:normalizeCardColors(p.cardColors),...normalizeEditorPreferences(p),
       directory: typeof p.directory === 'boolean' ? p.directory : defaults.directory,
       planningView: ['list','timeline'].includes(p.planningView) ? 'timeline' : p.planningView === 'canvas' ? 'canvas' : defaults.planningView, memoryView: p.memoryView === 'canvas' ? 'canvas' : 'list',
       motion: p.motion === 'reduce' ? 'reduce' : 'system'};
@@ -32,7 +33,7 @@ const Context = createContext({ preferences: defaults, update: (_: Partial<Prefe
 export const useWorkbenchPreferences = () => useContext(Context);
 export function PreferencesProvider({children}: {children: React.ReactNode}) {
   const [preferences, set] = useState(read), [error, setError] = useState('');
-  useEffect(()=>{document.documentElement.dataset.themePreference=preferences.theme;},[preferences.theme]);
+  useEffect(()=>{document.documentElement.dataset.themePreference=preferences.theme;document.documentElement.dataset.backdropBlur=String(preferences.backdropBlur);},[preferences.theme,preferences.backdropBlur]);
   const update = (next: Partial<Preferences>) => set(previous => {
     const value = {...previous, ...next,modules:normalizeModules(next.modules??previous.modules)};
     try {localStorage.setItem(key, JSON.stringify(value)); setError('');}
@@ -40,7 +41,7 @@ export function PreferencesProvider({children}: {children: React.ReactNode}) {
     return value;
   });
   useEffect(() => {const sync = (e: StorageEvent) => {if(e.key === key) set(read());}; window.addEventListener('storage', sync); return () => window.removeEventListener('storage', sync);}, []);
-  return <Context.Provider value={{preferences, update, error}}>{children}</Context.Provider>;
+  return <Context.Provider value={{preferences, update, error}}><style>{`html:not([data-backdrop-blur=true]) dialog::backdrop{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}html[data-backdrop-blur=true] dialog::backdrop{backdrop-filter:blur(3px)!important;-webkit-backdrop-filter:blur(3px)!important}`}</style>{children}</Context.Provider>;
 }
 export function Modal({title, close, children, className = ''}: {title: string; close: () => void; children: React.ReactNode; className?: string}) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -67,13 +68,13 @@ function ModuleToggle({id}:{id:string}) {
   const {preferences:p,update}=useWorkbenchPreferences();
   const module=modules.find(item=>item.id===id);
   if(!module)return null;
-  return <label className="settings-row settings-switch-row"><span className="settings-row-text"><strong>{module.name}</strong><small>{module.description}{module.dependencies.length?' · 需要时间线':''}</small></span><input type="checkbox" className="settings-switch" aria-label={`显示${module.name}`} checked={p.modules[module.id]} onChange={event=>update({modules:toggleModule(p.modules,module.id,event.target.checked)})}/></label>;
+  return <label className="settings-row settings-switch-row"><span className="settings-row-text"><strong>{module.name}</strong><small>{id==='foreshadow'?'在规划和仪表盘显示伏笔；关闭仅隐藏入口，不删除数据。':module.description}{module.dependencies.length?' · 需要时间线':''}</small></span><input type="checkbox" className="settings-switch" aria-label={`显示${module.name}`} checked={p.modules[module.id]} onChange={event=>update({modules:toggleModule(p.modules,module.id,event.target.checked)})}/></label>;
 }
 export function PreferencesDialog({close, novelTitle, onPreset}: {close: () => void; novelTitle?: string; onPreset?: () => void}) {
   const {preferences:p, update, error} = useWorkbenchPreferences();
   const [tab, setTab] = useState<SettingsTab>('appearance');
   const [search,setSearch]=useState('');
-  const searchRows:[SettingsTab,string][]=[['appearance','主题 深色 浅色 跟随系统 动效 画布 视图 卡片颜色'],['typography','正文 字号 行距 编号 目录'],['modules','功能模块 伏笔 关系演变 时间线 分页 分组 梗概 仪表盘'],['other','更新 关于 写作要求 预设']];
+  const searchRows:[SettingsTab,string][]=[['appearance','主题 深色 浅色 跟随系统 动效 画布 视图 卡片颜色'],['typography','正文 字号 行距 编号 目录'],['modules','功能模块 伏笔 关系演变 时间线 分页 分组 梗概 仪表盘'],['other','更新 关于 写作要求 预设 背景 模糊']];
   const themeKey = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const step = event.key==='ArrowRight'||event.key==='ArrowDown' ? 1 : event.key==='ArrowLeft'||event.key==='ArrowUp' ? -1 : 0;
     if (!step) return;
@@ -108,14 +109,14 @@ export function PreferencesDialog({close, novelTitle, onPreset}: {close: () => v
             </SettingCard>
           </section>
           <section className="settings-panel" aria-label="正文与目录" hidden={tab!=='typography'}>
-            <SettingCard title="正文显示" note="默认用于所有章节正文，可随时在正文工具栏里临时调整。">
-              <label className="settings-row"><span className="settings-row-text">正文字号<small>16–22 像素，默认 18</small></span><select aria-label="默认正文字号" value={p.fontSize} onChange={event=>update({fontSize:Number(event.target.value)})}>{[16,18,20,22].map(number=><option key={number} value={number}>{number}</option>)}</select></label>
-              <label className="settings-row"><span className="settings-row-text">行距<small>正文行与行之间的距离</small></span><select aria-label="正文行距" value={p.leading} onChange={event=>update({leading:Number(event.target.value)})}><option value={1.7}>紧凑</option><option value={1.95}>适中</option><option value={2.2}>宽松</option></select></label>
+            <SettingCard title="正文显示" note="用于此设备的所有章节正文。更多字体和页面布局选项在正文“更多 → 外观与排版”。">
+              <label className="settings-row"><span className="settings-row-text">正文字号<small>14–32 像素，默认 18</small></span><select aria-label="默认正文字号" value={p.fontSize} onChange={event=>update({fontSize:Number(event.target.value)})}>{Array.from({length:19},(_,i)=>i+14).map(number=><option key={number} value={number}>{number}</option>)}</select></label>
+              <label className="settings-row"><span className="settings-row-text">行距<small>正文行与行之间的距离</small></span><select aria-label="正文行距" value={p.leading} onChange={event=>update({leading:Number(event.target.value)})}>{![1.7,1.95,2.2].includes(p.leading)&&<option value={p.leading}>{p.leading.toFixed(2)} 倍</option>}<option value={1.7}>紧凑</option><option value={1.95}>适中</option><option value={2.2}>宽松</option></select></label>
             </SettingCard>
             <SettingCard title="章节编号" note="统一显示已有编号和新建默认标题；保留自定义标题及已保存的原始名称。">
               <label className="settings-row"><span className="settings-row-text">章节与分卷编号<small>中文章节名或阿拉伯数字</small></span><select aria-label="章节编号格式" value={p.numbering} onChange={event=>update({numbering:event.target.value as Preferences['numbering']})}><option value="chinese">中文数字 · 第一章</option><option value="arabic">阿拉伯数字 · 第1章</option></select></label>
             </SettingCard><SettingCard title="目录显示"><label className="settings-row settings-switch-row"><span className="settings-row-text">默认展开目录<small>打开工作台时自动展开章节目录</small></span><input type="checkbox" className="settings-switch" checked={p.directory} onChange={event=>update({directory:event.target.checked})}/></label></SettingCard><SettingCard title="阅读预览">
-              <div className="reading-preview"><small>阅读预览</small><p style={{fontSize:p.fontSize,lineHeight:p.leading}}>雨停以后，街道重新安静下来。窗边的灯仍亮着，故事还在继续。</p></div>
+              <div className="reading-preview"><small>阅读预览</small><p style={proseAppearance(p)}>雨停以后，街道重新安静下来。窗边的灯仍亮着，故事还在继续。</p></div>
             </SettingCard>
           </section>
           <section className="settings-panel" aria-label="界面与视图" hidden={tab!=='appearance'}>
@@ -152,7 +153,7 @@ export function PreferencesDialog({close, novelTitle, onPreset}: {close: () => v
             {onPreset && <SettingCard title="当前作品" note={novelTitle?`作品：${novelTitle}`:'还没有选定作品'}>
               <button type="button" className="settings-link-row" onClick={onPreset} aria-label="写作预设"><span className="settings-row-text"><strong>写作预设</strong><small>叙述风格、表达习惯，以及希望 AI 遵守的写作要求</small></span><span className="settings-link-mark" aria-hidden="true">›</span></button>
             </SettingCard>}
-            <SettingCard title="版本与数据">
+            <SettingCard title="背景效果" note="默认关闭，保留弹窗背景遮罩。只影响此设备显示。"><label className="settings-row settings-switch-row"><span className="settings-row-text">背景模糊<small>弹窗后方背景轻微模糊；关闭时仍保留遮罩。</small></span><input type="checkbox" className="settings-switch" checked={p.backdropBlur} onChange={event=>update({backdropBlur:event.target.checked})}/></label></SettingCard><SettingCard title="版本与数据">
               <div className="settings-facts"><div className="settings-fact"><span>版本</span><strong>v{brand.version}</strong></div><div className="settings-fact"><span>偏好存储</span><strong>仅此浏览器</strong></div></div>
               <p className="settings-hint">墨叽基于 mistnest 的开源催更姬开发，遵循 MIT 许可；设置项按设备保存，不随作品同步。</p>
             </SettingCard>
@@ -166,8 +167,8 @@ export function PreferencesDialog({close, novelTitle, onPreset}: {close: () => v
 export function ProseDisplay({inline=false}: {inline?:boolean}={}) {
   const {preferences:p, update} = useWorkbenchPreferences();
   const fields=<>
-    <label>字号<select aria-label="正文字号" value={p.fontSize} onChange={event=>update({fontSize:Number(event.target.value)})}>{[16,18,20,22].map(value=><option key={value} value={value}>{value}</option>)}</select></label>
-    <label>行距<select aria-label="当前正文行距" value={p.leading} onChange={event=>update({leading:Number(event.target.value)})}><option value={1.7}>紧凑</option><option value={1.95}>适中</option><option value={2.2}>宽松</option></select></label>
+    <label>字号<select aria-label="正文字号" value={p.fontSize} onChange={event=>update({fontSize:Number(event.target.value)})}>{Array.from({length:19},(_,i)=>i+14).map(value=><option key={value} value={value}>{value}</option>)}</select></label>
+    <label>行距<select aria-label="当前正文行距" value={p.leading} onChange={event=>update({leading:Number(event.target.value)})}>{![1.7,1.95,2.2].includes(p.leading)&&<option value={p.leading}>{p.leading.toFixed(2)} 倍</option>}<option value={1.7}>紧凑</option><option value={1.95}>适中</option><option value={2.2}>宽松</option></select></label>
   </>;
   return inline?<fieldset className="prose-display-fields"><legend>正文显示</legend>{fields}</fieldset>:<details className="menu prose-display"><summary aria-label="正文显示设置"><span aria-hidden="true">Aa</span>显示</summary><div className="menu-panel">{fields}</div></details>;
 }

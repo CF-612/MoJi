@@ -6,19 +6,25 @@ import {CARD_WIDTH,CARD_HEIGHT,PORT_Y,contains,intersects,fitCamera,toWorld,zoom
 import type {Camera,Rect} from './graph-geometry.ts';
 import type {Point} from '../../contracts/planning.ts';
 export {CARD_WIDTH,CARD_HEIGHT,PORT_Y,curve};
-type Side='in'|'out';
+export type Side='in'|'out'|'top'|'bottom'|'left'|'right';
+export type ConnectionAxis='horizontal'|'vertical';
+export const portAxis=(side:Side,direction:ConnectionAxis='horizontal'):ConnectionAxis=>side==='top'||side==='bottom'?'vertical':side==='left'||side==='right'?'horizontal':direction;
+export const outputPort=(side:Side)=>['out','bottom','right'].includes(side);
+const oppositePort=(side:Side):Side=>({in:'out',out:'in',top:'bottom',bottom:'top',left:'right',right:'left'} as Record<Side,Side>)[side];
 interface Link {from:string;to:string;type?:string}
 export interface GraphNode {id:string;revision:number;position?:Point|null;width?:number;height?:number;kind?:string;moveContents?:boolean}
 export interface GraphHit {kind:'blank'|'node'|'decoration'|'edge'|'port';id?:string;side?:Side}
 export interface GraphContext {x:number;y:number;point:Point;hit:GraphHit;selected:string[]}
 interface Options {
   nodes:GraphNode[];edges:Link[];fallback:Record<string,Point>;busy:boolean;scopeKey:string;
-  visibleIds?:string[];acyclic?:boolean;direction?:'horizontal'|'vertical';
+  visibleIds?:string[];acyclic?:boolean;direction?:ConnectionAxis;
+  canConnect?:(from:string,to:string,axis:ConnectionAxis)=>boolean;
+  arrangeLabel?:string;recoverOffscreen?:boolean;
   onLayout:(points:Record<string,Point>,revisions?:Record<string,number>,requestId?:string)=>Promise<boolean|undefined>;
-  onConnect:(from:string,to:string)=>Promise<boolean|undefined>;
+  onConnect:(from:string,to:string,axis?:ConnectionAxis)=>Promise<boolean|undefined>;
   onContext?:(context:GraphContext)=>void;
   onEdgeOpen?:(id:string)=>void;
-  onCreateConnected?:(id:string,side:Side,point:Point)=>void;
+  onCreateConnected?:(id:string,side:'in'|'out',point:Point)=>void;
   onFrame?:(ids:string[])=>void;
 }
 interface Wire {id:string;side:Side;point:Point;target:string|null}
@@ -41,11 +47,11 @@ export function GraphStatus({graph,busy}:{graph:ReturnType<typeof useGraph>;busy
   if(graph.error)return <small role="alert">{graph.error}</small>;
   if(graph.saving)return <small role="status">正在保存连线…</small>;
   if(graph.pending)return <small role="status" className="muted">{graph.layoutSaving?'布局后台保存中':'布局待保存 · 暂停拖动后自动保存'}</small>;
-  if(graph.wire)return <small role="status">连接到另一张卡片，或拖到空白新建 · Esc 取消</small>;
+  if(graph.wire)return <small role="status">连接到高亮连接点 · Esc 取消</small>;
   return null;
 }
 export function GraphControls({graph,busy}:{graph:ReturnType<typeof useGraph>;busy:boolean}){
-  return <><div className="graph-view-controls"><button aria-label="适应视图" onClick={()=>graph.fit()}>适应</button><button className="touch-zoom" aria-label="缩小画布" onClick={()=>graph.zoomTo(graph.zoom/1.2)}>−</button><button aria-label="恢复百分之百缩放" onClick={()=>graph.zoomTo(1)}>{Math.round(graph.zoom*100)}%</button><button className="touch-zoom" aria-label="放大画布" onClick={()=>graph.zoomTo(graph.zoom*1.2)}>＋</button><span className="graph-control-divider" aria-hidden="true"/><button aria-label="撤销布局" title="撤销布局 · Ctrl+Z" disabled={busy||graph.saving||graph.failed||!graph.canUndo} onClick={()=>graph.undo()}>↶</button><button aria-label="重做布局" title="重做布局 · Ctrl+Y" disabled={busy||graph.saving||graph.failed||!graph.canRedo} onClick={()=>graph.redo()}>↷</button><button aria-label="整理布局" disabled={busy||graph.saving||graph.failed} onClick={()=>graph.arrange(graph.fallback)}>整理</button></div><details className="graph-help"><summary>操作</summary><div><p>触屏：单指拖卡 · 空白平移 · 双指平移缩放 · 点卡片打开</p><p>右键拖动平移 · 滚轮缩放</p><p>单击选择 · 双击打开内容</p><p>拖动空白框选 · Shift 追加选择</p><p>拖动圆点连线 · 右键查看操作</p><p>C 创建讨论框 · Esc 取消</p><p>Home 适应 · Ctrl+Z / Ctrl+Y 撤销、重做布局</p></div></details><div className="graph-status"><GraphStatus graph={graph} busy={busy}/></div></>;
+  return <><div className="graph-view-controls"><button aria-label="适应视图" onClick={()=>graph.fit()}>适应</button><button className="touch-zoom" aria-label="缩小画布" onClick={()=>graph.zoomTo(graph.zoom/1.2)}>−</button><button aria-label="恢复百分之百缩放" onClick={()=>graph.zoomTo(1)}>{Math.round(graph.zoom*100)}%</button><button className="touch-zoom" aria-label="放大画布" onClick={()=>graph.zoomTo(graph.zoom*1.2)}>＋</button><span className="graph-control-divider" aria-hidden="true"/><button aria-label="撤销布局" title="撤销布局 · Ctrl+Z" disabled={busy||graph.saving||graph.failed||!graph.canUndo} onClick={()=>graph.undo()}>↶</button><button aria-label="重做布局" title="重做布局 · Ctrl+Y" disabled={busy||graph.saving||graph.failed||!graph.canRedo} onClick={()=>graph.redo()}>↷</button><button aria-label="整理布局" disabled={busy||graph.saving||graph.failed||!Object.keys(graph.fallback).length} onClick={()=>graph.arrange(graph.fallback)}>{graph.arrangeLabel||'整理'}</button></div><details className="graph-help"><summary>操作</summary><div><p>触屏：单指拖卡 · 空白平移 · 双指平移缩放 · 点卡片打开</p><p>右键拖动平移 · 滚轮缩放</p><p>单击选择 · 双击打开内容</p><p>拖动空白框选 · Shift 追加选择</p><p>拖动圆点连线 · 右键查看操作</p><p>C 创建讨论框 · Esc 取消</p><p>Home 适应 · Ctrl+Z / Ctrl+Y 撤销、重做布局</p></div></details><div className="graph-status"><GraphStatus graph={graph} busy={busy}/></div></>;
 }
 
 /** One world coordinate system. Viewport changes are local preferences, never novel edits. */
@@ -60,7 +66,7 @@ export function useGraph(options:Options){
   const scroll=useRef<HTMLDivElement>(null),surface=useRef<HTMLDivElement>(null);
   const [local,setLocalState]=useState<Record<string,Point>>({}),localRef=useRef(local);localRef.current=local;
   const [selected,setSelectedState]=useState<string[]>([]),selection=useRef(selected);selection.current=selected;
-  const [selectedEdge,setSelectedEdge]=useState<string|null>(null),[wire,setWire]=useState<Wire|null>(null),wireRef=useRef(wire);
+  const [selectedEdge,setSelectedEdge]=useState<string|null>(null),[wire,setWire]=useState<Wire|null>(null),wireRef=useRef(wire),wireEpoch=useRef(0);
   const [lasso,setLasso]=useState<Rect|null>(null),[dragging,setDragging]=useState(false),[saving,setSaving]=useState(false),[failed,setFailed]=useState(false),[error,setError]=useState('');
   const [awaitingLink,setAwaitingLink]=useState<Link|null>(null);
   const gesture=useRef<Gesture|null>(null),locked=useRef(false),suppress=useRef(false),rightEnd=useRef(0),space=useRef(false);
@@ -83,7 +89,7 @@ export function useGraph(options:Options){
   const setLocal=(next:Record<string,Point>)=>{localRef.current=next;setLocalState(next);};
   const select=(ids:string[])=>{selection.current=ids;setSelectedState(ids);setSelectedEdge(null);};
   const chooseEdge=(id:string|null)=>{selection.current=[];setSelectedState([]);setSelectedEdge(id);};
-  const updateWire=(next:Wire|null)=>{wireRef.current=next;setWire(next);};
+  const updateWire=(next:Wire|null)=>{if(!next||!wireRef.current||next.id!==wireRef.current.id||next.side!==wireRef.current.side)wireEpoch.current++;wireRef.current=next;setWire(next);};
   const rememberCamera=(next=cameraRef.current)=>{try{localStorage.setItem(storageKey,JSON.stringify(next));}catch{}};
   const updateCamera=(next:Camera,persist=false)=>{cameraRef.current=next;setCamera(next);if(persist)rememberCamera(next);};
   const relative=(x:number,y:number):Point=>{const r=scroll.current!.getBoundingClientRect();return{x:x-r.left,y:y-r.top};};
@@ -91,8 +97,8 @@ export function useGraph(options:Options){
   const centerPoint=()=>toWorld({x:(scroll.current?.clientWidth||800)/2,y:(scroll.current?.clientHeight||450)/2},cameraRef.current);
   const bounds=(id:string):Rect=>{const node=opts.current.nodes.find(n=>n.id===id)!;return {...pointsRef.current[id],width:node.width||CARD_WIDTH,height:node.height||CARD_HEIGHT};};
   const visible=()=>opts.current.visibleIds??opts.current.nodes.map(n=>n.id);
-  const endpoint=(id:string,side:Side):Point=>opts.current.direction==='vertical'?{x:pointsRef.current[id].x+CARD_WIDTH/2,y:pointsRef.current[id].y+(side==='out'?(opts.current.nodes.find(n=>n.id===id)?.height||CARD_HEIGHT):0)}:({x:pointsRef.current[id].x+(side==='out'?CARD_WIDTH:0),y:pointsRef.current[id].y+PORT_Y});
-  const valid=(id:string,side:Side)=>{const current=wireRef.current;if(!current||current.side===side)return false;const [from,to]=current.side==='out'?[current.id,id]:[id,current.id];return canJoin(opts.current.edges,from,to,opts.current.acyclic);};
+  const endpoint=(id:string,side:Side):Point=>{const node=opts.current.nodes.find(n=>n.id===id),p=pointsRef.current[id],width=node?.width||CARD_WIDTH,height=node?.height||CARD_HEIGHT;return portAxis(side,opts.current.direction)==='vertical'?{x:p.x+width/2,y:p.y+(outputPort(side)?height:0)}:{x:p.x+(outputPort(side)?width:0),y:p.y+((side==='left'||side==='right')?height/2:PORT_Y)};};
+  const valid=(id:string,side:Side)=>{const current=wireRef.current;if(!current||oppositePort(current.side)!==side||!opts.current.nodes.some(n=>n.id===id)||!opts.current.nodes.some(n=>n.id===current.id))return false;const axis=portAxis(current.side,opts.current.direction),[from,to]=outputPort(current.side)?[current.id,id]:[id,current.id];return opts.current.canConnect?opts.current.canConnect(from,to,axis):canJoin(opts.current.edges,from,to,opts.current.acyclic);};
   const targetAt=(x:number,y:number)=>{const port=document.elementFromPoint(x,y)?.closest<HTMLElement>('[data-graph-port]');if(!port||!surface.current?.contains(port))return null;return valid(port.dataset.nodeId!,port.dataset.graphPort as Side)?port.dataset.nodeId!:null;};
   const hitAt=(target:EventTarget|null):GraphHit=>{
     const element=target instanceof Element?target:null,port=element?.closest<HTMLElement>('[data-graph-port]');
@@ -105,7 +111,9 @@ export function useGraph(options:Options){
   const cancel=()=>{clearLongPress();touches.current.clear();pinch.current=null;const g=gesture.current;if(g?.kind==='card'&&g.moved){const next={...localRef.current};for(const id of g.ids)next[id]=g.before[id];setLocal(next);suppress.current=true;}if(g?.kind==='pan')updateCamera(g.before);gesture.current=null;updateWire(null);setDragging(false);setLasso(null);};
   const fit=(persist=true)=>{const el=scroll.current;if(!el)return;const ids=visible().filter(id=>pointsRef.current[id]),chosen=ids.filter(id=>selection.current.includes(id));const next=fitCamera((chosen.length?chosen:ids).map(bounds),el.clientWidth,el.clientHeight);if(next)updateCamera(next,persist);};
   const zoomTo=(next:number,anchor?:Point)=>{const el=scroll.current;if(!el||gesture.current)return;updateCamera(zoomAt(cameraRef.current,next,anchor||{x:el.clientWidth/2,y:el.clientHeight/2}),true);};
-  const fitted=useRef(Boolean(validSaved));
+  const fitted=useRef(Boolean(validSaved)),initialViewChecked=useRef(false);
+  const hasVisibleContent=(width=scroll.current?.clientWidth||0,height=scroll.current?.clientHeight||0)=>{const c=cameraRef.current;return visible().some(id=>{if(!pointsRef.current[id])return false;const r=bounds(id),left=r.x*c.zoom+c.x,top=r.y*c.zoom+c.y;return left<width&&top<height&&left+r.width*c.zoom>0&&top+r.height*c.zoom>0;});};
+  const initializeView=()=>{if(initialViewChecked.current||!opts.current.nodes.length||!scroll.current?.clientWidth)return false;if(!fitted.current||opts.current.recoverOffscreen&&!hasVisibleContent())fit();fitted.current=true;initialViewChecked.current=true;return true;};
   const ensureVisible=(point:Point,width:number,height:number)=>{
     const el=scroll.current;if(!el)return;fitted.current=true;
     const c=cameraRef.current,left=point.x*c.zoom+c.x,top=point.y*c.zoom+c.y;
@@ -114,9 +122,9 @@ export function useGraph(options:Options){
     const dy=top<margin?margin-top:bottom>el.clientHeight-margin?el.clientHeight-margin-bottom:0;
     if(dx||dy)updateCamera({...c,x:c.x+dx,y:c.y+dy},true);
   };
-  useLayoutEffect(()=>{const el=scroll.current;if(!el)return;let size={width:0,height:0};const observer=new ResizeObserver(()=>{if(!el.clientWidth||!el.clientHeight)return;if(!fitted.current&&opts.current.nodes.length){fit();fitted.current=true;}else if(size.width&&size.height){const c=cameraRef.current;updateCamera({...c,x:c.x+(el.clientWidth-size.width)/2,y:c.y+(el.clientHeight-size.height)/2},true);}size={width:el.clientWidth,height:el.clientHeight};});observer.observe(el);return()=>observer.disconnect();},[]);
-  useEffect(()=>{if(!fitted.current&&options.nodes.length&&scroll.current?.clientWidth){fit();fitted.current=true;}const ids=new Set(options.nodes.map(n=>n.id)),kept=selection.current.filter(id=>ids.has(id));if(kept.length!==selection.current.length)select(kept);if(wireRef.current&&!ids.has(wireRef.current.id))updateWire(null);},[options.nodes]);
-  useEffect(()=>()=>rememberCamera(),[]);
+  useLayoutEffect(()=>{const el=scroll.current;if(!el)return;let size={width:0,height:0};const observer=new ResizeObserver(()=>{if(!el.clientWidth||!el.clientHeight)return;const initialized=initializeView();if(!initialized&&size.width&&size.height&&!gesture.current){const wasVisible=hasVisibleContent(size.width,size.height),c=cameraRef.current;updateCamera({...c,x:c.x+(el.clientWidth-size.width)/2,y:c.y+(el.clientHeight-size.height)/2},true);if(opts.current.recoverOffscreen&&wasVisible&&!hasVisibleContent())fit();}size={width:el.clientWidth,height:el.clientHeight};});observer.observe(el);return()=>observer.disconnect();},[]);
+  useEffect(()=>{initializeView();const ids=new Set(options.nodes.map(n=>n.id)),kept=selection.current.filter(id=>ids.has(id));if(kept.length!==selection.current.length)select(kept);if(wireRef.current&&!ids.has(wireRef.current.id))updateWire(null);},[options.nodes]);
+  useEffect(()=>()=>{wireEpoch.current++;wireRef.current=null;gesture.current=null;clearLongPress();rememberCamera();},[]);
   useEffect(()=>{if(awaitingLink&&options.edges.some(e=>e.from===awaitingLink.from&&e.to===awaitingLink.to)){setAwaitingLink(null);locked.current=false;}},[options.edges,awaitingLink]);
   const save=async(change:LayoutChange,_persist=opts.current.onLayout)=>{
     queue.enqueue(change.after,change.revisions);undoStack.current.push(change);undoStack.current=undoStack.current.slice(-50);redoStack.current=[];historyTick(n=>n+1);return true;
@@ -125,7 +133,7 @@ export function useGraph(options:Options){
     if(locked.current||opts.current.busy||failed)return;const source=redo?redoStack.current:undoStack.current,target=redo?undoStack.current:redoStack.current,entry=source.at(-1);if(!entry)return;
     const after=redo?entry.after:entry.before;queue.enqueue(after,Object.fromEntries(Object.keys(after).map(id=>[id,opts.current.nodes.find(n=>n.id===id)?.revision])));source.pop();target.push(entry);historyTick(n=>n+1);
   };
-  const connect=async(target:string)=>{const current=wireRef.current;if(!current||locked.current||opts.current.busy)return;if(!await queue.flush())return;const [from,to]=current.side==='out'?[current.id,target]:[target,current.id];updateWire(null);locked.current=true;setSaving(true);let ok=false;try{ok=await opts.current.onConnect(from,to)===true;if(ok)setAwaitingLink({from,to});}catch{/* Parent reports the failed RPC. */}finally{if(!ok)locked.current=false;setSaving(false);}};
+  const connect=async(target:string)=>{const current=wireRef.current,epoch=wireEpoch.current;if(!current||locked.current||opts.current.busy)return;if(!await queue.flush())return;if(epoch!==wireEpoch.current||locked.current||opts.current.busy)return;if(!valid(target,oppositePort(current.side)))return;const axis=portAxis(current.side,opts.current.direction),[from,to]=outputPort(current.side)?[current.id,target]:[target,current.id];updateWire(null);locked.current=true;setSaving(true);let ok=false;try{ok=await opts.current.onConnect(from,to,axis)===true;if(ok)setAwaitingLink({from,to});}catch{/* Parent reports the failed RPC. */}finally{if(!ok)locked.current=false;setSaving(false);}};
   const cardProps=(id:string,open:()=>void):React.HTMLAttributes<HTMLElement>=>(touchOpen.current.set(id,open),{
     onPointerDown:e=>{if(e.pointerType==='touch'||editable(e.target)||e.button!==0||opts.current.busy||locked.current||wireRef.current||space.current||(e.target as HTMLElement).closest('[data-graph-port],.decoration-resize'))return;const node=opts.current.nodes.find(n=>n.id===id);if(!node)return;suppress.current=false;let ids=selection.current.includes(id)?[...selection.current]:[id];if(node.kind==='frame'&&node.moveContents){const box=bounds(id);ids=[...new Set([...ids,...opts.current.nodes.filter(n=>n.id!==id&&n.kind!=='frame'&&contains(box,bounds(n.id))).map(n=>n.id)])];}gesture.current={kind:'card',pointer:e.pointerId,start:{x:e.clientX,y:e.clientY},moved:false,ids,before:Object.fromEntries(ids.map(key=>[key,{...pointsRef.current[key]}])),revisions:Object.fromEntries(ids.map(key=>[key,opts.current.nodes.find(n=>n.id===key)!.revision])),persist:opts.current.onLayout};},
     onClickCapture:e=>{if(!editable(e.target)&&suppress.current){e.preventDefault();e.stopPropagation();suppress.current=false;}},
@@ -133,7 +141,7 @@ export function useGraph(options:Options){
     onDoubleClick:e=>{if(editable(e.target)||(e.target as HTMLElement).closest('[data-graph-port],.decoration-resize')||opts.current.busy||locked.current)return;e.preventDefault();void queue.flush().then(ok=>{if(ok)open();});},
   });
   const portProps=(id:string,side:Side,name:string):React.ButtonHTMLAttributes<HTMLButtonElement>&{'data-graph-port':Side;'data-node-id':string}=>({
-    'data-graph-port':side,'data-node-id':id,type:'button','aria-label':`${name}：${side==='out'?'输出':'输入'}连接点`,disabled:options.busy||saving||awaitingLink!==null||failed,className:`graph-port port-${side} ${wire?(valid(id,side)?'port-valid':wire.id===id?'port-source':'port-unavailable'):''} ${wire?.target===id&&valid(id,side)?'port-target':''}`,
+    'data-graph-port':side,'data-node-id':id,type:'button','aria-label':`${name}：${({top:'上方包含输入',bottom:'下方包含输出',left:'左侧先后输入',right:'右侧先后输出',in:'输入',out:'输出'})[side]}连接点`,disabled:options.busy||saving||awaitingLink!==null||failed||!!wire&&(wire.id!==id||wire.side!==side)&&!valid(id,side),className:`graph-port port-${side} ${wire?(valid(id,side)?'port-valid':wire.id===id?'port-source':'port-unavailable'):''} ${wire?.target===id&&valid(id,side)?'port-target':''}`,
     onPointerDown:e=>{if(e.button!==0)return;e.stopPropagation();e.preventDefault();scroll.current?.focus({preventScroll:true});suppress.current=false;if(wireRef.current){if(valid(id,side))void connect(id);else updateWire(null);return;}setSelectedEdge(null);updateWire({id,side,point:endpoint(id,side),target:null});gesture.current={kind:'wire',pointer:e.pointerId,start:{x:e.clientX,y:e.clientY},moved:false};e.currentTarget.setPointerCapture(e.pointerId);},
     onClick:e=>{e.stopPropagation();if(e.detail!==0)return;if(wireRef.current){if(valid(id,side))void connect(id);else updateWire(null);}else updateWire({id,side,point:endpoint(id,side),target:null});},
   });
@@ -172,18 +180,18 @@ export function useGraph(options:Options){
     if(g.kind==='card'&&!g.moved&&e.pointerType==='touch'){suppress.current=true;if(!pressed?.fired)void queue.flush().then(ok=>{if(ok)touchOpen.current.get(g.ids[0])?.();});return;}
     if(g.kind==='card'&&g.moved){select(selection.current.includes(g.ids[0])?selection.current:[g.ids[0]]);void save({before:g.before,after:Object.fromEntries(g.ids.map(id=>[id,localRef.current[id]])),revisions:g.revisions},g.persist);return;}
     if(g.kind==='lasso'&&!g.moved)select(g.append);
-    if(g.kind==='wire'&&g.moved){const target=targetAt(e.clientX,e.clientY),current=wireRef.current;if(target)void connect(target);else{updateWire(null);if(current&&!hitAt(document.elementFromPoint(e.clientX,e.clientY)).id)opts.current.onCreateConnected?.(current.id,current.side,clientPoint(e.clientX,e.clientY));}}
+    if(g.kind==='wire'&&g.moved){const target=targetAt(e.clientX,e.clientY),current=wireRef.current;if(target)void connect(target);else{updateWire(null);if(current&&(current.side==='in'||current.side==='out')&&!hitAt(document.elementFromPoint(e.clientX,e.clientY)).id)opts.current.onCreateConnected?.(current.id,current.side,clientPoint(e.clientX,e.clientY));}}
   };
   const keyHandler=useRef<(event:KeyboardEvent)=>void>(()=>{});
   keyHandler.current=e=>{const el=scroll.current;if(!el?.offsetWidth||!(el.contains(document.activeElement)||el.contains(e.target as Node)))return;if((e.target as Element).closest('input,textarea,select,[contenteditable=true],[role=menu]'))return;if(e.key==='Escape'){e.preventDefault();cancel();}else if(e.key===' '&&!(e.target as Element).closest('button,summary')){e.preventDefault();space.current=true;}else if(e.key==='Home'){e.preventDefault();fit();}else if((e.ctrlKey||e.metaKey)&&['z','y'].includes(e.key.toLowerCase())){e.preventDefault();void history(e.key.toLowerCase()==='y'||e.shiftKey);}else if(e.key.toLowerCase()==='c'&&!e.ctrlKey&&!e.metaKey&&!opts.current.busy)opts.current.onFrame?.(selection.current);};
   useEffect(()=>{const key=(e:KeyboardEvent)=>keyHandler.current(e),release=(e:KeyboardEvent)=>{if(e.key===' ')space.current=false;},blur=()=>{space.current=false;cancel();};window.addEventListener('keydown',key);window.addEventListener('keyup',release);window.addEventListener('blur',blur);return()=>{window.removeEventListener('keydown',key);window.removeEventListener('keyup',release);window.removeEventListener('blur',blur);};},[]);
   useEffect(()=>{const el=scroll.current;if(!el)return;const wheel=(e:WheelEvent)=>{if(!e.deltaY||gesture.current||el.dataset.resizing)return;const target=e.target instanceof Element?e.target:null;if(target?.closest('input,textarea,select,[contenteditable=true],[role=menu],.menu-panel,.graph-help'))return;for(let node=target;node&&node!==el;node=node.parentElement)if(node.scrollHeight>node.clientHeight+1&&/^(auto|scroll)$/.test(getComputedStyle(node).overflowY))return;e.preventDefault();zoomTo(cameraRef.current.zoom*Math.exp(-e.deltaY*.0015),relative(e.clientX,e.clientY));};el.addEventListener('wheel',wheel,{passive:false});return()=>el.removeEventListener('wheel',wheel);},[]);
-  const wireCurve=(a:Point,b:Point)=>opts.current.direction==='vertical'?`M${a.x} ${a.y} C${a.x} ${a.y+60},${b.x} ${b.y-60},${b.x} ${b.y}`:curve(a,b);
-  const preview=wire&&points[wire.id]?wireCurve(wire.side==='out'?endpoint(wire.id,'out'):wire.target?endpoint(wire.target,'out'):wire.point,wire.side==='in'?endpoint(wire.id,'in'):wire.target?endpoint(wire.target,'in'):wire.point):null;
+  const wireCurve=(a:Point,b:Point,axis:ConnectionAxis)=>axis==='vertical'?`M${a.x} ${a.y} C${a.x} ${a.y+60},${b.x} ${b.y-60},${b.x} ${b.y}`:curve(a,b);
+  const preview=wire&&points[wire.id]?wireCurve(outputPort(wire.side)?endpoint(wire.id,wire.side):wire.target?endpoint(wire.target,oppositePort(wire.side)):wire.point,!outputPort(wire.side)?endpoint(wire.id,wire.side):wire.target?endpoint(wire.target,oppositePort(wire.side)):wire.point,portAxis(wire.side,options.direction)):null;
   return {scroll,surface,points,camera,zoom:camera.zoom,zoomTo,wire,preview,selected,select,selectedEdge,setSelectedEdge:chooseEdge,portProps,cardProps,saving:saving||awaitingLink!==null,pending:layoutStatus.dirty,layoutSaving:layoutStatus.saving,layoutConflict:layoutStatus.errorCode==='CONFLICT',failed,error,dragging,lasso,centerPoint,clientPoint,fit,fallback:options.fallback,
-    ensureVisible,canUndo:undoStack.current.length>0,canRedo:redoStack.current.length>0,undo:()=>history(),redo:()=>history(true),
+    ensureVisible,outOfView:!!options.recoverOffscreen&&options.nodes.length>0&&!!scroll.current?.clientWidth&&!hasVisibleContent(),arrangeLabel:options.arrangeLabel,wireAxis:wire?portAxis(wire.side,options.direction):null,canUndo:undoStack.current.length>0,canRedo:redoStack.current.length>0,undo:()=>history(),redo:()=>history(true),
     worldStyle:{transform:`translate(${camera.x}px,${camera.y}px) scale(${camera.zoom})`,transformOrigin:'0 0'} as React.CSSProperties,
-    viewportStyle:{backgroundSize:`${24*camera.zoom}px ${24*camera.zoom}px`,backgroundPosition:`${camera.x}px ${camera.y}px`,'--graph-title-scale':Math.min(2,Math.max(1,.7/camera.zoom))} as React.CSSProperties,
+    viewportStyle:{backgroundSize:`${24*camera.zoom}px ${24*camera.zoom}px`,backgroundPosition:`${camera.x}px ${camera.y}px`,'--graph-hit-scale':1/camera.zoom,'--graph-title-scale':Math.min(2,Math.max(1,.7/camera.zoom))} as React.CSSProperties,
     scrollProps:{onPointerDown:down,onPointerMove:move,onPointerUp:up,onPointerCancel:()=>{touches.current.clear();pinch.current=null;cancel();},onScroll:(e:React.UIEvent<HTMLDivElement>)=>{if(e.currentTarget.scrollLeft||e.currentTarget.scrollTop)e.currentTarget.scrollTo(0,0);},onClickCapture:(e:React.MouseEvent)=>{if(!editable(e.target)&&suppress.current){e.preventDefault();e.stopPropagation();suppress.current=false;}},onContextMenu:(e:React.MouseEvent)=>{if(editable(e.target))return;e.preventDefault();if(gesture.current?.kind==='pan'||Date.now()-rightEnd.current<500)return;context(e.clientX,e.clientY,hitAt(e.target));},tabIndex:0,'aria-label':'画布：单指拖卡、空白平移、双指平移缩放；鼠标右键平移、滚轮缩放'},
     cancel,rebase:async()=>{if(await confirm('保留本地目标坐标，以当前已读取版本重新保存？这会覆盖对应远端坐标，卡片文字保持不变。')){if(queue.rebase(opts.current.nodes))void queue.flush();else setError('相关卡片不存在或已删除，请先核对最新资料。');}},retry:()=>{void queue.retry();},discard:()=>{if(queue.discard()){setLocal({});setFailed(false);setError('');undoStack.current=[];redoStack.current=[];historyTick(n=>n+1);}},
     arrange:(positions:Record<string,Point>)=>{if(options.busy||locked.current||failed)return;const ids=Object.keys(positions).filter(id=>points[id]);if(!ids.length)return;const after=Object.fromEntries(ids.map(id=>[id,positions[id]]));setLocal({...localRef.current,...after});void save({before:Object.fromEntries(ids.map(id=>[id,points[id]])),after,revisions:Object.fromEntries(ids.map(id=>[id,options.nodes.find(n=>n.id===id)!.revision]))});},

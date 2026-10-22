@@ -1,3 +1,12 @@
+import {QuickInputBar,QuickInputSettings,useQuickPhrases} from './QuickInput.jsx';
+import {WritingSpeed,WritingSessionSettings,useWritingSession} from './WritingSession.jsx';
+import {LongImageExport} from './LongImageExport.jsx';
+import {ProseFind,ProseMatchLayer} from './ProseFind.jsx';
+import {prepareTransferDrafts} from './chapterSessions.ts';
+import {formatManuscript,manuscriptCount,canUndoTransform} from './editor-text.mjs';
+import {proseAppearance} from '../../shared/editor-preferences.mjs';
+import {mapSelection} from './selection.ts';
+import {HistoryPair} from './HistoryPair.jsx';
 import {ChapterTools} from './ChapterTools.jsx';
 import {ProseSelection,captureProseSelection,normalizeSelectionText} from './ProseSelection.jsx';
 import {selectionStyle} from './prose-selection-style.mjs';
@@ -18,8 +27,6 @@ import { SessionScope, usePreference, useResource, useScrollPosition } from '../
 import { InlineTitle } from '../../shared/InlineTitle.tsx';
 import { DirectoryRow } from './DirectoryRow.tsx';
 import { ResourceState, saveShortcut } from '../../shared/ui.jsx';
-import { formatProse } from './format.ts';
-import { countManuscript } from '../../../domain/manuscript.ts';
 import { useChapterSync, prepareChapterRemoval } from './useChapterSync.ts';
 import { useManuscriptTextarea } from './useManuscriptTextarea.ts';
 import { ManuscriptHistory } from './ManuscriptHistory.jsx';
@@ -75,7 +82,8 @@ export function Chapters({ call, novelId, tick, run, busy, onTransfer, onMemory,
     refresh();
   });
   const restore=(c,returnToChapter=false)=>run(async()=>{
-    await call('chapter.restore',{novelId,chapterId:c.id,expectedRevision:c.revision,targetRevision:c.targetRevision||c.revision,requestId:crypto.randomUUID()});
+    const prepared=await prepare(c);
+    await prepared.restoreVersion(c.targetRevision||c.revision,(before,requestId)=>call('chapter.restore',{novelId,chapterId:c.id,expectedRevision:before.revision,expectedHash:before.contentHash,targetRevision:c.targetRevision||c.revision,requestId}));
     if(returnToChapter)setId(c.id);
     setUndo(null);refresh();
   });
@@ -136,7 +144,7 @@ function ChapterLoader(props) {
   return <>{!resource.value&&props.back&&<button className="directory-back" onClick={props.back}>‹ 返回目录</button>}<ResourceState resource={resource}>{resource.value&&<ChapterEditor {...props} initial={resource.value}/>}</ResourceState></>;
 }
 function ChapterEditor({call,novelId,chapterId,latest,tick,run,busy,volumes,back,initial,onSaved,onTransfer,onMemory,onEvent,onForeshadow,onStoryCard,proseRequest,onProseLocated,historyRequest,onHistoryConsumed,onRemove}) {
-  const {value:draft,base,change,accept,rebase,dirty,cacheError,phase,error:saveError,remote,notice:syncNotice,save,composition}=useChapterSync({novelId,chapterId,initial,latest,onSaved,read:()=>readChapter(call,novelId,chapterId),write:(value,base,requestId)=>call('chapter.update',{novelId,chapterId,requestId,...chapterChanges(value,base),expectedRevision:base.revision,expectedHash:base.contentHash,reason:'作者自动保存'})});
+  const {value:draft,base,change,accept,rebase,dirty,cacheError,phase,error:saveError,remote,notice:syncNotice,save,prepare,restoreVersion,reloadLatest,recoveryDrafts=[],removeRecovery,composition}=useChapterSync({novelId,chapterId,initial,latest,onSaved,read:()=>readChapter(call,novelId,chapterId),write:(value,base,requestId)=>call('chapter.update',{novelId,chapterId,requestId,...chapterChanges(value,base),expectedRevision:base.revision,expectedHash:base.contentHash,reason:'作者自动保存'})});
   const manuscript=useManuscriptTextarea(draft.content),textareaRef=manuscript.ref;
   const [selectedProse,setSelectedProse]=useState(null),[selectionDraft,setSelectionDraft]=useState(null),[selectionNotice,setSelectionNotice]=useState('');
   const selectionOpening=useRef(false),selectionRef=useRef(null),selectionAlive=useRef(true),selectionCurrent=useRef(null);
@@ -163,50 +171,68 @@ function ChapterEditor({call,novelId,chapterId,latest,tick,run,busy,volumes,back
   const [review,setReview]=useState(false);const [materials,setMaterials]=useState(null);
   const [comparison,setComparison]=useState(null),[historyOpen,setHistoryOpen]=useState(false);
   useEffect(()=>{if(historyRequest?.id===chapterId){setHistoryOpen(true);onHistoryConsumed?.();}},[historyRequest?.token]);
-  const {preferences}=useWorkbenchPreferences();
+  const {preferences,update:updatePreferences}=useWorkbenchPreferences();
+  const scope=useContext(SessionScope);
+  const phrases=useQuickPhrases(novelId),speed=useWritingSession({scopeKey:`${scope}:${novelId}`,documentKey:chapterId,content:draft.content,enabled:preferences.writingSpeed});
+  const [imeComposing,setImeComposing]=useState(false);
   const modules=useModules();
-  const font=preferences.fontSize;
+  const font=preferences.fontSize,appearance=proseAppearance(preferences);
   const scrollRef=useScrollPosition(`${novelId}:${chapterId}`);
   // Let the document own scrolling; the textarea must not become a nested viewport.
   const fitManuscript=()=>{const el=textareaRef.current;if(!el)return;const top=scrollRef.current?.scrollTop||0;el.style.height='0px';el.style.height=`${Math.max(240,el.scrollHeight)}px`;if(scrollRef.current)scrollRef.current.scrollTop=top;};
-  useLayoutEffect(fitManuscript,[draft.content,font,preferences.leading]);
+  useLayoutEffect(fitManuscript,[draft.content,font,preferences.leading,preferences.fontFamily,preferences.fontWeight,preferences.fontItalic,preferences.letterSpacing,preferences.pageMargin,preferences.mobilePageMargin]);
+  useEffect(()=>{if(preferences.openAtEnd){const frame=requestAnimationFrame(()=>{const el=textareaRef.current;if(el){el.setSelectionRange(el.value.length,el.value.length);if(scrollRef.current)scrollRef.current.scrollTop=scrollRef.current.scrollHeight;}});return()=>cancelAnimationFrame(frame);}},[]);
   useEffect(()=>{const viewport=scrollRef.current;if(!viewport)return;let width=-1;const observer=new ResizeObserver(entries=>{const next=entries[0].contentRect.width;if(next!==width){width=next;fitManuscript();}});observer.observe(viewport);return()=>observer.disconnect();},[]);
   const {confirm}=useDialog();
   const [formatUndo,setFormatUndo]=useState(null);
-  const format=()=>{const content=formatProse(draft.content);if(content!==draft.content){setFormatUndo({before:draft.content,after:content});change(d=>({...d,content}));}};
+  const applyText=(content)=>{if(content!==draft.content){setFormatUndo({before:draft.content,after:content});change(d=>({...d,content}));}};
+  const format=(options)=>applyText(formatManuscript(draft.content,options?.nativeEvent?undefined:options));
+  const undoText=canUndoTransform(formatUndo,draft.content)?()=>{set('content',formatUndo.before);setFormatUndo(null);}:null;
   const history=useResource(()=>historyOpen?call('chapter.history',{novelId,chapterId,includeContent:true}):Promise.resolve([]),[call,novelId,chapterId,tick,base.revision,historyOpen]);
   const conflict=phase==='conflict';
-  const reload=async()=>{if(!dirty||await confirm('丢弃本地草稿，读取最新正文？'))run(async()=>{accept(await readChapter(call,novelId,chapterId));setComparison(null);});};
+  const reload=async()=>{if(!dirty||await confirm('丢弃本地草稿，读取最新正文？'))run(async()=>{await reloadLatest();setComparison(null);});};
+  const restoreHistory=targetRevision=>run(async()=>{await restoreVersion(targetRevision,(before,requestId)=>call('chapter.restore',{novelId,chapterId,targetRevision,expectedRevision:before.revision,expectedHash:before.contentHash,requestId}));setComparison(null);});
   const set=(key,value)=>change(d=>({...d,[key]:value}));
-  return <div className="editor-shell" onCompositionStart={()=>composition(true)} onCompositionEnd={()=>composition(false)} onKeyDown={e=>saveShortcut(e,save)}>
+  const [findOpen,setFindOpen]=useState(false),[findState,setFindState]=useState(null),[findBusy,setFindBusy]=useState(false),findSnapshot=useRef(null);
+  const openFind=()=>{const el=textareaRef.current;findSnapshot.current=el?{content:el.value,start:el.selectionStart,end:el.selectionEnd,direction:el.selectionDirection,top:scrollRef.current?.scrollTop||0}:null;setFindOpen(true);};
+  const closeFind=()=>{setFindOpen(false);setFindState(null);requestAnimationFrame(()=>{const el=textareaRef.current,saved=findSnapshot.current;if(el&&saved){const next=mapSelection(saved.content,el.value,saved);el.focus({preventScroll:true});el.setSelectionRange(next.start,next.end,next.direction);if(scrollRef.current)scrollRef.current.scrollTop=saved.top;}});};
+  const locateMatch=(match,index)=>{const el=textareaRef.current;if(!match||!el)return;el.setSelectionRange(match.start,match.end);requestAnimationFrame(()=>{const mark=scrollRef.current?.querySelector(`[data-prose-match="${index}"]`);if(mark&&scrollRef.current){const box=mark.getBoundingClientRect(),view=scrollRef.current.getBoundingClientRect();scrollRef.current.scrollTop+=box.top-view.top-scrollRef.current.clientHeight/3;}});};
+  return <div className="editor-shell" data-transparent-title={preferences.transparentTitle} data-hide-info={!preferences.showInfoBar} style={{'--editor-margin':preferences.pageMargin+'px','--editor-mobile-margin':preferences.mobilePageMargin+'px','--editor-bottom':preferences.bottomSpace+'px'}} onCompositionStart={()=>composition(true)} onCompositionEnd={()=>composition(false)} onKeyDown={e=>saveShortcut(e,save)}>
     <style>{selectionStyle}</style>
     <header className="editor-heading writing-toolbar">
       <button className="directory-back icon-button" aria-label="目录" title="目录" onClick={back}><Icon name="book"/></button>
-      <button type="button" className="icon-button format-button" aria-label="自动排版" title="快速排版" disabled={busy||base.deleted||!draft.content.trim()} onClick={format}><Icon name="format"/></button>
+      <button type="button" className="icon-button format-button" aria-label="快速排版" title="快速排版" disabled={busy||base.deleted||!draft.content.trim()} onClick={format}><Icon name="format"/></button>
       <ManuscriptHistory target={textareaRef} content={draft.content} disabled={busy||base.deleted}/>
       <button type="button" className={'selection-entry'+(selectedProse?' has-selection':'')} aria-label="从选中正文创建或关联" title={selectedProse?'创建或关联角色、世界书、剧情卡与伏笔':'先选中一段正文'} disabled={busy||base.deleted||!selectedProse} onPointerDown={()=>{if(document.activeElement===textareaRef.current)capture();selectionOpening.current=true;}} onPointerCancel={()=>{selectionOpening.current=false;}} onClick={()=>{if(selectionRef.current)setSelectionDraft({...selectionRef.current});selectionOpening.current=false;}}>选区{selectedProse?' ＋':''}</button>
-      <ChapterTools busy={busy} deleted={base.deleted}
-        onUndoFormat={formatUndo&&formatUndo.after===draft.content?()=>{set('content',formatUndo.before);setFormatUndo(null);}:null}
+      <ChapterTools busy={busy||findBusy} deleted={base.deleted} title={draft.title} content={draft.content} target={textareaRef} scrollTarget={scrollRef} onFind={openFind} onFormat={format} onHistory={()=>setHistoryOpen(true)} onBackup={()=>run(async()=>{await prepare();onTransfer({mode:'export',selection:{kind:'works',novelIds:[novelId]}});})}
+        quickSettings={<QuickInputSettings {...phrases} enabled={preferences.quickInput} onEnabledChange={quickInput=>updatePreferences({quickInput})} paired={preferences.pairedPunctuation} onPairedChange={pairedPunctuation=>updatePreferences({pairedPunctuation})}/>}
+        speedSettings={<WritingSessionSettings controller={speed} enabled={preferences.writingSpeed} onEnabledChange={writingSpeed=>updatePreferences({writingSpeed})} compact={preferences.writingSpeedCompact} onCompactChange={writingSpeedCompact=>updatePreferences({writingSpeedCompact})}/>}
+        share={<LongImageExport title={draft.title} content={draft.content} selectionText={selectedProse?.evidence||''}/>}
+        onUndoFormat={undoText}
         onMaterials={()=>{const el=textareaRef.current;setMaterials(el?el.value.slice(el.selectionStart,el.selectionEnd).slice(0,2000):'');}}
         onReview={()=>setReview(true)} reference={{kind:'chapter',novelId,id:chapterId,title:draft.title,revision:base.revision,dirty}}
-        find={{call,novelId,chapterId,prepare:async()=>{if(conflict)throw new Error('请先合并正文冲突');await save();const current=await readChapter(call,novelId,chapterId);if(normalizeSelectionText(current.content)!==normalizeSelectionText(selectionCurrent.current.draft.content))throw new Error('正文尚未保存或已有变化，请返回核对');},applied:async()=>{accept(await readChapter(call,novelId,chapterId));onSaved();}}}>
-        <ChapterOperations icons chapter={{...base,...draft}} busy={busy||phase==='saving'} dirty={dirty} onRename={title=>set('title',title)} onExport={()=>onTransfer({mode:'export',selection:{kind:'chapters',novelId,chapterIds:[chapterId]}})} onHistory={()=>setHistoryOpen(true)} onRemove={()=>onRemove(base)} onRestore={()=>run(async()=>{await call('chapter.restore',{novelId,chapterId,expectedRevision:base.revision,targetRevision:base.revision,requestId:crypto.randomUUID()});accept(await readChapter(call,novelId,chapterId));onSaved();})}/>
+>
+        <ChapterOperations icons chapter={{...base,...draft}} busy={busy||phase==='saving'} dirty={dirty} onRename={title=>set('title',title)} onExport={()=>run(async()=>{await prepare();onTransfer({mode:'export',selection:{kind:'chapters',novelId,chapterIds:[chapterId]}});})} onRemove={()=>onRemove(base)} onRestore={()=>restoreHistory(base.revision)}/>
       </ChapterTools>
       {review&&<ReviewDialog {...{call,novelId,busy,run,dirty}} chapter={{...base,id:chapterId}} close={()=>setReview(false)}/>}{materials!==null&&<ChapterMaterials {...{call,novelId,busy,run,dirty,onMemory,onEvent,onStoryCard,onForeshadow}} chapter={{...base,id:chapterId}} selection={materials} close={()=>setMaterials(null)}/>}
     </header>
+    {findOpen&&<ProseFind {...{call,novelId,chapterId}} content={draft.content.replace(/\r\n?/g,'\n')} disabled={busy||base.deleted||conflict} onBusyChange={setFindBusy} onMatches={setFindState} onLocate={locateMatch} close={closeFind} replaceCurrent={(content,caret)=>{applyText(content);requestAnimationFrame(()=>textareaRef.current?.setSelectionRange(caret,caret));}} prepare={async()=>{if(conflict)throw new Error('请先合并正文冲突');await prepare();return prepareTransferDrafts({scope,novelIds:[novelId],call});}} applied={async barrier=>{await barrier.refresh();onSaved();}}/>}
+    {preferences.writingSpeed&&!findOpen&&<WritingSpeed controller={speed} compact={preferences.writingSpeedCompact} onCompactChange={writingSpeedCompact=>updatePreferences({writingSpeedCompact})}/>}
     <div className="editor-scroll is-editing" ref={scrollRef}>
       {conflict&&<div className="notice">你与 AI 或其他窗口修改了同一处，双方内容均已保留。<button disabled={busy} onClick={()=>setComparison(remote)}>比较最新正文</button><button disabled={busy||phase==='saving'} onClick={reload}>放弃草稿并读取最新</button></div>}
+      {recoveryDrafts.length>0&&<details className="notice local-draft-recovery"><summary>本机草稿副本 · {recoveryDrafts.length} 份待核对</summary><p>其他窗口或中断时的内容已单独保留。比较并合并需要的文字后，再删除副本；未处理副本时整本替换和备份会暂停。</p>{recoveryDrafts.map(item=><div className="row" key={item.key}><span className="grow">{item.chapter.title||'本章'} · 基准版本 {item.baseRevision}{item.savedAt?` · ${new Date(item.savedAt).toLocaleString()}`:''}</span><button onClick={()=>setComparison({...item.chapter,revision:item.baseRevision,localRecovery:true})}>比较副本</button><button onClick={async()=>{if(await confirm('删除这份本机草稿副本？请先确认需要的内容已合并或另行复制；此操作不修改当前正文。'))run(async()=>removeRecovery(item.key));}}>删除副本</button></div>)}</details>}
       {base.deleted&&<div className="notice">本章已移入回收站。可从目录的回收站恢复。</div>}
-      <div className="manuscript-title"><InlineTitle value={displayNumberedTitle(draft.title,preferences.numbering)} label="修改章节标题" disabled={busy||base.deleted} commit={title=>set('title',title)}/></div>
+      <div className="manuscript-title" data-align={preferences.titleAlign}><InlineTitle value={displayNumberedTitle(draft.title,preferences.numbering)} label="修改章节标题" disabled={busy||base.deleted} commit={title=>set('title',title)}/></div>
       {modules.summary&&<section className="chapter-summary"><label htmlFor="chapter-summary"><strong>Summary:</strong></label><hr/><textarea id="chapter-summary" aria-label="本章梗概" placeholder="写下本章梗概，也可以让 AI 通过工作台填写。" value={draft.summary||''} disabled={busy||base.deleted} onChange={e=>set('summary',e.target.value)}/><hr/></section>}
       {selectionNotice&&<p className="notice" role="status">{selectionNotice}<button onClick={()=>setSelectionNotice('')}>关闭提示</button></p>}
-      <textarea {...manuscript} onPointerDown={()=>{selectionOpening.current=false;}} onSelect={()=>capture()} onKeyUp={()=>capture(true)} onPointerUp={e=>capture(e.button===0)} className="prose manuscript" aria-label="正文" style={{fontSize:font}} disabled={busy||base.deleted} onCopy={copyManuscriptSelection} onChange={e=>set('content',e.target.value)}/>
+      <div className="manuscript-surface">{findOpen&&<ProseMatchLayer content={draft.content.replace(/\r\n?/g,'\n')} state={findState} appearance={appearance}/>}<textarea {...manuscript} onBlur={()=>speed.pause()} onCompositionStart={()=>{manuscript.onCompositionStart();setImeComposing(true);speed.compositionStart?.();}} onCompositionEnd={e=>{manuscript.onCompositionEnd();setImeComposing(false);speed.compositionEnd?.(e.currentTarget.value);}} onPointerDown={()=>{selectionOpening.current=false;}} onSelect={()=>capture()} onKeyUp={()=>capture(true)} onPointerUp={e=>capture(e.button===0)} className="prose manuscript" aria-label="正文" style={appearance} disabled={busy||base.deleted||findBusy} onCopy={copyManuscriptSelection} onChange={e=>{if(!e.nativeEvent.isComposing)speed.record(e.target.value,{inputType:e.nativeEvent.inputType||'insertText'});set('content',e.target.value);}}/></div>
       <ChapterRibbon {...{call,novelId,tick,chapterId,onMemory,onEvent,onForeshadow,onStoryCard}}/>
-      {historyOpen&&<section className="history-panel"><div className="row"><h3 className="grow">历史版本</h3><button onClick={()=>setHistoryOpen(false)}>关闭历史</button></div><ResourceState resource={history}>{groupHistory(history.value||[]).map(group=><details className="history-session" key={group[0].revision}><summary>{group.length>1?`作者编辑 · ${group.length} 次自动保存`:`版本 ${group[0].revision}`} · {group[0].timestamp?new Date(group[0].timestamp).toLocaleString():''}</summary>{group.map(h=><div className="history-item" key={h.revision}><div><strong>版本 {h.revision}</strong><p className="muted">{h.actor?.kind==='agent'?'Agent':'作者'} · {h.timestamp ? new Date(h.timestamp).toLocaleString() : ''}<br/>{h.reason||'正文修改'}</p></div><div className="row"><button onClick={()=>{setComparison(h);setHistoryOpen(false);}}>比较</button><button disabled={busy||phase==='saving'} onClick={async()=>{if(await confirm(`恢复版本${h.revision}？当前草稿会被替换，已保存的历史仍保留。`))run(async()=>{await call('chapter.restore',{novelId,chapterId,targetRevision:h.revision,expectedRevision:base.revision});accept(await readChapter(call,novelId,chapterId));});}}>恢复</button></div></div>)}</details>)}</ResourceState></section>}
-      {comparison&&(comparison.summary||'')!==(draft.summary||'')&&<section className="history-panel"><h3>梗概对比</h3><TextDiff before={comparison.summary||''} after={draft.summary||''} beforeLabel={`版本 ${comparison.revision} 梗概`} afterLabel="本地梗概"/><label>合并梗概<textarea aria-label="合并梗概" value={draft.summary||''} onChange={e=>set('summary',e.target.value)}/></label></section>}
-      {comparison&&<section className="history-panel comparison"><div className="row"><h3 className="grow">版本比较</h3><button onClick={()=>setComparison(null)}>关闭比较</button></div><TextDiff before={comparison.content} after={draft.content} beforeLabel={`版本 ${comparison.revision}`} afterLabel={dirty?'本地草稿':`当前版本 ${base.revision}`}/><details className="history-merge-edit" open={conflict?true:undefined}><summary>编辑本地合并内容</summary><textarea className="prose" aria-label="合并正文" disabled={busy||base.deleted} value={draft.content} onChange={e=>set('content',e.target.value)}/></details><p className="muted">可在这里合并需要的正文，再更新保存基准；合并后自动保存。后续写入仍检查版本。</p>{comparison.revision===latest?.revision&&!comparison.deleted&&<button onClick={async()=>{if(await confirm('确认已将需要的内容合并到本地正文？将以这版作为保存基准，后续更新仍会检查冲突。')){rebase(comparison);setComparison(null);}}}>已合并，更新保存基准</button>}<button disabled={busy||phase==='saving'} onClick={reload}>放弃草稿并读取最新</button></section>}
+      {historyOpen&&<section className="history-panel"><div className="row"><h3 className="grow">历史版本</h3><button onClick={()=>setHistoryOpen(false)}>关闭历史</button></div><ResourceState resource={history}><HistoryPair versions={history.value||[]}/>{groupHistory(history.value||[]).map(group=><details className="history-session" key={group[0].revision}><summary>{group.length>1?`作者编辑 · ${group.length} 次自动保存`:`版本 ${group[0].revision}`} · {group[0].timestamp?new Date(group[0].timestamp).toLocaleString():''}</summary>{group.map(h=><div className="history-item" key={h.revision}><div><strong>版本 {h.revision}</strong><p className="muted">{h.actor?.kind==='agent'?'Agent':'作者'} · {h.timestamp ? new Date(h.timestamp).toLocaleString() : ''}<br/>{h.reason||'正文修改'}</p></div><div className="row"><button onClick={()=>{setComparison(h);setHistoryOpen(false);}}>比较</button><button disabled={busy||phase==='saving'} onClick={async()=>{if(await confirm(`恢复版本 ${h.revision}？会先保存当前草稿到历史；保存失败、离线或存在冲突时中止恢复。`))restoreHistory(h.revision);}}>恢复</button></div></div>)}</details>)}</ResourceState></section>}
+      {comparison&&(comparison.summary||'')!==(draft.summary||'')&&<section className="history-panel"><h3>梗概对比</h3><TextDiff before={comparison.summary||''} after={draft.summary||''} beforeLabel={comparison.localRecovery?'本机副本梗概':`版本 ${comparison.revision} 梗概`} afterLabel="本地梗概"/><label>合并梗概<textarea aria-label="合并梗概" value={draft.summary||''} onChange={e=>set('summary',e.target.value)}/></label></section>}
+      {comparison&&<section className="history-panel comparison"><div className="row"><h3 className="grow">版本比较</h3><button onClick={()=>setComparison(null)}>关闭比较</button></div><TextDiff before={comparison.content} after={draft.content} beforeLabel={comparison.localRecovery?`本机副本 · 基准 v${comparison.revision}`:`版本 ${comparison.revision}`} afterLabel={dirty?'本地草稿':`当前版本 ${base.revision}`}/><details className="history-merge-edit" open={conflict?true:undefined}><summary>编辑本地合并内容</summary><textarea className="prose" aria-label="合并正文" disabled={busy||base.deleted} value={draft.content} onChange={e=>set('content',e.target.value)}/></details><p className="muted">可在这里合并需要的正文，再更新保存基准；合并后自动保存。后续写入仍检查版本。</p>{!comparison.localRecovery&&comparison.revision===latest?.revision&&!comparison.deleted&&<button onClick={async()=>{if(await confirm('确认已将需要的内容合并到本地正文？将以这版作为保存基准，后续更新仍会检查冲突。')){rebase(comparison);setComparison(null);}}}>已合并，更新保存基准</button>}<button disabled={busy||phase==='saving'} onClick={reload}>放弃草稿并读取最新</button></section>}
     </div>
+    <QuickInputBar textareaRef={textareaRef} phrases={phrases.phrases} paired={preferences.pairedPunctuation} hidden={!preferences.quickInput||findOpen||imeComposing} disabled={busy||base.deleted||conflict} onInsert={(next,meta)=>{speed.record(next,{inputType:meta.inputType});set('content',next);}}/>
     {selectionDraft&&<ProseSelection {...{call,novelId,dirty}} chapterTitle={draft.title} selection={selectionDraft} stale={normalizeSelectionText(draft.content)!==selectionDraft.content} prepare={prepareSelection} close={()=>setSelectionDraft(null)} onSaved={onSaved} onLocate={proof=>requestAnimationFrame(()=>locate(proof))} onOpen={result=>result.kind==='card'?onStoryCard(result.id):result.kind==='foreshadow'?onForeshadow(result.id):onMemory(result.id)}/>}
-    <footer className="savebar auto-savebar"><div role="status" className={cacheError||saveError||conflict?'error-text':'muted'}>{cacheError||saveError||(base.deleted?'已删除章节':!draft.title.trim()?'请填写章节名称':conflict?'待合并 · 草稿已保留':phase==='saving'?'保存中…':dirty?'等待自动保存…':syncNotice||'已保存')}<span title="含标点、不计空白">{countManuscript(draft.content).toLocaleString('zh-CN')} 字</span></div>{phase==='error'&&<button onClick={save}>重试保存</button>}</footer>
+    <footer className="savebar auto-savebar" data-problem={!!(cacheError||saveError||conflict||dirty)}><div role="status" className={cacheError||saveError||conflict?'error-text':'muted'}>{cacheError||saveError||(base.deleted?'已删除章节':!draft.title.trim()?'请填写章节名称':conflict?'待合并 · 双方内容已保留':phase==='offline'?'离线草稿 · 仅保存在此设备，联网后同步':phase==='saving'?'保存中…':dirty?'等待自动保存…':syncNotice||'已保存')}<span title={preferences.countPunctuation?'含标点、不计空白':'不含标点、符号与空白'}><button className="wordcount-toggle" onClick={()=>updatePreferences({countPunctuation:!preferences.countPunctuation})}>{manuscriptCount(draft.content,preferences.countPunctuation).toLocaleString('zh-CN')} 字 · {preferences.countPunctuation?'含标点':'不含标点'}</button></span></div>{(phase==='error'||phase==='offline')&&<button onClick={save}>重试保存</button>}</footer>
   </div>;
 }

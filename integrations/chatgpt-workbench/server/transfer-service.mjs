@@ -95,7 +95,7 @@ export function createTransfer(store,{workData=new WorkData(store),snapshot,capa
     const bump=(item,old)=>{item.revision=Math.max(item.revision,old?.revision||0)+1;item.updatedAt=now;};
     for(const section of ['volumes','chapters','nodes','edges','memoryGroups'])for(const [id,item]of Object.entries(next[section]||{})){
       bump(item,current?.[section]?.[id]);
-      if(section==='chapters')item.versions.push({revision:item.revision,content:item.content,contentHash:item.contentHash,title:item.title,volumeId:item.volumeId,order:item.order,deleted:!!item.deleted,timestamp:now,actor:{kind:actor.kind==='agent'?'agent':'human',sessionId:actor.sessionId||null},reason:actor.kind==='agent'?'AI 按作者授权从备份恢复':'作者从备份恢复'});
+      if(section==='chapters')item.versions.push({revision:item.revision,content:item.content,summary:item.summary||'',contentHash:item.contentHash,title:item.title,volumeId:item.volumeId,order:item.order,deleted:!!item.deleted,timestamp:now,actor:{kind:actor.kind==='agent'?'agent':'human',sessionId:actor.sessionId||null},reason:actor.kind==='agent'?'AI 按作者授权从备份恢复':'作者从备份恢复'});
     }
     if(next.story){next.story.state.revision=Math.max(next.story.state.revision,current?.story?.state?.revision||0)+1;for(const [id,card]of Object.entries(next.story.state.cards))bump(card,current?.story?.state?.cards?.[id]);for(const page of next.story.state.pages)for(const [ref,item]of Object.entries(page.instances))bump(item,current?.story?.state?.pages?.find(p=>p.id===page.id)?.instances?.[ref]);next.story.redo=[];}
     if(next.preset)bump(next.preset,current?.preset);
