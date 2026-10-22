@@ -3,7 +3,7 @@ export const searchKinds=Object.freeze({chapter:'正文',character:'角色',worl
 const fail=message=>{throw Object.assign(new Error(message),{code:'INVALID_SEARCH'});};
 const active=map=>Object.values(map||{}).filter(r=>!r.deleted);
 const cut=(v,max=180)=>String(v??'').slice(0,max);
-const signature=n=>createHash('sha256').update(JSON.stringify([n.revision,n.preset?.revision,n.planning?.sequence,...['chapters','nodes'].map(k=>Object.values(n[k]||{}).map(v=>[v.id,v.revision,v.deleted]).sort()),...['cards','events','foreshadows'].map(k=>Object.values(n.writing?.[k]||{}).map(v=>[v.id,v.revision,v.deleted]).sort())])).digest('hex');
+const signature=n=>createHash('sha256').update(JSON.stringify([n.revision,n.preset?.revision,n.planning?.sequence,n.story?.state?.revision,...['chapters','nodes'].map(k=>Object.values(n[k]||{}).map(v=>[v.id,v.revision,v.deleted]).sort()),...['cards','events','foreshadows'].map(k=>Object.values(n.writing?.[k]||{}).map(v=>[v.id,v.revision,v.deleted]).sort())])).digest('hex');
 function excerpt(text,match){
  let start=Math.max(0,match.index-50),end=Math.min(text.length,match.index+match[0].length+90);
  // The excerpt must not cut a UTF-16 surrogate pair in half.
@@ -21,8 +21,9 @@ function documents(n,fields,includeInactive){
   for(const [id,value]of Object.entries(profile?.values||{})){const field=typeFields.find(f=>f.id===id);if(field?.archived||value===null||value==='')continue;const rendered=field?.type==='reference'?value.map(id=>n.nodes[id]?.name||id).join('、'):Array.isArray(value)?value.join('、'):String(value);parts.push([id,cut(field?.label||id,60),rendered,3]);}
   add(kind,node,parts,{profileRevision:profile?.revision||0});
  }
- for(const p of active(n.planning?.nodes||n.plan?.nodes))add('planning',p,[['title','标题',p.title,0],['summary','摘要',p.summary,2],['content','详述',p.content,4]],{status:p.status,location:cut(n.planning?.pages?.[p.pageId]?.name||'主线规划')});
- for(const e of active(n.writing?.events))add('event',e,[['title','名称',e.title,0],['storyTime','故事时间',e.storyTime,2],['storyDate','故事日期',e.storyDate,2],['content','说明',e.content,4]],{planned:!!e.planned,location:cut((e.chapterRefs||[]).map(r=>n.chapters[r.chapterId]).filter(c=>c&&!c.deleted).map(c=>c.title).join('、')||e.plannedChapter||'尚未关联正文')});
+ for(const p of (n.story?[]:active(n.planning?.nodes||n.plan?.nodes)))add('planning',p,[['title','标题',p.title,0],['summary','摘要',p.summary,2],['content','详述',p.content,4]],{status:p.status,location:cut(n.planning?.pages?.[p.pageId]?.name||'主线规划')});
+ for(const c of Object.values(n.story?.state?.cards||{}))add('event',c,[['title','标题',c.title,0],['summary','摘要',c.summary,2],['content','详述',c.content,4],['storyDateText','故事时期',c.storyDateText,2]],{location:'剧情卡',unified:true});
+ for(const e of (n.story?[]:active(n.writing?.events)))add('event',e,[['title','名称',e.title,0],['storyTime','故事时间',e.storyTime,2],['storyDate','故事日期',e.storyDate,2],['content','说明',e.content,4]],{planned:!!e.planned,location:cut((e.chapterRefs||[]).map(r=>n.chapters[r.chapterId]).filter(c=>c&&!c.deleted).map(c=>c.title).join('、')||e.plannedChapter||'尚未关联正文')});
  for(const f of active(n.writing?.foreshadows))add('foreshadow',f,[['title','名称',f.title,0],['content','说明',f.content,4],...((f.evidence||[]).map(e=>['evidence','正文依据',e.evidence,3]))],{status:f.status});
  if(n.preset&&(includeInactive||n.preset.enabled))for(const b of n.preset.blocks||[])if(includeInactive||b.enabled)add('requirements',{...b,id:b.identifier,title:b.name,revision:n.preset.revision},[['name','条目名称',b.name,0],['content','写作要求',b.content,4]],{inactive:!n.preset.enabled||!b.enabled});
  return rows;

@@ -436,7 +436,7 @@ export function Outline({chapters=[],volumes=[],nodes=[],busy,numbering,chapterR
   if(nodeId&&chapterId)onAssignChapter?.(nodeId,chapterId);
  };
  const bodyDragEnd=()=>{setDraggingId(null);setDropChapterId(null);};
- const renderCard:CardRenderer=(node,pending)=><PlanningCard key={node.id} node={node} pending={pending} onPlanning={onPlanning} selected={Boolean(selectedId)&&selectedId===node.id} draggable={dropEnabled} picked={pickedNodes.has(node.id)} pickable={pickEnabled} onPick={pickNode}/>;
+ const renderCard:CardRenderer=(node,pending)=><PlanningCard key={node.id} node={node} pending={pending} onPlanning={onPlanning} selected={Boolean(selectedId)&&selectedId===node.id} draggable={dropEnabled} picked={pickedNodes.has(node.id)} pickable={multi&&pickEnabled} onPick={pickNode}/>;
  const renderChapter=(chapter:OutlineChapter)=>{
   const chapterNodes=linked.get(chapter.id)||[],shownNodes=chapterNodes.filter(nodeHit),summary=asText(chapter.summary);
   const editable=editableOf(chapter),isEditing=editing?.id===chapter.id,savingThis=savingId===chapter.id,picked=pickedChapters.has(chapter.id);
@@ -444,7 +444,7 @@ export function Outline({chapters=[],volumes=[],nodes=[],busy,numbering,chapterR
    data-outline-card="chapter" data-outline-id={chapter.id} data-outline-chapter={chapter.id} tabIndex={0} title="双击编辑梗概，右键或长按更多操作"
    onKeyDown={event=>{if(event.target!==event.currentTarget)return;if(event.key==='Enter'||event.key===' '){event.preventDefault();beginEdit(chapter);}}}>
    <div className="outline-card-head">
-    {pickEnabled&&<label className="outline-pick" title="选择章节" onClick={event=>event.stopPropagation()}><input type="checkbox" checked={picked} aria-label={`选择章节 ${chapterTitle(chapter)}`} onChange={event=>pickChapter(chapter.id,event.target.checked)}/></label>}
+    {multi&&pickEnabled&&<label className="outline-pick" title="选择章节" onClick={event=>event.stopPropagation()}><input type="checkbox" checked={picked} aria-label={`选择章节 ${chapterTitle(chapter)}`} onChange={event=>pickChapter(chapter.id,event.target.checked)}/></label>}
     <span className="outline-card-title">{chapterTitle(chapter)}</span>
     <small className="outline-card-badge" title={`${chapterNodes.length} 张剧情卡关联到本章`}>{chapterNodes.length} 张剧情卡</small>
    </div>
@@ -499,7 +499,7 @@ export function Outline({chapters=[],volumes=[],nodes=[],busy,numbering,chapterR
   const selectedCount=group.chapters.filter(chapter=>pickedChapters.has(chapter.id)).length;
   return <section className="outline-volume" key={group.key}>
    <h3 className="outline-volume-heading">
-    {pickEnabled&&<label className="outline-pick outline-pick-volume" title={`选择${group.title}里的全部章节`} onClick={event=>event.stopPropagation()}><input type="checkbox" aria-label={`选择${group.title}里的全部章节`} disabled={group.chapters.length===0} checked={group.chapters.length>0&&selectedCount===group.chapters.length} ref={element=>{if(element)element.indeterminate=selectedCount>0&&selectedCount<group.chapters.length;}} onChange={event=>pickVolume(group,event.target.checked)}/></label>}
+    {multi&&pickEnabled&&<label className="outline-pick outline-pick-volume" title={`选择${group.title}里的全部章节`} onClick={event=>event.stopPropagation()}><input type="checkbox" aria-label={`选择${group.title}里的全部章节`} disabled={group.chapters.length===0} checked={group.chapters.length>0&&selectedCount===group.chapters.length} ref={element=>{if(element)element.indeterminate=selectedCount>0&&selectedCount<group.chapters.length;}} onChange={event=>pickVolume(group,event.target.checked)}/></label>}
     <button type="button" className="outline-volume-toggle" aria-expanded={expanded} aria-controls={expanded?panelId:undefined} onClick={()=>toggleKey(toggleId)}>
      <span className="outline-chevron" aria-hidden="true">›</span>
      <span className="outline-volume-mark" aria-hidden="true">▤</span>
@@ -544,7 +544,7 @@ export function Outline({chapters=[],volumes=[],nodes=[],busy,numbering,chapterR
   <div className="outline-toolbar">
    <input type="search" className="outline-search" aria-label="搜索大纲" placeholder="搜索章节标题、梗概或剧情卡" value={query} onChange={event=>setQuery(event.target.value)}/>
    <button type="button" className="outline-toggle-all" disabled={allKeys.length===0} onClick={toggleAll}>{anyCollapsed?'全部展开':'全部折叠'}</button>
-   {pickEnabled&&<button type="button" className="outline-multi-toggle" aria-pressed={multi} onClick={()=>setMulti(value=>!value)}>多选</button>}
+   {pickEnabled&&<button type="button" className="outline-multi-toggle" aria-pressed={multi} onClick={()=>{setMulti(value=>!value);setPickedChapters(new Set());setPickedNodes(new Set());}}>多选</button>}
    <small className="outline-stats">{sortedChapters.length} 章 · {cardCount} 张剧情卡 · {phaseNodes.length} 个剧情阶段 · {unplanned.length} 张章节待定</small>
   </div>
   {pickEnabled&&(pickedChapters.size>0||pickedNodes.size>0)&&<div className="outline-selection-bar" role="region" aria-label="多选操作">

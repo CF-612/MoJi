@@ -46,12 +46,12 @@ export function Modal({title, close, children, className = ''}: {title: string; 
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {const previous = document.activeElement as HTMLElement | null; ref.current?.showModal(); return () => {previous?.focus();};}, []);
   return <dialog className={`utility-modal ${className}`} ref={ref} aria-label={title} onCancel={e => {e.preventDefault();close();}}>
-    <header className="utility-head"><h2>{title}</h2><button type="button" aria-label={`关闭${title}`} onClick={close}>×</button></header>
+    <header className="utility-head"><button className="utility-back" type="button" aria-label={`关闭${title}`} onClick={close}>‹</button><h2>{title}</h2></header>
     <div className="utility-content">{children}</div>
   </dialog>;
 }
 type SettingsTab='appearance'|'typography'|'planning'|'colors'|'modules'|'other';
-const settingsTabs:[SettingsTab,string][]=[['appearance','外观'],['typography','正文排版'],['planning','规划与资料'],['colors','卡片颜色'],['modules','功能模块'],['other','其他']];
+const settingsTabs:[SettingsTab,string][]=[['appearance','界面与视图'],['typography','正文与目录'],['modules','功能模块'],['other','其他']];
 const themeChoices=[{id:'light',label:'浅色'},{id:'dark',label:'深色'},{id:'system',label:'跟随系统'}] as const;
 const themeGlyphs:Record<Preferences['theme'],React.ReactNode>={
   light:<><circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></>,
@@ -72,6 +72,8 @@ function ModuleToggle({id}:{id:string}) {
 export function PreferencesDialog({close, novelTitle, onPreset}: {close: () => void; novelTitle?: string; onPreset?: () => void}) {
   const {preferences:p, update, error} = useWorkbenchPreferences();
   const [tab, setTab] = useState<SettingsTab>('appearance');
+  const [search,setSearch]=useState('');
+  const searchRows:[SettingsTab,string][]=[['appearance','主题 深色 浅色 跟随系统 动效 画布 视图 卡片颜色'],['typography','正文 字号 行距 编号 目录'],['modules','功能模块 伏笔 关系演变 时间线 分页 分组 梗概 仪表盘'],['other','更新 关于 写作要求 预设']];
   const themeKey = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const step = event.key==='ArrowRight'||event.key==='ArrowDown' ? 1 : event.key==='ArrowLeft'||event.key==='ArrowUp' ? -1 : 0;
     if (!step) return;
@@ -83,13 +85,13 @@ export function PreferencesDialog({close, novelTitle, onPreset}: {close: () => v
   };
   return <Modal title="设置" close={close} className="settings-modal">
     <style>{settingsStyles}</style>
-    <div className="settings-layout">
+    <label className="settings-search">搜索设置<input type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="例如：字号、伏笔、深色"/></label>{search.trim()&&<div className="row" aria-label="设置搜索结果">{searchRows.filter(([,text])=>text.includes(search.trim())).map(([id,text])=><button key={id} title={text} onClick={()=>{setTab(id);setSearch('');}}>{settingsTabs.find(t=>t[0]===id)?.[1]} →</button>)}{!searchRows.some(([,text])=>text.includes(search.trim()))&&<small>没有匹配设置</small>}</div>}<div className="settings-layout">
       <nav className="settings-nav" aria-label="设置分类">
         {settingsTabs.map(([id,label])=><button key={id} type="button" aria-current={tab===id?'true':undefined} onClick={()=>setTab(id)}>{label}</button>)}
       </nav>
       <div className="settings-main">
         <div className="settings-panels">
-          <section className="settings-panel" aria-label="外观" hidden={tab!=='appearance'}>
+          <section className="settings-panel" aria-label="界面外观" hidden={tab!=='appearance'}>
             <SettingCard title="主题外观" note="立即生效，按设备保存。跟随系统时优先使用聊天宿主主题。">
               <div className="settings-themes" role="radiogroup" aria-label="主题外观" onKeyDown={themeKey}>
                 {themeChoices.map(choice=><button key={choice.id} type="button" role="radio" aria-checked={p.theme===choice.id} aria-label={choice.label} tabIndex={p.theme===choice.id?0:-1} data-theme-choice={choice.id} className="settings-theme" onClick={()=>update({theme:choice.id})}>
@@ -105,29 +107,27 @@ export function PreferencesDialog({close, novelTitle, onPreset}: {close: () => v
               <button type="button" className="settings-link-row" onClick={()=>setTab('typography')}><span className="settings-row-text"><strong>字号与行距</strong><small>当前 {p.fontSize}px 字号 · {leadingName(p.leading)}行距</small></span><span className="settings-link-mark" aria-hidden="true">›</span></button>
             </SettingCard>
           </section>
-          <section className="settings-panel" aria-label="正文排版" hidden={tab!=='typography'}>
+          <section className="settings-panel" aria-label="正文与目录" hidden={tab!=='typography'}>
             <SettingCard title="正文显示" note="默认用于所有章节正文，可随时在正文工具栏里临时调整。">
               <label className="settings-row"><span className="settings-row-text">正文字号<small>16–22 像素，默认 18</small></span><select aria-label="默认正文字号" value={p.fontSize} onChange={event=>update({fontSize:Number(event.target.value)})}>{[16,18,20,22].map(number=><option key={number} value={number}>{number}</option>)}</select></label>
               <label className="settings-row"><span className="settings-row-text">行距<small>正文行与行之间的距离</small></span><select aria-label="正文行距" value={p.leading} onChange={event=>update({leading:Number(event.target.value)})}><option value={1.7}>紧凑</option><option value={1.95}>适中</option><option value={2.2}>宽松</option></select></label>
             </SettingCard>
-            <SettingCard title="阅读预览">
+            <SettingCard title="章节编号" note="统一显示已有编号和新建默认标题；保留自定义标题及已保存的原始名称。">
+              <label className="settings-row"><span className="settings-row-text">章节与分卷编号<small>中文章节名或阿拉伯数字</small></span><select aria-label="章节编号格式" value={p.numbering} onChange={event=>update({numbering:event.target.value as Preferences['numbering']})}><option value="chinese">中文数字 · 第一章</option><option value="arabic">阿拉伯数字 · 第1章</option></select></label>
+            </SettingCard><SettingCard title="目录显示"><label className="settings-row settings-switch-row"><span className="settings-row-text">默认展开目录<small>打开工作台时自动展开章节目录</small></span><input type="checkbox" className="settings-switch" checked={p.directory} onChange={event=>update({directory:event.target.checked})}/></label></SettingCard><SettingCard title="阅读预览">
               <div className="reading-preview"><small>阅读预览</small><p style={{fontSize:p.fontSize,lineHeight:p.leading}}>雨停以后，街道重新安静下来。窗边的灯仍亮着，故事还在继续。</p></div>
             </SettingCard>
           </section>
-          <section className="settings-panel" aria-label="规划与资料" hidden={tab!=='planning'}>
+          <section className="settings-panel" aria-label="界面与视图" hidden={tab!=='appearance'}>
             <SettingCard title="默认视图" note="下次进入对应页面时生效。">
               <label className="settings-row"><span className="settings-row-text">规划默认视图<small>打开规划页时先显示时间线或画布</small></span><select value={p.planningView} onChange={event=>update({planningView:event.target.value as Preferences['planningView']})}><option value="timeline">时间线</option><option value="canvas">画布</option></select></label>
               <label className="settings-row"><span className="settings-row-text">设定默认视图<small>打开设定页时先显示列表或关系图</small></span><select value={p.memoryView} onChange={event=>update({memoryView:event.target.value as Preferences['memoryView']})}><option value="list">列表</option><option value="canvas">关系图</option></select></label>
-              <label className="settings-row settings-switch-row"><span className="settings-row-text">默认展开目录<small>打开工作台时自动展开章节目录</small></span><input type="checkbox" className="settings-switch" checked={p.directory} onChange={event=>update({directory:event.target.checked})}/></label>
+              
             </SettingCard>
-            <SettingCard title="章节编号" note="统一显示已有编号和新建默认标题；保留自定义标题及已保存的原始名称。">
-              <label className="settings-row"><span className="settings-row-text">章节与分卷编号<small>中文章节名或阿拉伯数字</small></span><select aria-label="章节编号格式" value={p.numbering} onChange={event=>update({numbering:event.target.value as Preferences['numbering']})}><option value="chinese">中文数字 · 第一章</option><option value="arabic">阿拉伯数字 · 第1章</option></select></label>
-            </SettingCard>
-            <SettingCard title="规划与资料显示" note="按设备保存显示偏好。隐藏不删除资料，AI 工具仍可读写已有数据。">
-              <ModuleToggle id="groups"/><ModuleToggle id="timeline"/><ModuleToggle id="summary"/>
-            </SettingCard>
+            
+            
           </section>
-          <section className="settings-panel" aria-label="卡片颜色" hidden={tab!=='colors'}>
+          <section className="settings-panel" aria-label="卡片颜色" hidden={tab!=='appearance'}>
             <SettingCard title="卡片颜色" note="点色块取色，「重置」恢复默认值。">
               <CardColorFields/>
               <div className="settings-legends">
@@ -141,11 +141,11 @@ export function PreferencesDialog({close, novelTitle, onPreset}: {close: () => v
               <div className="settings-presets" role="group" aria-label="模块预设">{Object.entries(profiles).map(([id,preset])=><button key={id} type="button" className="settings-preset" onClick={()=>update({modules:profileModules(id)})}>{preset.name}</button>)}</div>
             </SettingCard>
             <SettingCard title="页面与导航" note="按设备保存显示偏好。隐藏不删除资料，AI 工具仍可读写已有数据。">
-              <ModuleToggle id="pages"/><ModuleToggle id="overview"/>
+              <ModuleToggle id="pages"/><ModuleToggle id="groups"/><ModuleToggle id="overview"/><ModuleToggle id="timeline"/><ModuleToggle id="summary"/>
             </SettingCard>
             <SettingCard title="内容辅助">
               <ModuleToggle id="foreshadow"/><ModuleToggle id="evolution"/>
-              <p className="settings-hint">资料与规划分组、时间线、Summary 的显示开关在「规划与资料」分类里。</p>
+              <p className="settings-hint">本页集中管理所有模块开关。关闭仅隐藏界面，不删除数据。完整自定义模块编写、安装和管理属于后续目标，本次未交付。</p>
             </SettingCard>
           </section>
           <section className="settings-panel" aria-label="其他" hidden={tab!=='other'}>

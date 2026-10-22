@@ -1,6 +1,6 @@
 {
   "name": "cuigengji-chatgpt-workbench",
-  "version": "0.10.2",
+  "version": "0.11.0-v31.1",
   "private": true,
   "type": "module",
   "engines": {

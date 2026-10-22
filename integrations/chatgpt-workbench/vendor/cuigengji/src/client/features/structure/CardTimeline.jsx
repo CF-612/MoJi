@@ -1,3 +1,4 @@
+import {timelineMetrics,timelinePoint} from '../../../domain/timeline-view.mjs';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
 import {Modal} from '../../shared/preferences.tsx';
@@ -43,12 +44,14 @@ export function CardTimeline({board,novelId,call,mode,current,choose,onPlan,onEv
  const available=['event','person',...(modules.foreshadow?['foreshadow']:[])],filter=controls?.filter??'all',kinds=(Array.isArray(filter)?filter:filter==='all'?available:[filter]);
  const shown=useMemo(()=>visibleTimelineItems(all,{kinds,person:controls?.castFilter||''}),[all,filter,controls?.castFilter,modules.foreshadow]);
  const slots=useMemo(()=>timelineSlots(board,activeMode),[board,activeMode]);
- const unit=260*zoom/100,cardWidth=zoom<65?210:250,cardHeight=140;
+ const {unit,cardWidth,cardHeight,compact}=timelineMetrics(zoom);
+ const [cursorPoint,setCursorPoint]=useState(null);
+ useEffect(()=>{setCursorPoint(null);setSelected(null);},[novelId,activeMode]);
  const packed=useMemo(()=>packTimeline(shown,board,activeMode,layout,slots,unit,cardWidth,cardHeight),[shown,board,activeMode,layout,slots,unit,cardWidth]);
  const selectedItem=all.find(i=>i.key===selected),selectedBounds=selectedItem?itemBounds(selectedItem,board,activeMode,layout,slots):null;
- const pointer=selectedBounds?.start??Math.max(0,slots.findIndex(s=>s.chapterId===current?.chapterId||s.eventId&&s.eventId===current?.eventId))+.12;
+ const pointer=cursorPoint??selectedBounds?.start??Math.max(0,slots.findIndex(s=>s.chapterId===current?.chapterId||s.eventId&&s.eventId===current?.eventId))+.12;
  const people=board.nodes||[];
- const select=item=>{if(Date.now()<suppressClick.current)return;setSelected(item.key);const bounds=itemBounds(item,board,activeMode,layout,slots),slot=bounds?slots[Math.floor(bounds.start)]:null;if(item.kind==='event')choose?.({key:item.id,eventId:item.id,event:item.source,chapterId:item.chapterIds[0]||null});else if(slot)choose?.({...slot,key:slot.eventId||`chapter:${slot.chapterId}`});};
+ const select=item=>{if(Date.now()<suppressClick.current)return;setSelected(item.key);const bounds=itemBounds(item,board,activeMode,layout,slots),slot=bounds?slots[Math.floor(bounds.start)]:null;setCursorPoint(bounds?.start??null);if(item.kind==='event')choose?.({key:item.id,eventId:item.id,event:item.source,chapterId:item.chapterIds[0]||null});else if(slot)choose?.({...slot,key:slot.eventId||`chapter:${slot.chapterId}`});};
  const edit=item=>{setMenu(null);if(item.kind==='planning')onPlan?.(null,item.id);else if(item.kind==='event')onEvent?.(item.id);else if(item.kind==='foreshadow')onShadow?.(item.id);else onMemory?.(item.id);};
  const context=(e,item)=>{e.preventDefault();setSelected(item.key);const safeBottom=Math.min(window.innerHeight,document.querySelector('.cuigengji')?.getBoundingClientRect().bottom||window.innerHeight);setMenu({item,x:clamp(e.clientX,8,window.innerWidth-244),y:clamp(e.clientY,8,Math.max(8,safeBottom-350))});};
  const setPosition=(item,start,end,trackId)=>{const position={start:anchorAt(start,slots),end:anchorAt(end,slots)};patchItem(item,{trackId,[activeMode]:position});setSelected(item.key);};
@@ -66,7 +69,6 @@ export function CardTimeline({board,novelId,call,mode,current,choose,onPlan,onEv
   const move=ev=>{
    const distance=Math.hypot(ev.clientX-initial.x,ev.clientY-initial.y);if(!moving&&distance<6)return;
    clearTimeout(timer);
-   if(e.pointerType==='touch'&&!force&&Date.now()-initial.at<200){stop();return;}
    moving=true;ev.preventDefault();document.body.style.userSelect='none';
    const target=hit(ev.clientX,ev.clientY);
    if(target){let start,end;
@@ -82,7 +84,7 @@ export function CardTimeline({board,novelId,call,mode,current,choose,onPlan,onEv
   window.addEventListener('pointermove',move,{passive:false});window.addEventListener('pointerup',up);window.addEventListener('pointercancel',cancel);cleanup.current=cancel;
   if(force){e.preventDefault();e.stopPropagation();}
  };
- const zoomAt=(next,clientX)=>{const el=scroll.current;if(!el)return;const rect=el.getBoundingClientRect(),gutter=el.querySelector('.v23-ruler-corner')?.getBoundingClientRect().width||84,pivot=clamp(clientX-rect.left-gutter,0,el.clientWidth),before=zoomRef.current;next=clamp(Math.round(next),35,160);zoomRef.current=next;setZoomRef.current(next);requestAnimationFrame(()=>{el.scrollLeft=(el.scrollLeft+pivot)*next/before-pivot;});};
+ const zoomAt=(next,clientX)=>{const el=scroll.current;if(!el)return;const rect=el.getBoundingClientRect(),gutter=el.querySelector('.v23-ruler-corner')?.getBoundingClientRect().width||84,pivot=clamp(clientX-rect.left-gutter,0,el.clientWidth),before=zoomRef.current;next=clamp(Math.round(next),15,200);zoomRef.current=next;setZoomRef.current(next);requestAnimationFrame(()=>{el.scrollLeft=(el.scrollLeft+pivot)*next/before-pivot;});};
  useEffect(()=>{
   const el=scroll.current;if(!el)return;
   let pinch=null;
@@ -95,6 +97,9 @@ export function CardTimeline({board,novelId,call,mode,current,choose,onPlan,onEv
  },[novelId,loaded]);
  const pan=e=>{if(e.button!==0||e.target.closest('.v23-item,button,input,select'))return;const el=scroll.current,at={x:e.clientX,y:e.clientY,left:el.scrollLeft,top:el.scrollTop};const move=ev=>{el.scrollLeft=at.left-(ev.clientX-at.x);el.scrollTop=at.top-(ev.clientY-at.y);};const up=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);};if(e.pointerType==='mouse'){window.addEventListener('pointermove',move);window.addEventListener('pointerup',up,{once:true});}};
  const drop=(e,trackId)=>{e.preventDefault();const key=e.dataTransfer.getData('application/x-moji-timeline'),item=all.find(i=>i.key===key);if(!item)return;const rect=e.currentTarget.querySelector('.v23-lane-body').getBoundingClientRect(),start=clamp((e.clientX-rect.left)/unit,0,slots.length-.001);setPosition(item,start,start,trackId);};
+ const pointAt=(x)=>{const body=canvas.current?.querySelector('.v23-ruler-body');return body?timelinePoint(x,body.getBoundingClientRect().left,unit,slots.length):0;};
+ const locatePoint=value=>{setCursorPoint(value);setSelected(null);const slot=slots[Math.floor(value)];if(!slot)return;const ev=slot.eventId?board.events.find(e=>e.id===slot.eventId):[...board.events].filter(e=>(e.chapterRefs||[]).some(r=>r.chapterId===slot.chapterId&&!r.excluded)).sort((a,b)=>a.order-b.order).at(-1);choose?.({...slot,key:slot.id,eventId:ev?.id,event:ev,stageEvent:ev});};
+ const dragCursor=e=>{e.preventDefault();e.stopPropagation();const move=ev=>locatePoint(pointAt(ev.clientX));const end=()=>{window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',end);window.removeEventListener('pointercancel',end);};window.addEventListener('pointermove',move);window.addEventListener('pointerup',end,{once:true});window.addEventListener('pointercancel',end,{once:true});};
  const currentTitle=selectedItem?.title||'选择卡片，沿时间查看故事';
  const avatars=item=>{
   const ids=item.kind==='planning'?item.cast.filter(r=>r.kind==='appearance').map(r=>r.nodeId):item.related;
@@ -111,17 +116,17 @@ export function CardTimeline({board,novelId,call,mode,current,choose,onPlan,onEv
  </>;
  const addTrack=()=>{const id=`track-${crypto.randomUUID().slice(0,8)}`;commit(old=>({...old,tracks:[...old.tracks,{id,name:`支线 ${old.tracks.length}`,color:palette[old.tracks.length%palette.length]}]}));setManage(true);};
  const downloadDraft=()=>{const a=document.createElement('a'),url=URL.createObjectURL(new Blob([JSON.stringify(layoutRef.current,null,2)],{type:'application/json'}));a.href=url;a.download='墨叽-时间线安排草稿.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
- return <section className="tl-board timeline-v23" aria-label="剧情卡时间线"><style>{cardTimelineStyles}</style>
+ return <section className={`tl-board timeline-v23 ${compact?'is-compact':''}`} style={{'--timeline-card-height':`${cardHeight}px`}} aria-label="剧情卡时间线"><style>{cardTimelineStyles}</style>
   <div className="v23-toolbar"><div className="v23-mode"><button aria-label={focused?'展开工作台导航':'专注时间线'} title={focused?'展开工作台导航':'收起导航，留出时间线空间'} onClick={()=>setFocused(!focused)}>{focused?'‹ 导航':'⛶'}</button><button aria-pressed={activeMode==='narration'} onClick={()=>setActiveMode?.('narration')}>叙述顺序</button><button aria-pressed={activeMode==='story'} onClick={()=>setActiveMode?.('story')}>故事顺序</button></div><div className="v23-toolbar-right"><button aria-label="定位当前剧情" title="定位当前剧情" onClick={()=>scroll.current?.scrollTo({left:Math.max(0,pointer*unit-100),behavior:'smooth'})}>⌖</button>{extraTools}<button onClick={addTrack} disabled={!loaded}>＋ 轨道</button><button aria-label="时间线操作说明" onClick={()=>setShowHelp(true)}>?</button></div></div>
   {error&&<div className="v23-error" role="alert">{error}<button onClick={downloadDraft}>导出安排草稿</button><button onClick={load}>重新读取</button></div>}
   <div className="v23-scroll" ref={scroll} aria-label="可平移缩放的剧情时间线" tabIndex={0} onPointerDown={pan}>
    <div ref={canvas} className="v23-canvas" style={{width:`calc(${packed.width}px + var(--v23-gutter))`}}>
-    <div className="v23-ruler"><div className="v23-ruler-corner">{activeMode==='story'?'故事顺序':'卷 · 章'}</div><div className="v23-ruler-body" style={{width:packed.width}}>{slots.map((slot,i)=><button key={slot.id} className="v23-tick" style={{left:i*unit,width:Math.max(82,unit-12)}} onClick={()=>{if(slot.chapterId)choose?.({...slot,key:`chapter:${slot.chapterId}`});}}><small>{displayNumberedTitle(slot.subtitle,preferences.numbering)}</small><span>{displayNumberedTitle(slot.title,preferences.numbering)}</span></button>)}<span className="v23-ruler-pointer" style={{left:pointer*unit}} aria-label="当前剧情指针">▼</span></div></div>
+    <div className="v23-ruler"><div className="v23-ruler-corner">{activeMode==='story'?'故事顺序':'卷 · 章'}</div><div className="v23-ruler-body" style={{width:packed.width}} onClick={e=>{if(!e.target.closest('.v23-ruler-pointer'))locatePoint(pointAt(e.clientX));}}>{slots.map((slot,i)=><button key={slot.id} className="v23-tick" style={{left:i*unit,width:Math.max(82,unit-12)}} ><small>{displayNumberedTitle(slot.subtitle,preferences.numbering)}</small><span>{displayNumberedTitle(slot.title,preferences.numbering)}</span></button>)}<button className="v23-ruler-pointer" style={{left:pointer*unit}} aria-label="当前剧情指针" onPointerDown={dragCursor}>▼</button></div></div>
     {packed.lanes.map(lane=><div className="v23-lane" data-v23-lane={lane.track.id} key={lane.track.id} style={{height:lane.height,'--lane-color':lane.track.color}} onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect='move';}} onDrop={e=>drop(e,lane.track.id)}>
      <div className="v23-lane-label"><button title="管理轨道" onClick={()=>setManage(true)}><i style={{background:lane.track.color}}/>{lane.track.name}</button></div>
-     <div className="v23-lane-body" style={{width:packed.width}}><span className="v23-lane-rail"/><span className="v23-position-line" style={{left:pointer*unit}}/>
+     <div className="v23-lane-body" style={{width:packed.width}} onClick={e=>{if(!e.target.closest('.v23-item'))locatePoint(pointAt(e.clientX));}}><span className="v23-lane-rail"/><span className="v23-position-line" style={{left:pointer*unit}}/>
       {lane.items.map(item=><article key={item.key} data-timeline-key={item.key} aria-label={`${kindLabel[item.kind]}：${item.title}`} tabIndex={0} className={`v23-item ${selected===item.key?'is-selected':''} kind-${item.kind}`} style={{left:item.start*unit,top:item.top,width:item.width,'--card-color':item.color}} onPointerDown={e=>pointerStart(e,item)} onClick={()=>select(item)} onDoubleClick={()=>edit(item)} onContextMenu={e=>context(e,item)} onKeyDown={e=>{if(e.key==='Enter'){select(item);setMenu({item,x:100,y:150});}}}>
-       <div className="v23-card-face" style={{width:item.cardWidth}}>{cardFace(item)}</div>
+       <div className="v23-card-face" style={{width:item.width}}>{cardFace(item)}</div>
        <span className={`v23-duration ${item.end>item.start?'has-span':''}`} style={{width:Math.max(12,(item.end-item.start)*unit)}}><i/><span>{item.end>item.start?`${slots[Math.floor(item.start)]?.title} → ${slots[Math.floor(item.end)]?.title}`:''}</span></span>
        {selected===item.key&&item.kind!=='person'&&<><button className="v23-endpoint start" aria-label={`调整 ${item.title} 起点`} onPointerDown={e=>pointerStart(e,item,'start',true)}/><button className="v23-endpoint end" aria-label={`调整 ${item.title} 终点`} style={{left:Math.max(12,(item.end-item.start)*unit)-6}} onPointerDown={e=>pointerStart(e,item,'end',true)}/></>}
       </article>)}

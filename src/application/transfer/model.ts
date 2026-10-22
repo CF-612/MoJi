@@ -19,12 +19,12 @@ export function catalogBook(novel: Novel): CatalogBook {
   const volumes = active(n.volumes).sort((a, b) => a.order - b.order);
   const rank = (id: string | null) => id === null ? volumes.length : volumes.findIndex(v => v.id === id);
   const chapters = active(n.chapters).sort((a, b) => rank(a.volumeId) - rank(b.volumeId) || a.order - b.order || a.id.localeCompare(b.id));
-  const pages = [...(n.transferScope?.mainPage === false ? [] : [{id: null, name: '主线规划'}]), ...active(board.pages)].map(page => ({id: page.id, name: page.name,
+  const pages = n.story?n.story.state.pages.map((p:any)=>({id:p.id,name:p.name,beats:Object.keys(p.instances).filter(r=>r.startsWith('card:')).length,decorations:0})):[...(n.transferScope?.mainPage === false ? [] : [{id: null, name: '主线规划'}]), ...active(board.pages)].map(page => ({id: page.id, name: page.name,
     beats: active(board.nodes).filter(node => (node.pageId ?? null) === page.id).length,
     decorations: active(board.decorations).filter(node => (node.pageId ?? null) === page.id).length}));
   return {id: n.id, title: n.title, revision: n.revision, archived: n.archived,
     counts: {works: 1, chapters: chapters.length, memory: active(n.nodes).length, pages: pages.length,
-      beats: active(board.nodes).length, decorations: active(board.decorations).length, presets: n.preset ? 1 : 0},
+      beats: n.story?Object.keys(n.story.state.cards).length:active(board.nodes).length, decorations: active(board.decorations).length, presets: n.preset ? 1 : 0},
     volumes: volumes.map(({id, title}) => ({id, title})),
     chapters: chapters.map(ch => ({id: ch.id, title: ch.title, volumeId: ch.volumeId, words: chapterCounts(ch).textCount})),
     groups: Object.values(n.memoryGroups || {}).map(({id, name}) => ({id, name})),
@@ -37,7 +37,8 @@ export function counts(projects: Novel[]): Counts {
   for (const n of projects) {
     result.works++; result.chapters += active(n.chapters).length; result.memory += active(n.nodes).length;
     const board = n.planning || (n.plan ? ensurePlanning(copy(n)) : null);
-    if (board) {result.pages += active(board.pages).length + ((n.transferScope?.mainPage ?? true) ? 1 : 0);
+    if(n.story){result.pages+=n.story.state.pages.length;result.beats+=Object.keys(n.story.state.cards).length;}
+    else if (board) {result.pages += active(board.pages).length + ((n.transferScope?.mainPage ?? true) ? 1 : 0);
       result.beats += active(board.nodes).length; result.decorations += active(board.decorations).length;}
     result.presets += n.preset ? 1 : 0;
   }

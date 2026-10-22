@@ -1,3 +1,6 @@
+import {storyAction,validateStory} from '../domain/story-v31.js';
+import {proseFind,replaceProse} from '../domain/prose-find.js';
+import {applySelection} from '../domain/selection-proof.js';
 import {timelineLayoutAction,validateTimelineLayout} from '../domain/timeline-layout.js';
 import {nextNumberedTitle,nextChapterTitle,numberedTitle} from '../domain/title-numbering.js';
 import { memoryGroupAction, groupId, validateMemoryGroups } from '../domain/memory/groups.ts';
@@ -110,6 +113,7 @@ function memoryFields(args, novel, creating = false, optionalName = false) {
       result[field] = value;
     }
   }
+  if(args.appearancePlan!==undefined){const plan=args.appearancePlan;if(plan!==null){if(!plan||typeof plan!=='object'||Array.isArray(plan))fail('INVALID_INPUT','出场计划无效');if(plan.chapterId&&!novel.chapters[plan.chapterId])fail('INVALID_INPUT','计划出场章节已不存在');if(plan.story!==null&&plan.story!==undefined&&!Number.isFinite(plan.story))fail('INVALID_INPUT','故事时间无效');if(plan.offset!==undefined&&(!Number.isFinite(plan.offset)||plan.offset<0||plan.offset>=1))fail('INVALID_INPUT','章节位置无效');}result.appearancePlan=plan===null?null:{chapterId:plan.chapterId||null,offset:plan.offset||0,story:plan.story??null,dateText:String(plan.dateText||'').slice(0,200)};}
   return result;
 }
 
@@ -191,6 +195,10 @@ export class Store extends ProjectStore {
     if(['timeline.layout.get','timeline.layout.save'].includes(action))return timelineLayoutAction(n,action,a,actor);
     if(action.startsWith('writing.')&&n.writing&&![1,2].includes(n.writing.version))fail('WRITING_VERSION','此作品结构版本较新，请更新工作台后再操作');
     const execute=(op,args)=>this.execute(state,op,{...args,novelId:n.id},actor);
+    if(action.startsWith('story.'))return storyAction(n,action,a,actor,execute);
+    if(action==='writing.prose.search')return proseFind(n,a);
+    if(action==='writing.prose.replace')return replaceProse(n,a,actor,execute);
+    if(action==='writing.selection.apply')return applySelection(n,a,actor,execute);
     if(action==='writing.organizations.list')return organizations(n);
     if(action==='writing.cardRelations.get')return cardRelations(n,a.nodeId);
     if(action==='writing.affiliation.set')return setAffiliations(n,a,execute);
@@ -234,7 +242,7 @@ export class Store extends ProjectStore {
     }
     if (action.startsWith('planning.')) { const previous=n.planning?.sequence; const result=planningAction(n,action,a,actor); if(previous!==n.planning.sequence)touch(n); return result; }
     if (action.startsWith('plan.')) fail('MIGRATED_ACTION', '旧规划接口已迁移，请使用 cuigengji_plan 的 planning.list/get/apply');
-    if (action === 'novel.get') return { ...n, writing: undefined, tavernSources: undefined, planning: undefined, plan: undefined, volumes: Object.values(n.volumes), chapters: Object.values(n.chapters).map(meta), nodes: Object.values(n.nodes).map(({ content, ...v }) => v), edges: Object.values(n.edges).map(({ content, ...v }) => v) };
+    if (action === 'novel.get') return { ...n, story: undefined, writing: undefined, tavernSources: undefined, planning: undefined, plan: undefined, volumes: Object.values(n.volumes), chapters: Object.values(n.chapters).map(meta), nodes: Object.values(n.nodes).map(({ content, ...v }) => v), edges: Object.values(n.edges).map(({ content, ...v }) => v) };
     if (action === 'novel.handoff') return createHandoff(n, binding, a);
     if (action === 'novel.export') { ensurePlanning(n); return { format: 'cuigengji', schemaVersion: 2, exportedAt: now(), novel: clone(n) }; }
     if (action === 'novel.update' || action === 'novel.archive') {
@@ -251,7 +259,7 @@ export class Store extends ProjectStore {
     if (action === 'volume.list') return Object.values(n.volumes).filter(v => a.includeDeleted || !v.deleted).sort((x, y) => x.order - y.order);
     if (action === 'volume.create') {
       if(a.autoNumber!==undefined&&typeof a.autoNumber!=='boolean')fail('INVALID_INPUT','autoNumber 必须为布尔值');
-      const v = record({ title: text(numberedTitle(a.title,nextNumberedTitle(n.volumes,'卷'),a.autoNumber), 'title'), order: ordering(a.order ?? Object.keys(n.volumes).length), deleted: false });
+      const v = record({ title: text(numberedTitle(a.title,nextNumberedTitle(n.volumes,'卷'),a.autoNumber), 'title'), summary:text(a.summary??'','summary',true), order: ordering(a.order ?? Object.keys(n.volumes).length), deleted: false });
       n.volumes[v.id] = v; touch(n); return v;
     }
     if (action === 'volume.update' || action === 'volume.delete') {
@@ -267,6 +275,7 @@ export class Store extends ProjectStore {
         v.deleted = true;
       } else {
         if (a.title !== undefined) v.title = text(a.title, 'title');
+        if (a.summary !== undefined) v.summary = text(a.summary, 'summary', true);
         if (a.order !== undefined) v.order = ordering(a.order);
       }
       touch(v); touch(n); return v;
@@ -299,9 +308,9 @@ export class Store extends ProjectStore {
         for(const item of a.characters||[]){
           const node=item.nodeId?get(n.nodes,item.nodeId,'人物'):execute('graph.create',{type:'character_card',name:text(item.name,'人物姓名'),content:''});
           if(node.deleted||node.type!=='character_card')fail('INVALID_INPUT','请选择有效人物');
-          execute('writing.link.create',{chapterId:c.id,nodeId:node.id,kind:'appearance',expectedChapterRevision:c.revision,confirmed:true,manual:true,evidence:'',reason:'作者在新建章节时指定出场人物'});
+          if(!node.appearancePlan?.chapterId)execute('graph.update',{nodeId:node.id,expectedRevision:node.revision,appearancePlan:{chapterId:c.id,offset:0},reason:'新建章节时安排人物出场'});
         }
-        for(const [index,item]of (a.events||[]).entries())execute('writing.event.create',{confirmed:true,value:{title:text(item.title||'未命名事件','事件名称'),content:text(item.content||'','事件说明',true),storyTime:text(item.storyTime||'','故事时间',true),order:Math.max(0,...Object.values(n.writing?.events||{}).map(e=>e.order))+10,narrativeKind:'linear',planned:true,chapterRefs:[{chapterId:c.id,revision:c.revision,evidence:''}],memoryRefs:[],planningRefs:[],foreshadowRefs:[]},reason:'作者在新建章节时添加本章事件'});
+        for(const item of a.events||[]){const story=execute('story.get',{});execute('story.apply',{expectedRevision:story.state.revision,operation:{type:'card.create',value:{title:text(item.title||'未命名剧情','剧情名称'),content:text(item.content||'','剧情说明',true),storyDateText:text(item.storyTime||'','故事时间',true),scope:[c.id],time:{narration:{startChapterId:c.id,startOffset:0,endChapterId:c.id,endOffset:1,trackId:story.state.tracks[0].id}}}}});}
       }
       touch(n); return meta(c);
     }
@@ -356,7 +365,7 @@ export class Store extends ProjectStore {
     }
     if (action === 'graph.list') {
       const q = (a.query || '').toLocaleLowerCase();
-      return Object.values(n.nodes).filter(v => (a.includeDeleted || !v.deleted) && (!a.type || v.type === a.type) && (a.groupId === undefined || (v.groupId ?? null) === a.groupId) && (!q || [v.name, v.summary, v.content, ...v.aliases].join(' ').toLocaleLowerCase().includes(q))).map(({content,...v})=>{const values=n.writing?.cards[v.id]?.values||{};return {...v,cardTags:v.type==='character_card'?[values['character:gender'],values['character:occupation']].filter(Boolean):[values['world:category']].filter(Boolean)};});
+      return Object.values(n.nodes).filter(v => (a.includeDeleted || !v.deleted) && (!a.type || v.type === a.type) && (a.groupId === undefined || (v.groupId ?? null) === a.groupId) && (!q || [v.name, v.summary, v.content, ...v.aliases].join(' ').toLocaleLowerCase().includes(q))).map(({content,...v})=>{const values=n.writing?.cards[v.id]?.values||{};return {...v,versions:undefined,appearances:Object.values(n.writing?.links||{}).filter(l=>l.nodeId===v.id&&!l.deleted&&l.kind==='appearance').filter(l=>{const c=n.chapters[l.chapterId];return c&&!c.deleted&&(l.manual||c.versions?.find(x=>x.revision===l.chapterRevision)?.contentHash===c.contentHash);}).map(l=>({chapterId:l.chapterId,revision:l.chapterRevision,offset:0,manual:!!l.manual})),cardTags:v.type==='character_card'?[values['character:gender'],values['character:occupation']].filter(Boolean):[values['world:category']].filter(Boolean)};});
     }
     if (action === 'graph.groups' || action.startsWith('graph.group.') || action === 'graph.move') return memoryGroupAction(n, action, a);
     if (action === 'graph.get') return get(n.nodes, a.nodeId, '节点');
@@ -389,8 +398,11 @@ export class Store extends ProjectStore {
       this.checkMemorySources(n, v);
       n.nodes[v.id] = v; touch(n); return v;
     }
+    if(action==='graph.history'){const v=get(n.nodes,a.nodeId,'资料');return {revision:v.revision,versions:v.versions||[]};}
+    if(action==='graph.restore'){if(actor.kind!=='human')fail('HUMAN_REQUIRED','资料恢复仅限作者');const v=get(n.nodes,a.nodeId,'资料');cas(v,a);const old=v.versions?.find(h=>h.revision===a.targetRevision);if(!old)fail('NOT_FOUND','资料历史不存在');return this.execute(state,'graph.update',{...old.value,novelId:n.id,nodeId:v.id,expectedRevision:v.revision,reason:'恢复资料版本 '+a.targetRevision},actor);}
     if (action === 'graph.update' || action === 'graph.delete') {
       const v = get(n.nodes, a.nodeId, '节点'); cas(v, a);
+      const {versions,...snapshot}=clone(v);v.versions=[...(versions||[]),{revision:v.revision,value:snapshot,timestamp:now(),actor:source(actor),reason:a.reason||'作者修改资料'}].slice(-100);
       if (action === 'graph.delete') {
         if (a.confirm !== true) fail('CONFIRM_REQUIRED', '删除需要 confirm:true');
         v.deleted = true;
@@ -534,6 +546,7 @@ export class Store extends ProjectStore {
     if (n.planning) validatePlanning(n.planning,n);
     if (n.preset) { validatePreset(n.preset); if (!Number.isSafeInteger(n.preset.revision) || n.preset.revision < 1) fail('INVALID_BACKUP','预设版本无效'); }
     validateWriting(n);
+    validateStory(n);
     if(n.timelineLayout){validateTimelineLayout(n.timelineLayout);if(!Number.isSafeInteger(n.timelineLayout.revision)||n.timelineLayout.revision<0)fail('INVALID_BACKUP','时间线安排版本无效');}
     if (own(state.novels, n.id)) {
       if (isDeepStrictEqual(state.novels[n.id], n)) return { id: n.id, imported: false, reason: 'identical' };

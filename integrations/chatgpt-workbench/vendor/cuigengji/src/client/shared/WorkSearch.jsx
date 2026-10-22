@@ -1,7 +1,7 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {Modal} from './preferences.tsx';
 import {usePreference} from './state.js';
-const types={chapter:'正文',character:'角色',world:'世界',planning:'规划',event:'事件',foreshadow:'伏笔',requirements:'写作要求'};
+const types={chapter:'正文',character:'角色',world:'世界',planning:'规划',event:'剧情卡',foreshadow:'伏笔',requirements:'写作要求'};
 export function HitText({match}){const {snippet,start,length}=match;return <>{snippet.slice(0,start)}<mark>{snippet.slice(start,start+length)}</mark>{snippet.slice(start+length)}</>;}
 export function WorkSearch({call,novelId,novelTitle,busy,close,onOpen}){
  const [query,setQuery]=usePreference(`${novelId}:work-search-query`,''),[kind,setKind]=useState('all'),[inactive,setInactive]=useState(false),[result,setResult]=useState(null),[loading,setLoading]=useState(false),[error,setError]=useState(''),[outdated,setOutdated]=useState(false),generation=useRef(0),input=useRef(null);

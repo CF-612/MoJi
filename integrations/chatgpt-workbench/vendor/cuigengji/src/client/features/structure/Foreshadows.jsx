@@ -104,14 +104,16 @@ function ForeshadowCard({f,chaptersById,chapterRank,planNodes,memoryById,onChapt
   </div>:null}
  </article>;
 }
-export function Foreshadows({call,novelId,busy,run,onChapter,onMemory,onPlanning,focusId,onFocused}){
+export function Foreshadows({call,novelId,busy,run,onChapter,onMemory,onPlanning,focusId,onFocused,planningCards}){
  const [selected,setSelected]=usePreference(`${novelId}:foreshadow-selected`,null);
  const [storedFilter,setStoredFilter]=usePreference(`${novelId}:foreshadow-filter`,'all');
  const [poll,setPoll]=useState(0),[editing,setEditing]=useState(null),[query,setQuery]=useState(''),[opened,setOpened]=useState(()=>new Set());
  useEffect(()=>{const timer=setInterval(()=>{if(!document.hidden)setPoll(n=>n+1);},5000);return()=>clearInterval(timer);},[]);
- const resource=useResource(()=>Promise.all([call('writing.foreshadow.list',{novelId}),call('chapter.list',{novelId}),call('graph.list',{novelId}),readPlanningCards(call,novelId)]),[call,novelId,poll],`${novelId}:foreshadows`);
+ const suppliedCards=planningCards!==undefined;
+ const resource=useResource(()=>Promise.all([call('writing.foreshadow.list',{novelId}),call('chapter.list',{novelId}),call('graph.list',{novelId}),suppliedCards?Promise.resolve(null):readPlanningCards(call,novelId)]),[call,novelId,poll,suppliedCards],`${novelId}:foreshadows${suppliedCards?':v31':''}`);
  useEffect(()=>{if((focusId||selected)&&resource.value){const f=(resource.value[0]||[]).find(f=>f.id===(focusId||selected));if(f)setEditing(f);setSelected(null);onFocused?.();}},[selected,focusId,resource.value]);
- const [foreshadows,chapters,nodes,planning]=Array.isArray(resource.value)?resource.value:[[],[],[],{items:[],error:''}];
+ const [foreshadows,chapters,nodes,legacyPlanning]=Array.isArray(resource.value)?resource.value:[[],[],[],{items:[],error:''}];
+ const planning=useMemo(()=>suppliedCards?{items:planningCards,error:''}:legacyPlanning,[suppliedCards,planningCards,legacyPlanning]);
  const chapterById=useMemo(()=>new Map((chapters||[]).map(c=>[c.id,c])),[chapters]);
  const chapterRank=useMemo(()=>new Map((chapters||[]).map((c,index)=>[c.id,index])),[chapters]);
  const memoryById=useMemo(()=>new Map((nodes||[]).map(n=>[n.id,n])),[nodes]);

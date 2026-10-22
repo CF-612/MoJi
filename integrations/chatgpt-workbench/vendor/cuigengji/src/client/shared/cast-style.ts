@@ -5,7 +5,7 @@ export const castStyles = `
 .cuigengji .cast-avatars .cast-avatar + .cast-avatar {margin-left:-8px;}
 .cuigengji .cast-avatar:hover,.cuigengji .cast-avatar:focus-visible {z-index:2;}
 .cuigengji .cast-face {flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;overflow:hidden;background:var(--cg-wash);color:var(--cg-accent);font-size:12px;line-height:1;font-weight:600;text-transform:uppercase;}
-.cuigengji .cast-avatars .cast-face {border:1.5px solid var(--cg-paper);transition:border-color 120ms;}
+.cuigengji .cast-avatars .cast-face {border:1.5px solid light-dark(#8198b3,#91a9c2);transition:border-color 120ms;}
 .cuigengji .cast-face.is-sm {width:20px;height:20px;font-size:10px;font-weight:500;}
 .cuigengji .cast-face img {width:100%;height:100%;object-fit:cover;display:block;}
 .cuigengji .cast-avatar:hover .cast-face {border-color:var(--cg-accent);}

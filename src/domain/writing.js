@@ -1,4 +1,6 @@
+import {selectionProof,normalizeProse} from './selection-proof.js';
 import {randomUUID} from 'node:crypto';
+import {checkForeshadowNodes,nodeProgress} from './foreshadow-nodes.js';
 import {writingBoard} from './writing-board.js';
 import {projectStage} from './story-workspace.js';
 import {chapterPlacement} from './event-placement.js';
@@ -31,7 +33,8 @@ const chapters=n=>{const vols=active(n.volumes).sort((a,b)=>a.order-b.order||a.i
 function evidence(n,value){
  if(!obj(value))fail('正文依据必须指定章节、版本和原文');
  const ch=get(n.chapters,value.chapterId,'章节'),v=ch.versions.find(v=>v.revision===value.revision);
- const quote=text(value.evidence,'正文依据');if(quote.length>2000||!v||!v.content.includes(quote))fail('依据不在指定的已保存正文版本中');
+ const quote=text(value.evidence,'正文依据');if(quote.length>2000||!v||!normalizeProse(v.content).includes(normalizeProse(quote)))fail('依据不在指定的已保存正文版本中');
+ if(value.coordinate==='lf-utf16')return selectionProof(ch,value,{historical:true});
  return {chapterId:ch.id,revision:v.revision,evidence:quote};
 }
 const nodeIds=(n,ids=[])=>{if(!Array.isArray(ids)||ids.length>100||new Set(ids).size!==ids.length)fail('关联资料无效');for(const id of ids)get(n.nodes,id,'资料');return ids;};
@@ -50,18 +53,25 @@ function checkValues(n,type,values,previous={}){
 }
 function linkView(n,link){const ch=n.chapters[link.chapterId],node=n.nodes[link.nodeId],v=ch?.versions.find(v=>v.revision===link.chapterRevision);return {...link,chapterTitle:ch?.title||'缺失章节',nodeName:node?.name||'缺失资料',excluded:!!ch?.deleted||!!node?.deleted,review:!link.manual&&!!ch&&!ch.deleted&&ch.contentHash!==v?.contentHash};}
 function cardView(n,nodeId){const node=get(n.nodes,nodeId,'资料'),record=data(n).cards[nodeId],links=active(data(n).links).filter(l=>l.nodeId===nodeId).map(l=>linkView(n,l)),order=new Map(chapters(n).map((c,i)=>[c.id,i]));links.sort((a,b)=>(order.get(a.chapterId)??Infinity)-(order.get(b.chapterId)??Infinity)||a.createdAt.localeCompare(b.createdAt));
- return {nodeId,kind:kind(node),nodeRevision:node.revision,revision:record?.revision||0,aliases:node.aliases||[],values:record?.values||{},fields:writingFields(n,kind(node)),links,firstAppearance:links.find(l=>!l.excluded&&l.kind==='appearance')||null,firstMention:links.find(l=>!l.excluded&&l.kind==='mention')||null,foreshadows:active(data(n).foreshadows).filter(f=>f.memoryRefs.includes(nodeId)),events:storyEvents(n,data(n),{nodeId})};}
+ return {nodeId,kind:kind(node),nodeRevision:node.revision,revision:record?.revision||0,aliases:node.aliases||[],values:record?.values||{},fields:writingFields(n,kind(node)),links,firstAppearance:links.find(l=>!l.excluded&&!l.review&&l.kind==='appearance')||null,firstMention:links.find(l=>!l.excluded&&!l.review&&l.kind==='mention')||null,foreshadows:active(data(n).foreshadows).filter(f=>f.memoryRefs.includes(nodeId)),events:storyEvents(n,data(n),{nodeId})};}
 function stats(n){const rows=chapters(n).map(c=>({id:c.id,title:c.title,volumeId:c.volumeId,words:Array.from(c.content.replace(/\s/gu,'')).length})),volumes=[...active(n.volumes).sort((a,b)=>a.order-b.order).map(v=>({id:v.id,title:v.title})),{id:null,title:'未分卷'}].map(v=>({...v,chapters:rows.filter(c=>(c.volumeId||null)===v.id).length,words:rows.filter(c=>(c.volumeId||null)===v.id).reduce((s,c)=>s+c.words,0)}));return {chapters:rows.length,words:rows.reduce((s,c)=>s+c.words,0),rows,volumes,goal:data(n).goal||{revision:0,target:null}};}
-function foreshadowView(n,f,chapterId){const rank=new Map(chapters(n).map((c,i)=>[c.id,i])),at=chapterId?rank.get(chapterId):Math.max(-1,...chapters(n).filter(c=>c.content.trim()).map(c=>rank.get(c.id)));return {...f,targetTitle:n.chapters[f.targetChapterId]?.title||null,due:!['recovered','abandoned'].includes(f.status)&&rank.has(f.targetChapterId)&&at>=rank.get(f.targetChapterId),review:f.evidence.some(e=>linkView(n,{...e,chapterRevision:e.revision}).review)};}
+function foreshadowView(n,f,chapterId){
+ const rank=new Map(chapters(n).map((c,i)=>[c.id,i])),at=chapterId?rank.get(chapterId):Math.max(-1,...chapters(n).filter(c=>c.content.trim()).map(c=>rank.get(c.id)));
+ const needsReview=e=>{const ch=n.chapters[e.chapterId],v=ch?.versions.find(v=>v.revision===e.revision);return !ch||ch.deleted||!v||ch.contentHash!==v.contentHash;};
+ const plotNodes=f.plotNodes?.map(node=>({...node,review:!!node.evidence&&needsReview(node.evidence)}));
+ return {...f,...(plotNodes?{plotNodes}:{}),targetTitle:n.chapters[f.targetChapterId]?.title||null,due:!['recovered','abandoned','open'].includes(f.status)&&rank.has(f.targetChapterId)&&at>=rank.get(f.targetChapterId),review:f.evidence.some(needsReview)||!!plotNodes?.some(node=>node.review)};
+}
 function checkedForeshadow(n,v){
- const title=text(v.title,'伏笔名称'),status=v.status||'planned';if(!['planned','planted','developing','recovered','abandoned'].includes(status))fail('伏笔状态无效');
+ const title=text(v.title,'伏笔名称');let status=v.status||'planned';if(!['planned','planted','developing','partial','recovered','open','abandoned'].includes(status))fail('伏笔状态无效');
  if(!Array.isArray(v.evidence)||v.evidence.length>200)fail('伏笔依据无效');
  const refs=v.evidence.map(e=>{if(!['plant','progress','recover'].includes(e.kind))fail('伏笔依据类型无效');return {...evidence(n,e),kind:e.kind};});
- if(['planted','developing','recovered'].includes(status)&&!refs.some(e=>e.kind==='plant'))fail('请添加埋设的正文依据');
- if(status==='recovered'&&!refs.some(e=>e.kind==='recover'))fail('回收需要实际正文依据');
+ const plotNodes=v.plotNodes===undefined?undefined:checkForeshadowNodes(v.plotNodes,e=>evidence(n,e),fail),resolution=v.resolution||'active';
+ if(plotNodes)status=nodeProgress(plotNodes,refs,resolution,fail);
+ if(!plotNodes&&['planted','developing','recovered'].includes(status)&&!refs.some(e=>e.kind==='plant'))fail('请添加埋设的正文依据');
+ if(!plotNodes&&status==='recovered'&&!refs.some(e=>e.kind==='recover'))fail('回收需要实际正文依据');
  if(status==='abandoned'&&!v.abandonReason?.trim())fail('放弃伏笔需要保留原因');
  if(v.targetChapterId)get(n.chapters,v.targetChapterId,'计划回收章');
- return {title,status,content:text(v.content||'','说明',true),memoryRefs:nodeIds(n,v.memoryRefs),targetChapterId:v.targetChapterId||null,evidence:refs,abandonReason:text(v.abandonReason||'','放弃原因',true)};
+ return {title,status,...(plotNodes?{plotNodes,resolution}:{}),content:text(v.content||'','说明',true),memoryRefs:nodeIds(n,v.memoryRefs),targetChapterId:v.targetChapterId||null,evidence:refs,abandonReason:text(v.abandonReason||'','放弃原因',true)};
 }
 export function writingAction(n,action,a,actor){
  if(n.writing&&![1,2].includes(n.writing.version))fail('此作品结构版本较新，请更新工作台后再操作','WRITING_VERSION');
@@ -167,13 +177,23 @@ export function writingAction(n,action,a,actor){
   if(a.confirmed!==true)fail('出场、提及与资料关联需要作者确认','CONFIRM_REQUIRED');const node=get(n.nodes,a.nodeId,'资料'),ch=get(n.chapters,a.chapterId,'章节');if(node.deleted||ch.deleted)fail('不能关联已删除资料或章节');cas(ch,a.expectedChapterRevision);
   const manual=a.manual===true;if(manual&&actor.kind!=='human')fail('手动指定出场仅限作者操作','HUMAN_REQUIRED');const ref=manual?{evidence:''}:evidence(n,{chapterId:a.chapterId,revision:a.expectedChapterRevision,evidence:a.evidence}),linkKind=a.kind||'reference';if(!['appearance','mention','reference'].includes(linkKind))fail('关联类型无效');
   if(node.type!=='character_card'&&linkKind!=='reference')fail('只有角色可记录出场或提及');
-  const repeated=active(draft.links).find(l=>l.nodeId===node.id&&l.chapterId===ch.id&&l.chapterRevision===ch.revision&&l.kind===linkKind&&l.evidence===ref.evidence);if(repeated)return linkView(n,repeated);
-  result=save(draft.links,randomUUID(),{nodeId:node.id,chapterId:ch.id,chapterRevision:ch.revision,kind:linkKind,evidence:ref.evidence,...(manual?{manual:true}:{}),deleted:false},null,source,reason);
+  const selection=a.selection?selectionProof(ch,a.selection):null;
+  const repeated=active(draft.links).find(l=>l.nodeId===node.id&&l.chapterId===ch.id&&l.chapterRevision===ch.revision&&l.kind===linkKind&&l.evidence===ref.evidence&&(!selection||(l.selection?.start===selection.start&&l.selection?.end===selection.end)));if(repeated)return linkView(n,repeated);
+  result=save(draft.links,randomUUID(),{nodeId:node.id,chapterId:ch.id,chapterRevision:ch.revision,kind:linkKind,evidence:ref.evidence,...(selection?{selection}:{}),...(manual?{manual:true}:{}),deleted:false},null,source,reason);
  }else if(action==='writing.link.delete'){
   const old=get(draft.links,a.id,'关联');cas(old,a.expectedRevision);result=save(draft.links,old.id,{deleted:true},old,source,reason);
  }else if(action==='writing.foreshadow.create'||action==='writing.foreshadow.update'){
   if(a.confirmed!==true)fail('伏笔事实需作者确认','CONFIRM_REQUIRED');const old=action.endsWith('update')?get(draft.foreshadows,a.id,'伏笔'):null;cas(old,a.expectedRevision??(old?undefined:0));
-  result=save(draft.foreshadows,old?.id||randomUUID(),checkedForeshadow(n,{...old,...a.value}),old,source,reason);
+  const value=checkedForeshadow(n,{...old,...a.value});
+  for(const node of value.plotNodes||[]){
+   const previous=old?.plotNodes?.find(p=>p.id===node.id);
+   if(node.evidence&&(JSON.stringify(previous?.evidence)!==JSON.stringify(node.evidence)||previous?.kind!==node.kind)){
+    if(actor.kind!=='human')fail('正文确认需要作者操作','HUMAN_REQUIRED');
+    const ch=get(n.chapters,node.evidence.chapterId,'依据章节');if(ch.deleted)fail('依据章节已删除');cas(ch,node.evidence.revision);
+   }
+  }
+  if(value.resolution==='complete'&&old?.resolution!=='complete'&&foreshadowView(n,value).review)fail('请先复核改写后的正文依据，再确认完成');
+  result=save(draft.foreshadows,old?.id||randomUUID(),value,old,source,reason);
  }else if(action==='writing.goal.set'){
   cas(draft.goal,a.expectedRevision);if(a.target!==null&&(!Number.isSafeInteger(a.target)||a.target<1))fail('目标需要正整数或空值');result=save({goal:null},'goal',{target:a.target},draft.goal,source,reason);draft.goal=result;
  }else if(action==='writing.restore'){
@@ -189,8 +209,8 @@ export function validateWriting(n){
  for(const f of Object.values(w.fields))if(!['character','world'].includes(f.kind)||!['short','long','number','tags','reference'].includes(f.type)||typeof f.archived!=='boolean'||!f.label?.trim())fail('字段定义无效','INVALID_BACKUP');
  const fields=[...writingFields(n,'character'),...writingFields(n,'world')];
  for(const [id,r]of Object.entries(w.cards)){get(n.nodes,id,'字段所属资料');if(!obj(r.values))fail('字段值无效','INVALID_BACKUP');for(const [key,v]of Object.entries(r.values)){const f=fields.find(f=>f.id===key);if(!f)fail('未知字段值','INVALID_BACKUP');if(v===null||v==='')continue;if(f.type==='number'){if(typeof v!=='number'||!Number.isFinite(v))fail('数字字段无效','INVALID_BACKUP');}else if(['tags','reference'].includes(f.type)){if(!Array.isArray(v)||v.length>100||v.some(s=>typeof s!=='string'||s.length>1000))fail('标签或引用字段无效','INVALID_BACKUP');if(f.type==='reference')nodeIds(n,v);}else text(v,f.label,true);}}
- for(const l of Object.values(w.links)){get(n.nodes,l.nodeId,'关联资料');if(l.manual===true){const ch=get(n.chapters,l.chapterId,'章节');if(l.actor?.kind!=='human'||l.evidence!==''||!ch.versions.some(v=>v.revision===l.chapterRevision))fail('作者指定关联无效','INVALID_BACKUP');}else evidence(n,{chapterId:l.chapterId,revision:l.chapterRevision,evidence:l.evidence});if(!['appearance','mention','reference'].includes(l.kind)||typeof l.deleted!=='boolean')fail('章节关联无效','INVALID_BACKUP');}
- for(const f of Object.values(w.foreshadows))checkedForeshadow(n,f);
+ for(const l of Object.values(w.links)){get(n.nodes,l.nodeId,'关联资料');if(l.manual===true){const ch=get(n.chapters,l.chapterId,'章节');if(l.actor?.kind!=='human'||l.evidence!==''||!ch.versions.some(v=>v.revision===l.chapterRevision))fail('作者指定关联无效','INVALID_BACKUP');}else evidence(n,{chapterId:l.chapterId,revision:l.chapterRevision,evidence:l.evidence});if(l.selection){if(l.selection.chapterId!==l.chapterId||l.selection.revision!==l.chapterRevision||l.selection.evidence!==l.evidence)fail('选区与章节关联不一致','INVALID_BACKUP');selectionProof(get(n.chapters,l.chapterId,'章节'),l.selection,{historical:true});}if(!['appearance','mention','reference'].includes(l.kind)||typeof l.deleted!=='boolean')fail('章节关联无效','INVALID_BACKUP');}
+ for(const f of Object.values(w.foreshadows)){const checked=checkedForeshadow(n,f);if(f.plotNodes&&checked.status!==f.status)fail('伏笔进度与节点依据不一致','INVALID_BACKUP');}
  validateEvolution(n,w);
  validateReviews(n);
  if(w.goal&&(!Number.isSafeInteger(w.goal.revision)||w.goal.target!==null&&(!Number.isSafeInteger(w.goal.target)||w.goal.target<1)))fail('写作目标无效','INVALID_BACKUP');
@@ -200,11 +220,11 @@ export function copyWriting(source,target,maps){
  if(!source.writing)return;const w=clone(source.writing);validateWriting(source);target.writing??=fresh();const to=target.writing,fieldIds=new Map(Object.keys(w.fields).map(id=>[id,randomUUID()]));
  const remapValues=values=>Object.fromEntries(Object.entries(values).map(([id,value])=>{const field=[...writingFields(source,'character'),...writingFields(source,'world')].find(f=>f.id===id);return [fieldIds.get(id)||id,field?.type==='reference'?value.map(id=>maps.nodes.get(id)):value];}));
  const mapRecord=(record,convert)=>{const current=convert(clone(record));current.versions=(record.versions||[]).map(v=>({...v,value:convert(clone(v.value))}));return current;};
- const foreshadowIds=new Map(Object.keys(w.foreshadows).map(id=>[id,randomUUID()]));
+ const foreshadowIds=new Map(Object.keys(w.foreshadows).map(id=>[id,randomUUID()]));maps.foreshadows=foreshadowIds;
  for(const f of Object.values(w.fields)){const id=fieldIds.get(f.id);to.fields[id]=mapRecord(f,v=>({...v,id}));}
  for(const r of Object.values(w.cards)){const id=maps.nodes.get(r.id);to.cards[id]=mapRecord(r,v=>({...v,id,values:remapValues(v.values)}));}
- const linkIds=new Map();for(const l of Object.values(w.links)){const id=randomUUID();linkIds.set(l.id,id);to.links[id]=mapRecord(l,v=>({...v,id,nodeId:maps.nodes.get(v.nodeId),chapterId:maps.chapters.get(v.chapterId)}));}
- for(const f of Object.values(w.foreshadows)){const id=foreshadowIds.get(f.id);to.foreshadows[id]=mapRecord(f,v=>({...v,id,memoryRefs:v.memoryRefs.map(id=>maps.nodes.get(id)),targetChapterId:v.targetChapterId?maps.chapters.get(v.targetChapterId):null,evidence:v.evidence.map(e=>({...e,chapterId:maps.chapters.get(e.chapterId)}))}));}
+ const linkIds=new Map();for(const l of Object.values(w.links)){const id=randomUUID();linkIds.set(l.id,id);to.links[id]=mapRecord(l,v=>({...v,id,nodeId:maps.nodes.get(v.nodeId),chapterId:maps.chapters.get(v.chapterId),...(v.selection?{selection:{...v.selection,chapterId:maps.chapters.get(v.selection.chapterId)}}:{})}));}
+ for(const f of Object.values(w.foreshadows)){const id=foreshadowIds.get(f.id);to.foreshadows[id]=mapRecord(f,v=>({...v,id,memoryRefs:v.memoryRefs.map(id=>maps.nodes.get(id)),targetChapterId:v.targetChapterId?maps.chapters.get(v.targetChapterId):null,evidence:v.evidence.map(e=>({...e,chapterId:maps.chapters.get(e.chapterId)})),...(v.plotNodes?{plotNodes:v.plotNodes.map(node=>({...node,cardId:maps.story?.get(node.cardId)||node.cardId,evidence:node.evidence?{...node.evidence,chapterId:maps.chapters.get(node.evidence.chapterId)}:null}))}:{})}));}
  const eventIds=copyEvolution(w,to,maps,randomUUID,foreshadowIds);
  copyReviews(source,target,maps,foreshadowIds,eventIds,linkIds);
  if(!to.goal)to.goal=clone(w.goal);validateWriting(target);
@@ -218,7 +238,7 @@ export function sliceWriting(source,target){
  w.cards=Object.fromEntries(Object.entries(w.cards).filter(([id])=>Object.hasOwn(target.nodes,id)).map(([id,r])=>[id,{...r,values:values(r.values),versions:r.versions.map(v=>({...v,value:{...v.value,values:values(v.value.values)}}))}]));
  const inScope=l=>Object.hasOwn(target.nodes,l.nodeId)&&Object.hasOwn(target.chapters,l.chapterId);
  w.links=Object.fromEntries(Object.entries(w.links).filter(([,r])=>{const keep=inScope(r)&&r.versions.every(v=>inScope(v.value));if(!keep)omitted++;return keep;}));
- const complete=f=>f.memoryRefs.every(id=>Object.hasOwn(target.nodes,id))&&(!f.targetChapterId||Object.hasOwn(target.chapters,f.targetChapterId))&&f.evidence.every(e=>Object.hasOwn(target.chapters,e.chapterId));
+ const complete=f=>f.memoryRefs.every(id=>Object.hasOwn(target.nodes,id))&&(!f.targetChapterId||Object.hasOwn(target.chapters,f.targetChapterId))&&f.evidence.every(e=>Object.hasOwn(target.chapters,e.chapterId))&&(f.plotNodes||[]).every(node=>target.story?.state?.cards?.[node.cardId]&&(!node.evidence||Object.hasOwn(target.chapters,node.evidence.chapterId)));
  w.foreshadows=Object.fromEntries(Object.entries(w.foreshadows).filter(([,r])=>{const keep=complete(r)&&r.versions.every(v=>complete(v.value));if(!keep)omitted++;return keep;}));
  omitted+=sliceEvolution(w,target);omitted+=sliceReviews(w,target);w.goal=null;target.writing=w;validateWriting(target);return {omitted};
 }

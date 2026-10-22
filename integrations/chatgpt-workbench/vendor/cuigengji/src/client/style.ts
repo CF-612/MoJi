@@ -1,3 +1,5 @@
+import {scrollbarStyles} from './shared/scrollbar-style.ts';
+import {previewPolish} from './preview-polish.mjs';
 ﻿import {mobileEditorStyles} from './mobile-editor-style.ts';
 import {studioStyles} from './studio-style.ts';
 import {disclosureStyles} from './shared/disclosure-style.ts';
@@ -295,4 +297,4 @@ export const styles = `
  .cuigengji .chapter-main .manuscript {padding-left:8px;padding-right:8px;}
  .cuigengji .chapter-toolbar {gap:8px;}
 }
-` + visualStyles + selectStyles + graphStyles + managementStyles + transferStyles + welcomeStyles + batchStyles + navigationStyles + castStyles + outlineStyles + planningToolbarStyles + mobileStyles + cardStyles + structureStyles + storyStageStyles + trackStyles + trackHorizontalStyles + timelineBoardStyles + placementStyles + markdownStyles + diffStyles + reviewStyles + searchStyles + disclosureStyles + studioStyles + mobileEditorStyles + chromeStyles + storyCardStyles;
+` + visualStyles + selectStyles + graphStyles + managementStyles + transferStyles + welcomeStyles + batchStyles + navigationStyles + castStyles + outlineStyles + planningToolbarStyles + mobileStyles + cardStyles + structureStyles + storyStageStyles + trackStyles + trackHorizontalStyles + timelineBoardStyles + placementStyles + markdownStyles + diffStyles + reviewStyles + searchStyles + disclosureStyles + studioStyles + mobileEditorStyles + chromeStyles + storyCardStyles + previewPolish + scrollbarStyles;

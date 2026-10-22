@@ -1,0 +1,10 @@
+import {createHash} from 'node:crypto';
+const fail=(message,code='INVALID_INPUT')=>{throw Object.assign(new Error(message),{code});};
+export function proseFind(n,a){
+ if(typeof a.query!=='string'||!a.query||a.query.length>1000)fail('请输入 1—1000 字的查找内容');if(typeof a.replacement!=='string'||a.replacement.length>10000)fail('替换内容最多 10000 字');
+ const ids=a.chapterIds;if(ids!==undefined&&(!Array.isArray(ids)||!ids.length||ids.some(id=>!n.chapters[id]||n.chapters[id].deleted)))fail('所选章节不存在');
+ const rows=Object.values(n.chapters).filter(c=>!c.deleted&&(!ids||ids.includes(c.id))).sort((a,b)=>a.order-b.order||a.id.localeCompare(b.id)),matches=[];let count=0;
+ for(const c of rows){const found=[];let at=0;while((at=c.content.indexOf(a.query,at))!==-1){if(++count>10000)fail('匹配超过 10000 处，请缩小查找范围');found.push(at);at+=a.query.length;}if(found.length)matches.push({chapterId:c.id,title:c.title,revision:c.revision,contentHash:c.contentHash,count:found.length,snippets:found.slice(0,20).map(start=>({start,end:start+a.query.length,before:c.content.slice(Math.max(0,start-28),start),match:a.query,after:c.content.slice(start+a.query.length,start+a.query.length+28)}))});}
+ const fingerprint=createHash('sha256').update(JSON.stringify({query:a.query,replacement:a.replacement,chapterIds:ids||null,scope:rows.map(c=>[c.id,c.revision,c.contentHash])})).digest('hex');return {fingerprint,count,chapters:matches,query:a.query,replacement:a.replacement,chapterIds:ids};
+}
+export function replaceProse(n,a,actor,execute){if(actor.kind!=='human'||a.confirmed!==true)fail('替换正文需要作者确认','HUMAN_REQUIRED');const preview=proseFind(n,a);if(preview.fingerprint!==a.fingerprint)fail('正文在预览后已有变化，请重新预览；尚未替换任何章节','CONFLICT');if(!preview.count)return {count:0,chapters:[]};const results=[];for(const row of preview.chapters){const c=n.chapters[row.chapterId],content=c.content.split(a.query).join(a.replacement);if(content.length>5000000)fail('替换后正文过长，请缩小替换范围');results.push(execute('chapter.update',{chapterId:c.id,expectedRevision:c.revision,expectedHash:c.contentHash,content,reason:'作者查找替换'}));}return {count:preview.count,chapters:results.map(c=>({id:c.id,revision:c.revision}))};}

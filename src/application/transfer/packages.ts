@@ -1,3 +1,4 @@
+import {selectStoryPackage} from '../../domain/story-package.js';
 import {ensurePlanning} from '../../domain/planning/model.ts';
 import {sliceWriting} from '../../domain/writing.js';
 import {previewTavern} from '../../infrastructure/migrations/tavern.js';
@@ -19,6 +20,7 @@ export function selectProjects(source: Novel[], selection: Selection): Slice {
     return {projects, warnings: [], dependencies: []};
   }
   const original = source.find(n => n.id === selection.novelId) ?? fail('请选择一部作品');
+  if(selection.kind==='planning'&&original.story)return selectStoryPackage(original,selection);
   const n = copy(original), board = ensurePlanning(n);
   const chapters = new Set<string>(), nodes = new Set<string>(), beats = new Set<string>();
   const pages = new Set<string | null>(), decorations = new Set<string>();
@@ -60,7 +62,7 @@ export function selectProjects(source: Novel[], selection: Selection): Slice {
   for (const id of chapters) if (!initialChapters.has(id)) dependencies.push({kind: '正文', title: n.chapters[id].title});
   for (const id of nodes) if (!initialNodes.has(id)) dependencies.push({kind: '设定', title: n.nodes[id].name});
   const result: Novel = {...copy(n), volumes: {}, chapters: pick(n.chapters, chapters), nodes: pick(n.nodes, nodes), edges: {}, memoryGroups: {}, plan: null};
-  delete result.planning; delete result.preset; delete result.tavernSources;
+  delete result.story; delete result.planning; delete result.preset; delete result.tavernSources;
   const volumes = new Set<string>();
   for (const ch of Object.values(result.chapters)) {
     if (ch.volumeId) volumes.add(ch.volumeId);
@@ -74,6 +76,7 @@ export function selectProjects(source: Novel[], selection: Selection): Slice {
     const missing = m.sources.filter(s => !chapters.has(s.chapterId)).length + m.dependsOn.filter(id => !nodes.has(id)).length + m.knownBy.filter(id => own(n.nodes, id) && !nodes.has(id)).length;
     m.sources = m.sources.filter(s => chapters.has(s.chapterId)); m.dependsOn = m.dependsOn.filter(id => nodes.has(id));
     m.knownBy = m.knownBy.filter(id => !own(n.nodes, id) || nodes.has(id));
+    if('appearancePlan' in m&&m.appearancePlan&&typeof m.appearancePlan==='object'&&!chapters.has((m.appearancePlan as {chapterId:string}).chapterId))m.appearancePlan=null;
     if (missing) {detached += missing; m.status = 'unconfirmed'; m.factType = 'unconfirmed';}
     if ('groupId' in m && m.groupId && n.memoryGroups?.[m.groupId]) result.memoryGroups![m.groupId] = copy(n.memoryGroups[m.groupId]);
   }

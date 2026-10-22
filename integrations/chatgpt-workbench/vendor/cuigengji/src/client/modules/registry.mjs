@@ -8,6 +8,13 @@ export const modules=Object.freeze([
  {id:'foreshadow',name:'伏笔辅助',description:'章节、时间线和仪表盘中的伏笔入口',dependencies:[]},
  {id:'evolution',name:'关系演变',description:'跟随事件查看关系阶段与变化',dependencies:['timeline']},
 ]);
+export const moduleExtensions=Object.freeze({
+ pages:{pages:['planning.canvas'],associations:['story.pages.instances'],actions:['story.apply']},
+ timeline:{pages:['planning.timeline'],associations:['story.cards.time'],actions:['story.get','story.apply']},
+ foreshadow:{pages:['planning.foreshadow'],cardMarkers:['foreshadow'],associations:['writing.foreshadows.plotNodes'],actions:['story.foreshadow.save']},
+ evolution:{pages:['planning.timeline.relations'],cardMarkers:['relationship'],associations:['story.cards.points'],actions:['story.apply']},
+});
+export function enabledExtensions(value){const enabled=normalizeModules(value);return Object.entries(moduleExtensions).filter(([id])=>enabled[id]).map(([id,extension])=>({id,...extension}));}
 export const profiles=Object.freeze({minimal:{name:'极简',enabled:[]},standard:{name:'标准',enabled:['timeline','foreshadow']},complete:{name:'完整',enabled:modules.map(m=>m.id)}});
 export function normalizeModules(value){
  const result=Object.fromEntries(modules.map(m=>[m.id,typeof value?.[m.id]==='boolean'?value[m.id]:(m.defaultEnabled??true)]));

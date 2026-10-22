@@ -30,6 +30,12 @@ function dependencies(n,chapterId,item){
 }
 function executeItem(n,chapterId,chapterRevision,item,execute,reason){
  if(item.kind==='link')return execute(n,'writing.link.create',{chapterId,expectedChapterRevision:chapterRevision,nodeId:item.nodeId,kind:item.linkKind,evidence:item.evidence,confirmed:true,reason});
+ if(reason!=='仅校验候选，不保存'){
+  const createCard=(title,content,evidence)=>{const workspace=execute(n,'story.get',{}),before=new Set(Object.keys(workspace.state.cards));const result=execute(n,'story.apply',{expectedRevision:workspace.state.revision,operation:{type:'card.create',value:{title,content,status:'selected',storyDateText:item.value.storyDate||item.value.storyTime||'',scope:[chapterId],cast:(item.value.memoryRefs||[]).map(nodeId=>({nodeId,kind:'mention'})),evidence:evidence||[]}}});return Object.values(result.state.cards).find(c=>!before.has(c.id));};
+  if(item.kind==='event')return createCard(item.value.title,item.value.content,[{chapterId,revision:chapterRevision,evidence:item.evidence}]);
+  const old=item.targetId?n.writing?.foreshadows[item.targetId]:null,nodes=clone(old?.plotNodes||[]);for(const e of item.value.evidence||[]){if(nodes.some(p=>p.kind===e.kind&&p.evidence?.chapterId===e.chapterId&&p.evidence?.revision===e.revision&&p.evidence?.evidence===e.evidence))continue;const card=createCard(item.value.title,item.value.content,[e]);nodes.push({id:randomUUID(),cardId:card.id,kind:e.kind,note:'',evidence:{chapterId:e.chapterId,revision:e.revision,evidence:e.evidence}});}
+  return execute(n,item.targetId?'writing.foreshadow.update':'writing.foreshadow.create',{id:item.targetId,expectedRevision:item.expectedRevision??0,value:{...item.value,evidence:[],plotNodes:nodes,resolution:old?.resolution||'active'},confirmed:true,reason});
+ }
  if(item.kind==='event')return execute(n,'writing.event.create',{value:{...item.value,chapterRefs:[{chapterId,revision:chapterRevision,evidence:item.evidence}]},confirmed:true,reason});
  return execute(n,item.targetId?'writing.foreshadow.update':'writing.foreshadow.create',{id:item.targetId,expectedRevision:item.expectedRevision??0,value:item.value,confirmed:true,reason});
 }

@@ -1,7 +1,9 @@
+import {MaterialTabs,MaterialPanel} from './MaterialSections.jsx';
+import {profileHistoryStyles} from './profile-history-style.ts';
 import {useModules} from '../modules/context.tsx';
 import {MarkdownField} from './MarkdownText.jsx';
 import {DocumentTextarea} from './workspace.tsx';
-import React, {useRef} from 'react';
+import React, {useRef,useState,useId} from 'react';
 import {useDraft} from './state.js';
 import {useDialog} from '../dialog.tsx';
 import {GroupSelect, type GroupItem} from './groups.tsx';
@@ -16,7 +18,7 @@ interface Props {
 }
 /** Creation remains local until save. In particular, cancelling a continuation creates no node or edge. */
 export function CreateDocument({draftKey,label,initial,groups,busy,context,chapter,close,createGroup,save,nameLabel='标题',extraFields,newGroupTitle,chapterTitle}: Props) {
-  const modules=useModules();
+  const modules=useModules(),[section,setSection]=useState('overview'),prefix=useId();
   const {value,change,accept,dirty,cacheError} = useDraft(draftKey,initial);
   const request = useRef({payload:'',id:''});
   const submit = async () => {
@@ -34,7 +36,11 @@ export function CreateDocument({draftKey,label,initial,groups,busy,context,chapt
       {chapter?<label>所属卷<select value={value.groupId||''} onChange={e=>selectGroup(e.target.value||null)}><option value="">未分卷</option>{groups.map(g=><option value={g.id} key={g.id}>{g.name}</option>)}</select></label>:<GroupSelect groups={groups} value={value.groupId} onChange={id=>set('groupId',id)}/>}
       <button disabled={busy} onClick={async()=>{const name=await ask(chapter?'新卷名称':'新建分组名称',newGroupTitle||'');if(name?.trim()){const g=await createGroup(name);if(g)selectGroup(g.id);}}}>＋ {chapter?'新建卷':'新建分组'}</button></div>}
       <fieldset className="editor-fields document-fields" disabled={busy}><label>{nameLabel}<input aria-label={nameLabel} autoFocus placeholder={nameLabel==='姓名'?'填写角色姓名':nameLabel==='名称'?'填写地点、组织或物品名称':'写一个清晰的标题'} value={value.title} onChange={e=>set('title',e.target.value)}/></label>
-      {chapter?<div className="chapter-summary creation-summary"><label htmlFor="new-chapter-summary"><strong>Summary:</strong></label><hr/><DocumentTextarea id="new-chapter-summary" aria-label="本章梗概" placeholder="本章梗概（可稍后补充）" value={value.summary} onChange={e=>set('summary',e.target.value)}/><hr/></div>:<MarkdownField label="摘要" hint="可选" aria-label="摘要 可选" placeholder="用几句话概括，方便之后查找" value={value.summary} onChange={e=>set('summary',e.target.value)}/>}{extraFields?.(value,change)}
-      {chapter?<label><span>正文 <small>可选</small></span><DocumentTextarea className="prose" placeholder="从这里开始，自由记录内容…" value={value.content} onChange={e=>set('content',e.target.value)}/></label>:<MarkdownField label="正文" hint="可选" aria-label="正文 可选" className="prose" placeholder="从这里开始，自由记录内容…" value={value.content} onChange={e=>set('content',e.target.value)}/>}</fieldset>{cacheError&&<p role="alert">{cacheError}</p>}
+      {extraFields&&<><style>{profileHistoryStyles}</style><MaterialTabs prefix={prefix} label="新建资料分区" active={section} onChange={setSection} tabs={[{id:'overview',label:'基本资料',icon:'person'},{id:'details',label:'详细内容',icon:'book'}]}/></>}
+      <CreationSection enabled={!!extraFields} prefix={prefix} active={section} id="overview">
+      {chapter?<div className="chapter-summary creation-summary"><label htmlFor="new-chapter-summary"><strong>Summary:</strong></label><hr/><DocumentTextarea id="new-chapter-summary" aria-label="本章梗概" placeholder="本章梗概（可稍后补充）" value={value.summary} onChange={e=>set('summary',e.target.value)}/><hr/></div>:<MarkdownField label="摘要" hint="可选" aria-label="摘要 可选" placeholder="用几句话概括，方便之后查找" value={value.summary} onChange={e=>set('summary',e.target.value)}/>}{extraFields?.(value,change)}</CreationSection><CreationSection enabled={!!extraFields} prefix={prefix} active={section} id="details">
+      {chapter?<label><span>正文 <small>可选</small></span><DocumentTextarea className="prose" placeholder="从这里开始，自由记录内容…" value={value.content} onChange={e=>set('content',e.target.value)}/></label>:<MarkdownField label="正文" hint="可选" aria-label="正文 可选" className="prose" placeholder="从这里开始，自由记录内容…" value={value.content} onChange={e=>set('content',e.target.value)}/>}</CreationSection></fieldset>{cacheError&&<p role="alert">{cacheError}</p>}
     </div></div></section>;
 }
+
+function CreationSection({enabled,children,...panel}:{enabled:boolean;children:React.ReactNode;prefix:string;active:string;id:string}){return enabled?<MaterialPanel {...panel}>{children}</MaterialPanel>:<>{children}</>;}

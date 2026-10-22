@@ -6,6 +6,7 @@ export const planningArgsSchema = {
   type:'object',additionalProperties:true,
   description:'使用本会话绑定的小说。读取/续接用 nodeId；apply 内用 operations:[{op,id,expectedRevision,value}]，id/版本与 op 同层。',
   properties:{
+    operation:{type:'object',additionalProperties:true,description:'V3.1 story.apply 的单次操作；type 为 card.create/card.update/card.delete/move/relation.save 等。更新须对象 expectedRevision；最外层 expectedRevision 为 story.get 返回的工作区版本。'},
     requestId:{type:'string',description:'一次修改的唯一请求标识，重试同一请求保持不变'},
     nodeId:{type:'string',description:'planning.get/continue 的节点 ID'},
     expectedRevision:{type:'integer',description:'continue 或页面/分组更新所读取的版本'},

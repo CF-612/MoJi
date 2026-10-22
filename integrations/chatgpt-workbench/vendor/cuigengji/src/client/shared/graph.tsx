@@ -1,7 +1,5 @@
 import {useDialog} from '../dialog.tsx';
 import {sharedLayoutQueue} from './layout-queue.mjs';
-import {useDialog} from '../dialog.tsx';
-import {sharedLayoutQueue} from './layout-queue.mjs';
 import React,{useContext,useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {SessionScope,readLocal} from './state.js';
 import {CARD_WIDTH,CARD_HEIGHT,PORT_Y,contains,intersects,fitCamera,toWorld,zoomAt,curve} from './graph-geometry.ts';
@@ -15,10 +13,11 @@ export interface GraphHit {kind:'blank'|'node'|'decoration'|'edge'|'port';id?:st
 export interface GraphContext {x:number;y:number;point:Point;hit:GraphHit;selected:string[]}
 interface Options {
   nodes:GraphNode[];edges:Link[];fallback:Record<string,Point>;busy:boolean;scopeKey:string;
-  visibleIds?:string[];acyclic?:boolean;
+  visibleIds?:string[];acyclic?:boolean;direction?:'horizontal'|'vertical';
   onLayout:(points:Record<string,Point>,revisions?:Record<string,number>,requestId?:string)=>Promise<boolean|undefined>;
   onConnect:(from:string,to:string)=>Promise<boolean|undefined>;
   onContext?:(context:GraphContext)=>void;
+  onEdgeOpen?:(id:string)=>void;
   onCreateConnected?:(id:string,side:Side,point:Point)=>void;
   onFrame?:(ids:string[])=>void;
 }
@@ -46,7 +45,7 @@ export function GraphStatus({graph,busy}:{graph:ReturnType<typeof useGraph>;busy
   return null;
 }
 export function GraphControls({graph,busy}:{graph:ReturnType<typeof useGraph>;busy:boolean}){
-  return <><div className="graph-view-controls"><button aria-label="适应视图" onClick={()=>graph.fit()}>适应</button><button className="touch-zoom" aria-label="缩小画布" onClick={()=>graph.zoomTo(graph.zoom/1.2)}>−</button><button aria-label="恢复百分之百缩放" onClick={()=>graph.zoomTo(1)}>{Math.round(graph.zoom*100)}%</button><button className="touch-zoom" aria-label="放大画布" onClick={()=>graph.zoomTo(graph.zoom*1.2)}>＋</button><span className="graph-control-divider" aria-hidden="true"/><button aria-label="撤销布局" title="撤销布局 · Ctrl+Z" disabled={busy||graph.saving||graph.failed||!graph.canUndo} onClick={()=>graph.undo()}>↶</button><button aria-label="重做布局" title="重做布局 · Ctrl+Y" disabled={busy||graph.saving||graph.failed||!graph.canRedo} onClick={()=>graph.redo()}>↷</button><button aria-label="整理布局" disabled={busy||graph.saving||graph.failed} onClick={()=>graph.arrange(graph.fallback)}>整理</button></div><details className="graph-help"><summary>操作</summary><div><p>触屏：单指平移 · 双指缩放 · 点卡片打开</p><p>右键拖动平移 · 滚轮缩放</p><p>单击选择 · 双击打开内容</p><p>拖动空白框选 · Shift 追加选择</p><p>拖动圆点连线 · 右键查看操作</p><p>C 创建讨论框 · Esc 取消</p><p>Home 适应 · Ctrl+Z / Ctrl+Y 撤销、重做布局</p></div></details><div className="graph-status"><GraphStatus graph={graph} busy={busy}/></div></>;
+  return <><div className="graph-view-controls"><button aria-label="适应视图" onClick={()=>graph.fit()}>适应</button><button className="touch-zoom" aria-label="缩小画布" onClick={()=>graph.zoomTo(graph.zoom/1.2)}>−</button><button aria-label="恢复百分之百缩放" onClick={()=>graph.zoomTo(1)}>{Math.round(graph.zoom*100)}%</button><button className="touch-zoom" aria-label="放大画布" onClick={()=>graph.zoomTo(graph.zoom*1.2)}>＋</button><span className="graph-control-divider" aria-hidden="true"/><button aria-label="撤销布局" title="撤销布局 · Ctrl+Z" disabled={busy||graph.saving||graph.failed||!graph.canUndo} onClick={()=>graph.undo()}>↶</button><button aria-label="重做布局" title="重做布局 · Ctrl+Y" disabled={busy||graph.saving||graph.failed||!graph.canRedo} onClick={()=>graph.redo()}>↷</button><button aria-label="整理布局" disabled={busy||graph.saving||graph.failed} onClick={()=>graph.arrange(graph.fallback)}>整理</button></div><details className="graph-help"><summary>操作</summary><div><p>触屏：单指拖卡 · 空白平移 · 双指平移缩放 · 点卡片打开</p><p>右键拖动平移 · 滚轮缩放</p><p>单击选择 · 双击打开内容</p><p>拖动空白框选 · Shift 追加选择</p><p>拖动圆点连线 · 右键查看操作</p><p>C 创建讨论框 · Esc 取消</p><p>Home 适应 · Ctrl+Z / Ctrl+Y 撤销、重做布局</p></div></details><div className="graph-status"><GraphStatus graph={graph} busy={busy}/></div></>;
 }
 
 /** One world coordinate system. Viewport changes are local preferences, never novel edits. */
@@ -92,7 +91,7 @@ export function useGraph(options:Options){
   const centerPoint=()=>toWorld({x:(scroll.current?.clientWidth||800)/2,y:(scroll.current?.clientHeight||450)/2},cameraRef.current);
   const bounds=(id:string):Rect=>{const node=opts.current.nodes.find(n=>n.id===id)!;return {...pointsRef.current[id],width:node.width||CARD_WIDTH,height:node.height||CARD_HEIGHT};};
   const visible=()=>opts.current.visibleIds??opts.current.nodes.map(n=>n.id);
-  const endpoint=(id:string,side:Side):Point=>({x:pointsRef.current[id].x+(side==='out'?CARD_WIDTH:0),y:pointsRef.current[id].y+PORT_Y});
+  const endpoint=(id:string,side:Side):Point=>opts.current.direction==='vertical'?{x:pointsRef.current[id].x+CARD_WIDTH/2,y:pointsRef.current[id].y+(side==='out'?(opts.current.nodes.find(n=>n.id===id)?.height||CARD_HEIGHT):0)}:({x:pointsRef.current[id].x+(side==='out'?CARD_WIDTH:0),y:pointsRef.current[id].y+PORT_Y});
   const valid=(id:string,side:Side)=>{const current=wireRef.current;if(!current||current.side===side)return false;const [from,to]=current.side==='out'?[current.id,id]:[id,current.id];return canJoin(opts.current.edges,from,to,opts.current.acyclic);};
   const targetAt=(x:number,y:number)=>{const port=document.elementFromPoint(x,y)?.closest<HTMLElement>('[data-graph-port]');if(!port||!surface.current?.contains(port))return null;return valid(port.dataset.nodeId!,port.dataset.graphPort as Side)?port.dataset.nodeId!:null;};
   const hitAt=(target:EventTarget|null):GraphHit=>{
@@ -142,9 +141,14 @@ export function useGraph(options:Options){
     if(editable(e.target)||(e.target as Element).closest('.graph-view-controls,.graph-help,.graph-status,.canvas-selection-tools')){suppress.current=false;return;}
     if(e.pointerType==='touch'&&!(e.target as Element).closest('[data-graph-port],.decoration-resize')){
       touches.current.set(e.pointerId,{x:e.clientX,y:e.clientY});e.currentTarget.setPointerCapture(e.pointerId);
-      const pair=touchPair();if(pair){gesture.current=null;updateWire(null);setLasso(null);suppress.current=true;pinch.current={...pair,before:{...cameraRef.current}};return;}
+      const pair=touchPair();if(pair){const previous=gesture.current;if(previous?.kind==='card'&&previous.moved)setLocal({...localRef.current,...previous.before});clearLongPress();gesture.current=null;updateWire(null);setLasso(null);suppress.current=true;pinch.current={...pair,before:{...cameraRef.current}};return;}
       const hit=hitAt(e.target),pointerId=e.pointerId,touchX=e.clientX,touchY=e.clientY;
-      gesture.current={kind:'pan',pointer:e.pointerId,start:{x:e.clientX,y:e.clientY},before:{...cameraRef.current},button:0,hit,moved:false};
+      e.preventDefault();
+      const node=hit.id&&opts.current.nodes.find(n=>n.id===hit.id);
+      if(node&&(hit.kind==='node'||hit.kind==='decoration')&&!opts.current.busy&&!locked.current){
+       const ids=selection.current.includes(node.id)?[...selection.current]:[node.id];
+       gesture.current={kind:'card',pointer:e.pointerId,start:{x:e.clientX,y:e.clientY},moved:false,ids,before:Object.fromEntries(ids.map(id=>[id,{...pointsRef.current[id]}])),revisions:Object.fromEntries(ids.map(id=>[id,opts.current.nodes.find(n=>n.id===id)!.revision])),persist:opts.current.onLayout};
+      }else gesture.current={kind:'pan',pointer:e.pointerId,start:{x:e.clientX,y:e.clientY},before:{...cameraRef.current},button:0,hit,moved:false};
       clearLongPress();
       if(hit.kind==='node'||hit.kind==='decoration')longPress.current={fired:false,timer:window.setTimeout(()=>{const g=gesture.current,p=longPress.current;if(!p||!g||g.moved||g.pointer!==pointerId)return;if(opts.current.busy||locked.current)return;p.fired=true;context(touchX,touchY,hit);},520)};
       return;
@@ -164,7 +168,8 @@ export function useGraph(options:Options){
     if(wireRef.current)updateWire({...wireRef.current,point:clientPoint(e.clientX,e.clientY),target:targetAt(e.clientX,e.clientY)});
   };
   const up=(e:React.PointerEvent)=>{touches.current.delete(e.pointerId);if(pinch.current){pinch.current=null;gesture.current=null;setDragging(false);rememberCamera();const [pointer,point]=[...touches.current.entries()][0]||[];if(point)gesture.current={kind:'pan',pointer,start:point,before:{...cameraRef.current},button:0,hit:{kind:'blank'},moved:false};return;}const g=gesture.current;if(!g||g.pointer!==e.pointerId)return;const pressed=clearLongPress();gesture.current=null;setDragging(false);setLasso(null);
-    if(g.kind==='pan'){if(e.pointerType==='touch'&&!g.moved&&g.hit.id&&!opts.current.busy&&!locked.current){if(!pressed?.fired)touchOpen.current.get(g.hit.id)?.();suppress.current=true;}if(g.button===2){rightEnd.current=Date.now();if(!g.moved)context(e.clientX,e.clientY,g.hit);}if(g.moved){suppress.current=g.button===0;rememberCamera();}return;}
+    if(g.kind==='pan'){if(e.pointerType==='touch'&&!g.moved&&g.hit.id&&!opts.current.busy&&!locked.current){if(!pressed?.fired){if(g.hit.kind==='edge')opts.current.onEdgeOpen?.(g.hit.id);else touchOpen.current.get(g.hit.id)?.();}suppress.current=true;}if(g.button===2){rightEnd.current=Date.now();if(!g.moved)context(e.clientX,e.clientY,g.hit);}if(g.moved){suppress.current=g.button===0;rememberCamera();}return;}
+    if(g.kind==='card'&&!g.moved&&e.pointerType==='touch'){suppress.current=true;if(!pressed?.fired)void queue.flush().then(ok=>{if(ok)touchOpen.current.get(g.ids[0])?.();});return;}
     if(g.kind==='card'&&g.moved){select(selection.current.includes(g.ids[0])?selection.current:[g.ids[0]]);void save({before:g.before,after:Object.fromEntries(g.ids.map(id=>[id,localRef.current[id]])),revisions:g.revisions},g.persist);return;}
     if(g.kind==='lasso'&&!g.moved)select(g.append);
     if(g.kind==='wire'&&g.moved){const target=targetAt(e.clientX,e.clientY),current=wireRef.current;if(target)void connect(target);else{updateWire(null);if(current&&!hitAt(document.elementFromPoint(e.clientX,e.clientY)).id)opts.current.onCreateConnected?.(current.id,current.side,clientPoint(e.clientX,e.clientY));}}
@@ -173,12 +178,13 @@ export function useGraph(options:Options){
   keyHandler.current=e=>{const el=scroll.current;if(!el?.offsetWidth||!(el.contains(document.activeElement)||el.contains(e.target as Node)))return;if((e.target as Element).closest('input,textarea,select,[contenteditable=true],[role=menu]'))return;if(e.key==='Escape'){e.preventDefault();cancel();}else if(e.key===' '&&!(e.target as Element).closest('button,summary')){e.preventDefault();space.current=true;}else if(e.key==='Home'){e.preventDefault();fit();}else if((e.ctrlKey||e.metaKey)&&['z','y'].includes(e.key.toLowerCase())){e.preventDefault();void history(e.key.toLowerCase()==='y'||e.shiftKey);}else if(e.key.toLowerCase()==='c'&&!e.ctrlKey&&!e.metaKey&&!opts.current.busy)opts.current.onFrame?.(selection.current);};
   useEffect(()=>{const key=(e:KeyboardEvent)=>keyHandler.current(e),release=(e:KeyboardEvent)=>{if(e.key===' ')space.current=false;},blur=()=>{space.current=false;cancel();};window.addEventListener('keydown',key);window.addEventListener('keyup',release);window.addEventListener('blur',blur);return()=>{window.removeEventListener('keydown',key);window.removeEventListener('keyup',release);window.removeEventListener('blur',blur);};},[]);
   useEffect(()=>{const el=scroll.current;if(!el)return;const wheel=(e:WheelEvent)=>{if(!e.deltaY||gesture.current||el.dataset.resizing)return;const target=e.target instanceof Element?e.target:null;if(target?.closest('input,textarea,select,[contenteditable=true],[role=menu],.menu-panel,.graph-help'))return;for(let node=target;node&&node!==el;node=node.parentElement)if(node.scrollHeight>node.clientHeight+1&&/^(auto|scroll)$/.test(getComputedStyle(node).overflowY))return;e.preventDefault();zoomTo(cameraRef.current.zoom*Math.exp(-e.deltaY*.0015),relative(e.clientX,e.clientY));};el.addEventListener('wheel',wheel,{passive:false});return()=>el.removeEventListener('wheel',wheel);},[]);
-  const preview=wire&&points[wire.id]?curve(wire.side==='out'?endpoint(wire.id,'out'):wire.target?endpoint(wire.target,'out'):wire.point,wire.side==='in'?endpoint(wire.id,'in'):wire.target?endpoint(wire.target,'in'):wire.point):null;
+  const wireCurve=(a:Point,b:Point)=>opts.current.direction==='vertical'?`M${a.x} ${a.y} C${a.x} ${a.y+60},${b.x} ${b.y-60},${b.x} ${b.y}`:curve(a,b);
+  const preview=wire&&points[wire.id]?wireCurve(wire.side==='out'?endpoint(wire.id,'out'):wire.target?endpoint(wire.target,'out'):wire.point,wire.side==='in'?endpoint(wire.id,'in'):wire.target?endpoint(wire.target,'in'):wire.point):null;
   return {scroll,surface,points,camera,zoom:camera.zoom,zoomTo,wire,preview,selected,select,selectedEdge,setSelectedEdge:chooseEdge,portProps,cardProps,saving:saving||awaitingLink!==null,pending:layoutStatus.dirty,layoutSaving:layoutStatus.saving,layoutConflict:layoutStatus.errorCode==='CONFLICT',failed,error,dragging,lasso,centerPoint,clientPoint,fit,fallback:options.fallback,
     ensureVisible,canUndo:undoStack.current.length>0,canRedo:redoStack.current.length>0,undo:()=>history(),redo:()=>history(true),
     worldStyle:{transform:`translate(${camera.x}px,${camera.y}px) scale(${camera.zoom})`,transformOrigin:'0 0'} as React.CSSProperties,
     viewportStyle:{backgroundSize:`${24*camera.zoom}px ${24*camera.zoom}px`,backgroundPosition:`${camera.x}px ${camera.y}px`,'--graph-title-scale':Math.min(2,Math.max(1,.7/camera.zoom))} as React.CSSProperties,
-    scrollProps:{onPointerDown:down,onPointerMove:move,onPointerUp:up,onPointerCancel:()=>{touches.current.clear();pinch.current=null;cancel();},onScroll:(e:React.UIEvent<HTMLDivElement>)=>{if(e.currentTarget.scrollLeft||e.currentTarget.scrollTop)e.currentTarget.scrollTo(0,0);},onClickCapture:(e:React.MouseEvent)=>{if(!editable(e.target)&&suppress.current){e.preventDefault();e.stopPropagation();suppress.current=false;}},onContextMenu:(e:React.MouseEvent)=>{if(editable(e.target))return;e.preventDefault();if(gesture.current?.kind==='pan'||Date.now()-rightEnd.current<500)return;context(e.clientX,e.clientY,hitAt(e.target));},tabIndex:0,'aria-label':'画布：单指平移、双指缩放；鼠标右键平移、滚轮缩放'},
+    scrollProps:{onPointerDown:down,onPointerMove:move,onPointerUp:up,onPointerCancel:()=>{touches.current.clear();pinch.current=null;cancel();},onScroll:(e:React.UIEvent<HTMLDivElement>)=>{if(e.currentTarget.scrollLeft||e.currentTarget.scrollTop)e.currentTarget.scrollTo(0,0);},onClickCapture:(e:React.MouseEvent)=>{if(!editable(e.target)&&suppress.current){e.preventDefault();e.stopPropagation();suppress.current=false;}},onContextMenu:(e:React.MouseEvent)=>{if(editable(e.target))return;e.preventDefault();if(gesture.current?.kind==='pan'||Date.now()-rightEnd.current<500)return;context(e.clientX,e.clientY,hitAt(e.target));},tabIndex:0,'aria-label':'画布：单指拖卡、空白平移、双指平移缩放；鼠标右键平移、滚轮缩放'},
     cancel,rebase:async()=>{if(await confirm('保留本地目标坐标，以当前已读取版本重新保存？这会覆盖对应远端坐标，卡片文字保持不变。')){if(queue.rebase(opts.current.nodes))void queue.flush();else setError('相关卡片不存在或已删除，请先核对最新资料。');}},retry:()=>{void queue.retry();},discard:()=>{if(queue.discard()){setLocal({});setFailed(false);setError('');undoStack.current=[];redoStack.current=[];historyTick(n=>n+1);}},
     arrange:(positions:Record<string,Point>)=>{if(options.busy||locked.current||failed)return;const ids=Object.keys(positions).filter(id=>points[id]);if(!ids.length)return;const after=Object.fromEntries(ids.map(id=>[id,positions[id]]));setLocal({...localRef.current,...after});void save({before:Object.fromEntries(ids.map(id=>[id,points[id]])),after,revisions:Object.fromEntries(ids.map(id=>[id,options.nodes.find(n=>n.id===id)!.revision]))});},
   };

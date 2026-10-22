@@ -21,6 +21,7 @@ export interface MemoryEdge extends MemoryFields {from: string; to: string}
 export interface PresetBlock {identifier: string; name: string; content: string; enabled: boolean; [key: string]: unknown}
 export interface PresetData {id?: string; revision?: number; name: string; enabled: boolean; blocks: PresetBlock[]; raw?: unknown; importFormat?: string; warnings?: string[]; [key: string]: unknown}
 export interface Novel extends Entity {
+  story?: {state: {cards: Record<string, any>; [key:string]: any}; history: any[]; redo?: any[]};
   writing?: WritingState;
   title: string; description: string; archived: boolean; volumes: Record<string, Volume>; chapters: Record<string, Chapter>;
   nodes: Record<string, MemoryNode>; edges: Record<string, MemoryEdge>; memoryGroups?: Record<string, Group>;
