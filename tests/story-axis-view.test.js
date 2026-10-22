@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {axisProjectionOptions,axisTicks,storyLaneLayout,storyDrop,storyDisplayCards,storyDefaultCursor,storyGapLabel,storyTickLabel} from '../integrations/chatgpt-workbench/vendor/cuigengji/src/client/features/planning/story-axis-view.mjs';
+import {axisProjectionOptions,axisTicks,storyLaneLayout,storyDrop,storyDisplayCards,storyDefaultCursor,storyGapLabel,storyTickLabel,storyZoomLevels} from '../integrations/chatgpt-workbench/vendor/cuigengji/src/client/features/planning/story-axis-view.mjs';
 import {createStoryProjection,dateToCoordinate} from '../integrations/chatgpt-workbench/vendor/cuigengji/src/domain/story-axis.mjs';
 const calendar={kind:'gregorian',name:'公历',era:'公元',visibility:{year:true,month:true,day:true}},anchor=dateToCoordinate({year:2024,month:1,day:1},calendar),axis={calendar,anchor:{coordinate:anchor},primaryTick:{unit:'year',step:1},tracks:[{id:'a',side:'above'},{id:'b',side:'below'}]};
 test('zoom refines day spacing without changing dates or primary scale',()=>{const source=JSON.stringify(axis),a=axisProjectionOptions(axis,0),b=axisProjectionOptions(axis,9);assert.ok(b.pixelsPerDay>a.pixelsPerDay);assert.equal(JSON.stringify(axis),source);const p=createStoryProjection([anchor,anchor+1],b);assert.ok(p.timeToX(anchor+1)-p.timeToX(anchor)>=58);});
@@ -12,3 +12,12 @@ test('valid coordinate endpoints never crash visual tick generation',()=>{for(co
 test('first setup marker defaults to configured anchor, not absolute zero',()=>{assert.equal(storyDefaultCursor(axis,null),anchor);assert.equal(storyDefaultCursor(axis,undefined),anchor);assert.equal(storyDefaultCursor(axis,anchor+1),anchor+1);assert.equal(storyDefaultCursor({...axis,anchor:{coordinate:-999}},null),-999);});
 
 test('huge epochs have compact overview labels and exact fine zoom labels',()=>{const n=dateToCoordinate({year:-5999999999,month:1,day:1},calendar);assert.match(storyTickLabel(axis,n,0),/60亿年/);assert.match(storyTickLabel(axis,n,9),/6000000000/);assert.match(storyGapLabel(axis,n,anchor),/60亿年空白/);});
+
+test('adaptive daily preset resolves adjacent days for 500-year and largest supported ticks',()=>{
+ for(const configured of [{...axis,primaryTick:{unit:'year',step:500}},{...axis,primaryTick:{unit:'year',step:1e11}},{...axis,calendar:{kind:'custom',name:'长历',era:'长历',visibility:{year:true,month:true,day:true},monthLengths:Array(100).fill(1e6)},primaryTick:{unit:'year',step:1e11}}]){
+  const before=JSON.stringify(configured),levels=storyZoomLevels(configured),options=axisProjectionOptions(configured,levels.daily),coordinates=[anchor,anchor+1],p=createStoryProjection(coordinates,options);
+  assert.ok(levels.daily<=64);assert.equal(options.windowDays,1);assert.ok(p.timeToX(anchor+1)-p.timeToX(anchor)>=60);assert.ok(p.width<2000);assert.ok(axisTicks(configured,p,levels.daily).length<=10);assert.deepEqual(coordinates,[anchor,anchor+1]);assert.equal(JSON.stringify(configured),before);
+ }
+ assert.ok(storyZoomLevels({...axis,primaryTick:{unit:'year',step:500}}).daily>12);
+});
+test('coarse hundred-year scale does not claim daily granularity from fixed zoom number',()=>{const wide={...axis,primaryTick:{unit:'year',step:500}},p=createStoryProjection([anchor],axisProjectionOptions(wide,8)),ticks=axisTicks(wide,p,8);assert.ok(axisProjectionOptions(wide,8).windowDays>7);assert.ok(ticks.length<50);});
