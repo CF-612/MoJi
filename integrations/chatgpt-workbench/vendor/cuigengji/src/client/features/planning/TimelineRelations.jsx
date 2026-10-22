@@ -1,4 +1,5 @@
 import {RelationChangeEditor,changeSource} from './RelationChangeEditor.jsx';
+import {timelineRelationsStyle} from './timeline-relations-style.mjs';
 import {relationEditStyle} from './relation-edit-style.mjs';
 import React,{useState,useRef} from 'react';
 import {Modal} from '../../shared/preferences.tsx';
@@ -19,7 +20,7 @@ export function TimelineRelations({call,novelId,onCard,state,sources,people,rela
  const networkProps={overview,focusPair,onPair:selectPair,onPerson:onMemory,query};
  const visibility=<div className="u-network-visibility"><div><button aria-pressed={!showAll} onClick={()=>setShowAll(false)}>随剧情出现</button><button aria-pressed={showAll} onClick={()=>setShowAll(true)}>全部人物</button></div><small>{overview.pending?overview.pending+' 人待出场／未安排':'人物均已出现'}</small></div>;
  return <aside className="u-timeline-relations" aria-label="跟随时间的人物关系演变">
-  <style>{relationEditStyle}</style><header className="u-rel-heading"><div><small>全局关系 · 两人历程</small><h3>人物关系演变</h3></div><span className="u-rel-live"><i/> 同步</span></header>
+  <style>{timelineRelationsStyle}{relationEditStyle}</style><header className="u-rel-heading"><div><small>全局关系 · 两人历程</small><h3>人物关系演变</h3></div><span className="u-rel-live"><i/> 同步</span></header>
   <div className="u-rel-current"><span>{mode==='narration'?'叙述顺序':'故事时间'} · 当前查看</span><strong>{pointLabel}</strong></div>
   <RelationTimeBar projection={projection} count={count} cursor={cursor} changes={history} origin={origin} changeCursor={changeCursor} pointLabel={pointLabel}/>
   <div className="re-modes re-plan-toggle" role="group" aria-label="关系历程范围"><button aria-pressed={!includePlans} onClick={()=>setIncludePlans(false)}>已确认变化</button><button aria-pressed={includePlans} onClick={()=>setIncludePlans(true)}>含计划预览</button></div>
