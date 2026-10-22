@@ -38,6 +38,7 @@ export function UnifiedPlanning({call,novelId,tick,onChapter,onMemory,run,busy,r
  const [data,setData]=useState(null),[error,setError]=useState(''),[working,setWorking]=useState(false),[notice,setNotice]=useState('');
  const [search,setSearch]=useState(''),[multi,setMulti]=useState(false),[selected,setSelected]=useState([]),[folded,setFolded]=useState([]),[dropTarget,setDropTarget]=useState(null),[mountedAt,setMountedAt]=useState(null),[movePosition,setMovePosition]=useState('inside'),[outlineGhost,setOutlineGhost]=useState(null);
  const outlinePointer=useRef(null);
+ const [generationFocus,setGenerationFocus]=useState(null);
  const dragged=useRef(null);
  const [managingRelations,setManagingRelations]=useState(null),[editing,setEditing]=useState(null),[moving,setMoving]=useState(null),[adding,setAdding]=useState(false),[menu,setMenu]=useState(false),[generating,setGenerating]=useState(null);
  const activeNovel=useRef(novelId);activeNovel.current=novelId;
@@ -46,7 +47,7 @@ export function UnifiedPlanning({call,novelId,tick,onChapter,onMemory,run,busy,r
  const relationResource=useResource(()=>call('edge.list',{novelId}),[call,novelId,tick],`${novelId}:v31-relations`);
  const people=resources.value||[];
  const refresh=async()=>{try{const next=await call('story.get',{novelId});if(mounted.current&&activeNovel.current===novelId){if(!lock.current&&next.state.revision>=(current.current?.state.revision??-1)){current.current=next;setData(next);setError('');}}}catch(e){if(mounted.current&&activeNovel.current===novelId)setError(resourceError(e));}};
- useEffect(()=>{mounted.current=true;saveToken.current=null;lock.current=false;setWorking(false);setData(null);void refresh();return()=>{mounted.current=false;saveToken.current=null;};},[novelId,tick]);
+ useEffect(()=>{mounted.current=true;saveToken.current=null;lock.current=false;setWorking(false);setData(null);setGenerationFocus(null);void refresh();return()=>{mounted.current=false;saveToken.current=null;};},[novelId,tick]);
  useEffect(()=>{const visible=()=>{if(!document.hidden&&!lock.current)void refresh();};document.addEventListener('visibilitychange',visible);const timer=setInterval(visible,4000);return()=>{document.removeEventListener('visibilitychange',visible);clearInterval(timer);};},[novelId]);
  useEffect(()=>{if(!modules.timeline&&area==='timeline'||!modules.foreshadow&&area==='foreshadow')setArea('outline');},[area,modules.timeline,modules.foreshadow]);
  const save=async(operation,message='已保存',request=null)=>{
@@ -70,7 +71,7 @@ export function UnifiedPlanning({call,novelId,tick,onChapter,onMemory,run,busy,r
  const generationTarget=generating?.targetId?state.pages.find(p=>p.id===generating.targetId):undefined;
  const generationPreview=generating&&!issues.length?generatedOutline(state,sources,generationTarget,generating):null;
  const existingHierarchy=generating&&!generationTarget?.generated?outlineHierarchyRefs(state,sources).filter(ref=>generationTarget?.instances[ref]&&!generationTarget.outline?.refs.includes(ref)):[];
- const applyGeneration=async()=>{if(!generating||!generationPreview)return;const operation={type:'page.generate',...(generating.dedicated?{}:{pageId:generating.targetId}),...(generating.relayoutExisting?{relayoutExisting:true}:{}),...(generating.adoptHierarchy?{adoptHierarchy:true}:{})};if(await save(operation,'已生成包含关系树；其他页面和未纳入生成范围的卡片位置保持原样，可在更多中撤销。',{novelId,expectedRevision:state.revision,operation})){if(generating.dedicated)setPageId(current.current.state.pages.find(p=>p.generated).id);setGenerating(null);}};
+ const applyGeneration=async()=>{if(!generating||!generationPreview)return;const operation={type:'page.generate',...(generating.dedicated?{}:{pageId:generating.targetId}),...(generating.relayoutExisting?{relayoutExisting:true}:{}),...(generating.adoptHierarchy?{adoptHierarchy:true}:{})};if(await save(operation,'已生成包含关系树；其他页面和未纳入生成范围的卡片位置保持原样，可在更多中撤销。',{novelId,expectedRevision:state.revision,operation})){const target=generating.dedicated?current.current.state.pages.find(p=>p.generated):current.current.state.pages.find(p=>p.id===generating.targetId);if(generating.dedicated)setPageId(target.id);setGenerationFocus({pageId:target.id,revision:current.current.state.revision});setGenerating(null);}};
 
  const move=async(refs,parent,position={})=>{if(await save({type:'move',refs,parent,...position},'已调整大纲包含关系，正文所属卷与目录顺序未改变。')){setMoving(null);setSelected([]);}};
  const choose=ref=>setSelected(old=>old.includes(ref)?old.filter(r=>r!==ref):[...old,ref]);
@@ -126,7 +127,7 @@ export function UnifiedPlanning({call,novelId,tick,onChapter,onMemory,run,busy,r
    <div className="u-boundary">拖到上沿／下沿：同级排序 · 拖到中间：放入 · 剧情卡可包住卷章</div>
    {multi&&<div className="u-selection"><span>已选 {selected.length}</span><button disabled={!selected.length||unavailable} onClick={group}>组合为篇章</button><button disabled={!selected.length} onClick={()=>setMoving({refs:selected})}>移动到…</button></div>}
    <div className="u-outline" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();const ref=dragged.current;setDropTarget(null);dragged.current=null;if(ref)void move([ref],ROOT);}}><div className="u-root" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();e.stopPropagation();const ref=dragged.current;setDropTarget(null);dragged.current=null;if(ref)void move([ref],ROOT);}}>全书 <small>{sources.volumes.length} 卷 · {sources.chapters.length} 章 · {Object.keys(state.cards).length} 张剧情卡</small></div>{renderTree()}</div></>}
-  {area==='canvas'&&<><div className="u-subbar u-canvas-toolbar">{modules.pages&&<select aria-label="画布页面" value={page.id} onChange={e=>setPageId(e.target.value)}>{state.pages.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>}<button disabled={unavailable||issues.length>0} onClick={generate}><Icon name="canvas"/> 生成大纲视图</button><small className="u-connection-legend"><span className="u-sequence-key">→ 先后</span><span className="u-contain-key">┆ 包含</span></small></div><UnifiedCanvas key={page.id} {...{state,sources,objects,page,people,open,onMemory,save,unavailable,exportRef}} onMenu={ref=>setMoving({refs:[ref],ref})}/></>}
+  {area==='canvas'&&<><div className="u-subbar u-canvas-toolbar">{modules.pages&&<select aria-label="画布页面" value={page.id} onChange={e=>setPageId(e.target.value)}>{state.pages.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>}<button disabled={unavailable||issues.length>0} onClick={generate}><Icon name="canvas"/> 生成大纲视图</button><small className="u-connection-legend"><span className="u-sequence-key">→ 先后</span><span className="u-contain-key">┆ 包含</span></small></div><UnifiedCanvas key={page.id} {...{state,sources,objects,page,people,open,onMemory,save,unavailable,exportRef,generationFocus}} onGenerationFocused={()=>setGenerationFocus(null)} onMenu={ref=>setMoving({refs:[ref],ref})}/></>}
   {area==='timeline'&&relationClock.mode==='story'&&<StoryTimeAxis key={novelId} {...{call,novelId,state,sources,people,save,unavailable,onMemory,relationClock,relationTarget}} onRelationReady={()=>setRelationTarget(null)} relations={relationResource.value||[]} evolution={modules.evolution} open={card=>open(refOf('card',card.id))} onCreate={create} onMore={()=>setMenu('menu')}/>}
   {area==='timeline'&&relationClock.mode!=='story'&&<UnifiedTimeline {...{call,novelId,state,sources,people,save,unavailable,onMemory,relationClock,relationTarget}} onRelationReady={()=>setRelationTarget(null)} relations={relationResource.value||[]} evolution={modules.evolution} open={card=>open(refOf('card',card.id))}/>}
   {area==='foreshadow'&&<Foreshadows {...{call,novelId,run,onChapter,onMemory}} busy={unavailable} storyRevision={state.revision} focusId={shadowFocus} onFocused={()=>setShadowFocus(null)} initialCardId={shadowCard} onClearCard={()=>setShadowCard(null)} planningCards={Object.values(state.cards).map(card=>({...card,chapterRefs:narrationChapters(card,sources.chapters).map(chapter=>({chapterId:chapter.id}))}))} onPlanning={id=>open(refOf('card',id))}/> }
@@ -175,7 +176,7 @@ function CardEditor({onChapter,onRelations,initial,isSource,sources,state,people
  </form></Modal>;
 }
 
-export function UnifiedCanvas({state,sources,objects,page,people,open,onMemory,save,unavailable,onMenu,exportRef}){
+export function UnifiedCanvas({state,sources,objects,page,people,open,onMemory,save,unavailable,onMenu,exportRef,generationFocus,onGenerationFocused}){
  const {confirm}=useDialog(),width=PLANNING_CARD_WIDTH,height=PLANNING_CARD_HEIGHT;
  const nodes=Object.entries(page.instances).filter(([ref])=>objects[ref]).map(([ref,item])=>({id:ref,revision:item.revision,position:{x:item.x,y:item.y},width,height}));
  const contains=Object.entries(state.placements).filter(([,p])=>p.parent!==ROOT).map(([ref,p])=>({id:`contains:${ref}`,from:p.parent,to:ref,type:'contains'}));
@@ -185,6 +186,12 @@ export function UnifiedCanvas({state,sources,objects,page,people,open,onMemory,s
  const canConnect=(from,to,axis)=>from!==to&&(axis==='vertical'?state.placements[to]?.parent!==from&&!moveError(state,sources,[to],from):!state.precedence.some(e=>e.from===from&&e.to===to));
  const graph=useGraph({nodes,edges:links,fallback,busy:unavailable,scopeKey:`v31:${page.id}`,recoverOffscreen:true,arrangeLabel:generated?'整理大纲':'整理',canConnect,onLayout:async(points,revisions)=>save({type:'instance.layout',pageId:page.id,points,revisions},'已保存本页位置；包含与时间位置保持不变。'),onConnect:(from,to,axis)=>axis==='vertical'?save({type:'move',refs:[to],parent:from},'已更新共享包含关系；位置未自动重排，正文所属卷未改变。'):save({type:'precedence',from,to},'已添加先后连线，不改变包含关系、目录顺序或故事时间。'),onContext:context=>{if(context.hit.kind==='node')onMenu(context.hit.id);}});
  const points=graph.points;
+ // Fit only the successful generation, after useGraph has received the new nodes.
+ // Existing selection must not restrict this result to an old, unrelated card.
+ useEffect(()=>{
+  if(!generationFocus||generationFocus.pageId!==page.id||state.revision<generationFocus.revision||unavailable)return;
+  graph.select([]);graph.fit();onGenerationFocused?.();
+ },[generationFocus,page.id,state.revision,unavailable]);
  const exportNodes=nodes.map(n=>({...objects[n.id],...n}));
  useEffect(()=>{if(exportRef)exportRef.current={nodes:exportNodes,edges:links,points,name:page.name,element:graph.scroll.current,planning:true};});
  const edgeAction=async e=>{if(unavailable)return;if(e.type==='contains'){onMenu(e.to);return;}if(await confirm(`移除“${objects[e.from].title} → ${objects[e.to].title}”的先后连线？只移除这条关系，内容与包含关系保留。`))await save({type:'precedence',from:e.from,to:e.to,remove:true},'已移除所选先后连线，可在更多中撤销。');};

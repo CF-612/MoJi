@@ -13,9 +13,9 @@ const root=new URL('../../../',import.meta.url).pathname,ui=new URL('../vendor/c
 const source=ui+'features/planning/UnifiedPlanning.jsx',folder=await mkdtemp(join(tmpdir(),'moji-planning-ui-'));
 const stub=`export const useModules=()=>globalThis.testPlanningModules||({pages:true,timeline:true,foreshadow:true,evolution:true}),useDialog=()=>({ask:async()=>null,confirm:async()=>true}),useRelationClock=()=>({}),useResource=()=>({value:[]}),useWorkbenchPreferences=()=>({preferences:globalThis.testPlanningPreferences||{planningView:'timeline'}}),usePreference=(key,value)=>globalThis.testPlanningPreferenceHook?globalThis.testPlanningPreferenceHook(key,value):[key.endsWith('area')?'canvas':value,()=>{}],SessionScope={};
 export const InternalPoints=()=>null,CanvasExport=()=>null,RelationPointManager=()=>null,Modal=()=>null,GraphControls=()=>null,CastAvatars=()=>null,CardChapterLinks=()=>null,Foreshadows=()=>null,PlotForeshadows=()=>null,UnifiedTimeline=()=>null,StoryTimeAxis=()=>null,Icon=()=>null,PlanningToolsDialog=()=>null,PlanningToolGroup=()=>null;
-export const relationEditStyle='',foreshadowStyle='',unifiedStoryStyle='',useGraph=()=>({}),curve=()=>'',CARD_WIDTH=248,CARD_HEIGHT=208,narrationChapters=()=>[];`;
-await build({stdin:{contents:`export{UnifiedPlanning}from${JSON.stringify(source)};import React from'react';export{React};`,resolveDir:root},outfile:join(folder,'ui.cjs'),bundle:true,platform:'node',format:'cjs',alias:{react:root+'node_modules/react'},plugins:[{name:'contexts-only',setup(b){b.onResolve({filter:/.*/},a=>a.importer===source&&!a.path.startsWith('react')&&!/story-workspace\.mjs|story-create-intent\.mjs|planning-canvas-geometry\.mjs|resource-error\.mjs|drafts\.js/.test(a.path)?{path:'contexts',namespace:'qa'}:undefined);b.onLoad({filter:/.*/,namespace:'qa'},()=>({contents:stub}));}}]});
-const require=createRequire(import.meta.url),{UnifiedPlanning,React}=require(join(folder,'ui.cjs'));
+export const relationEditStyle='',foreshadowStyle='',unifiedStoryStyle='',useGraph=options=>globalThis.testPlanningGraph?.(options)||({}),curve=()=>'',CARD_WIDTH=248,CARD_HEIGHT=208,narrationChapters=()=>[];`;
+await build({stdin:{contents:`export{UnifiedPlanning,UnifiedCanvas}from${JSON.stringify(source)};import React from'react';export{React};`,resolveDir:root},outfile:join(folder,'ui.cjs'),bundle:true,platform:'node',format:'cjs',alias:{react:root+'node_modules/react'},plugins:[{name:'contexts-only',setup(b){b.onResolve({filter:/.*/},a=>a.importer===source&&!a.path.startsWith('react')&&!/story-workspace\.mjs|story-create-intent\.mjs|planning-canvas-geometry\.mjs|resource-error\.mjs|drafts\.js/.test(a.path)?{path:'contexts',namespace:'qa'}:undefined);b.onLoad({filter:/.*/,namespace:'qa'},()=>({contents:stub}));}}]});
+const require=createRequire(import.meta.url),{UnifiedPlanning,UnifiedCanvas,React}=require(join(folder,'ui.cjs'));
 const all=el=>!el||typeof el!=='object'?[]:[el,...React.Children.toArray(el.props?.children).flatMap(all)];
 const text=el=>typeof el==='string'?el:!el||typeof el!=='object'?'':React.Children.toArray(el.props?.children).map(text).join('');
 function mount(call,novelId,initial){let index=0,seeded=false;const slots=[];const dispatcher={useContext(){return 'stable-user';},useState(initialValue){const i=index++;if(!(i in slots)){if(initialValue===null&&!seeded){slots[i]=initial;seeded=true;}else slots[i]=typeof initialValue==='function'?initialValue():initialValue;}return[slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef(value){const i=index++;return slots[i]??={current:value};},useEffect(){}};const render=()=>{index=0;const holder=React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.ReactCurrentDispatcher;holder.current=dispatcher;try{return UnifiedPlanning({call,novelId,tick:0,busy:false});}finally{holder.current=null;}};return {render,button:label=>all(render()).find(e=>e.type==='button'&&text(e)===label),editor:()=>all(render()).find(e=>e.type?.name==='CardEditor')};}
@@ -76,4 +76,45 @@ test('actual planning view honors new-work global default and preserves per-work
   globalThis.testPlanningPreferences={planningView:'timeline'};globalThis.testPlanningModules={pages:true,timeline:false,foreshadow:false,evolution:false};globalThis.testPlanningPreferenceHook=(key,fallback)=>[fallback,()=>{}];
   assert.ok(mount(rpc,novelId,initial).render().props.className.includes('area-outline'),'disabled timeline gets an available default');
  }finally{delete globalThis.testPlanningPreferences;delete globalThis.testPlanningPreferenceHook;delete globalThis.testPlanningModules;}
+});
+
+
+test('generation focuses committed canvas nodes once, never stale nodes or ordinary edits',async()=>{
+ globalThis.localStorage=memoryStorage();globalThis.testPlanningModules={pages:false,timeline:true,foreshadow:true};
+ const sources={volumes:[{id:'v',title:'卷',order:0}],chapters:[{id:'a',title:'甲章',volumeId:'v',order:0}]};
+ let state=emptyWorkspace();reconcile(state,sources);state=applyStory(state,sources,{type:'card.create',value:{title:'自由卡'},pageId:'main',position:{x:999,y:111}},()=> 'loose');
+ const before=structuredClone(state),ui=mount(async(action,args)=>{state=applyStory(state,sources,args.operation,()=> 'generated');return {state,sources,history:[]};},'focus',{state,sources,history:[]});
+ const canvas=()=>all(ui.render()).find(e=>e.type===UnifiedCanvas);
+ assert.equal(canvas().props.generationFocus,null);
+ all(ui.render()).find(e=>e.type==='button'&&text(e).includes('生成大纲视图')).props.onClick();
+ await ui.button('确认生成').props.onClick();
+ const props=canvas().props;assert.deepEqual(props.generationFocus,{pageId:'main',revision:state.revision});
+ const effects=[],fits=[];let selected=['card:loose'],rendered=false;
+ globalThis.testPlanningGraph=({nodes})=>({points:Object.fromEntries(nodes.map(n=>[n.id,n.position])),scroll:{current:{}},selected,select(ids){selected=ids;},fit(){assert.equal(rendered,true,'fit happens after render');assert.deepEqual(selected,[],'old selection cannot hide new outline');fits.push(nodes.map(n=>n.id));},cardProps:()=>({}),portProps:()=>({})});
+ const renderCanvas=overrides=>{rendered=false;const holder=React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.ReactCurrentDispatcher;holder.current={useEffect:fn=>effects.push(fn)};try{UnifiedCanvas({...props,...overrides});}finally{holder.current=null;}rendered=true;while(effects.length)effects.shift()();};
+ try{
+  renderCanvas({state:before,page:before.pages[0],objects:objectIndex(before,sources)});assert.equal(fits.length,0,'old revision must not consume request');
+  renderCanvas({page:{...props.page,id:'other'}});assert.equal(fits.length,0,'other page must not consume request');
+  renderCanvas({unavailable:true});assert.equal(fits.length,0,'wait until save settles');
+  renderCanvas({});assert.deepEqual(fits,[['card:loose','volume:v','chapter:a']]);assert.equal(canvas().props.generationFocus,null,'request consumed in parent, including across remounts');
+  renderCanvas({generationFocus:null});assert.equal(fits.length,1,'ordinary edits do not refit');
+  assert.deepEqual(state.pages[0].instances['card:loose'],before.pages[0].instances['card:loose']);
+ }finally{delete globalThis.testPlanningGraph;delete globalThis.testPlanningModules;}
+});
+
+test('generation requests only the explicit successful destination, never a failed save',async()=>{
+ globalThis.localStorage=memoryStorage();
+ const sources={volumes:[{id:'v',title:'卷',order:0}],chapters:[]};
+ try{
+  for(const dedicated of [false,true])for(const fail of [false,true]){
+   globalThis.testPlanningModules={pages:dedicated,timeline:true,foreshadow:true};
+   let state=emptyWorkspace();reconcile(state,sources);const before=structuredClone(state),destinations=[];
+   globalThis.testPlanningPreferenceHook=(key,fallback)=>[key.endsWith('v31-area')?'canvas':fallback,value=>{if(key.endsWith('v31-page'))destinations.push(value);}];
+   const ui=mount(async(action,args)=>{if(fail)throw new Error('save rejected');state=applyStory(state,sources,args.operation,()=> 'dedicated');return {state,sources,history:[]};},`destination-${dedicated}-${fail}`,{state,sources,history:[]});
+   all(ui.render()).find(e=>e.type==='button'&&text(e).includes('生成大纲视图')).props.onClick();await ui.button('确认生成').props.onClick();
+   const canvas=all(ui.render()).find(e=>e.type===UnifiedCanvas);
+   if(fail){assert.equal(canvas.props.generationFocus,null);assert.deepEqual(destinations,[]);assert.deepEqual(state,before);}
+   else{const destination=dedicated?state.pages.find(p=>p.generated).id:'main';assert.equal(canvas.props.generationFocus.pageId,destination);assert.deepEqual(destinations,dedicated?[destination]:[]);if(dedicated)assert.deepEqual(state.pages[0],before.pages[0],'dedicated generation leaves free page untouched');}
+  }
+ }finally{delete globalThis.testPlanningModules;delete globalThis.testPlanningPreferenceHook;}
 });
