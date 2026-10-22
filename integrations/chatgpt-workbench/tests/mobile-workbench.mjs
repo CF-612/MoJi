@@ -70,7 +70,7 @@ try{
  await waitSaved('第七章 新的开始');
  await page.getByRole('button',{name:'修改章节标题',exact:true}).click();await page.getByRole('textbox',{name:'修改章节标题',exact:true}).fill('第七章 窗外的雨');await page.getByRole('textbox',{name:'修改章节标题',exact:true}).press('Enter');await waitSaved('第七章 窗外的雨');
  // Font settings live inside Other. Summary remains an explicit module preference.
- await page.getByLabel('正文其他操作',{exact:true}).click();await page.getByLabel('正文字号',{exact:true}).selectOption('20');await page.getByLabel('关闭正文选项',{exact:true}).click();
+ await page.getByLabel('正文其他操作',{exact:true}).click();await page.getByRole('button',{name:'字体字号',exact:true}).click();await page.getByRole('slider',{name:'正文字号',exact:true}).fill('20');await page.getByLabel('关闭字体设置',{exact:true}).click();
  await page.getByLabel('工作台更多功能',{exact:true}).click();await page.getByRole('button',{name:'设置',exact:true}).click();await page.getByRole('button',{name:'规划与资料',exact:true}).click();await page.getByRole('checkbox',{name:'显示Summary 本章梗概',exact:true}).check();await page.getByLabel('关闭设置',{exact:true}).click();
  await page.getByRole('textbox',{name:'本章梗概',exact:true}).fill('保留的测试梗概');for(let i=0;i<50;i++){if((await waitSaved('第七章 窗外的雨')).summary==='保留的测试梗概')break;await page.waitForTimeout(100);}
  await page.getByLabel('工作台更多功能',{exact:true}).click();await page.getByRole('button',{name:'设置',exact:true}).click();await page.getByRole('button',{name:'规划与资料',exact:true}).click();await page.getByRole('checkbox',{name:'显示Summary 本章梗概',exact:true}).uncheck();await page.getByLabel('关闭设置',{exact:true}).click();check('Summary 关闭后隐藏',await page.getByRole('textbox',{name:'本章梗概',exact:true}).count()===0);

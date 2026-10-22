@@ -1,18 +1,24 @@
 /** 设置弹窗：桌面端左侧分类导航 + 右侧内容，窄屏改为顶部横向分类条；全部限定在 .cuigengji 下。 */
 export const settingsStyles=`
-.cuigengji dialog.settings-modal {width:min(780px,calc(100vw - 32px));height:min(720px,calc(100dvh - 48px));max-height:calc(100dvh - 32px);overflow:hidden;}
+.cuigengji dialog.settings-modal {--settings-top:max(var(--cg-host-top,0px),env(safe-area-inset-top,0px));inset:var(--settings-top) var(--cg-host-right,0px) calc(100dvh - var(--cg-visible-height,100dvh) + var(--cg-host-bottom,0px)) var(--cg-host-left,0px);width:min(780px,calc(100vw - 32px));max-width:calc(100vw - var(--cg-host-left,0px) - var(--cg-host-right,0px) - 16px);height:min(720px,calc(var(--cg-visible-height,100dvh) - var(--cg-host-bottom,0px) - var(--settings-top) - 24px));max-height:calc(100dvh - 32px);overflow:hidden;}
 .cuigengji dialog.settings-modal[open] {display:flex;flex-direction:column;}
 .cuigengji .settings-modal .utility-head {flex:none;padding:16px 24px 13px;}
 .cuigengji .settings-modal .utility-head h2 {font-size:20px;}
-.cuigengji .settings-modal .utility-content {flex:1;min-height:0;padding:0;display:flex;}
+.cuigengji .settings-modal .utility-content {flex:1;min-height:0;min-width:0;padding:0;display:flex;flex-direction:column;align-items:stretch;overflow:hidden;}
+/* Search and its optional results are rows above the sidebar/content layout, not extra columns. */
+.cuigengji .settings-search {flex:none;display:grid;grid-template-columns:minmax(0,1fr);gap:6px;min-width:0;margin:0;padding:12px 20px;font-size:12px;color:var(--cg-muted);}
+.cuigengji .settings-search input {display:block;min-width:0;width:100%;height:40px;min-height:40px;padding:8px 12px;border:1px solid var(--cg-line);border-radius:9px;background:var(--cg-paper);color:var(--cg-ink);font-size:16px;}
+.cuigengji .settings-search input::placeholder {color:var(--cg-muted);opacity:1;}
+.cuigengji .settings-modal [aria-label="设置搜索结果"] {flex:none;min-width:0;max-height:100px;overflow:auto;margin:0;padding:0 20px 12px;gap:6px;overscroll-behavior:contain;}
+.cuigengji .settings-modal [aria-label="设置搜索结果"] button {min-height:36px;max-width:100%;white-space:normal;text-align:left;}
 .cuigengji .settings-layout {flex:1;display:grid;grid-template-columns:190px minmax(0,1fr);min-height:0;min-width:0;}
-.cuigengji .settings-nav {display:flex;flex-direction:column;gap:2px;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:14px 10px 18px;border-right:1px solid var(--cg-line);background:color-mix(in srgb,var(--cg-ink) 2.5%,var(--cg-paper));}
+.cuigengji .settings-nav {display:flex;flex-direction:column;gap:2px;min-height:0;min-width:0;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;padding:14px 10px 18px;border-right:1px solid var(--cg-line);background:color-mix(in srgb,var(--cg-ink) 2.5%,var(--cg-paper));}
 .cuigengji .settings-nav button {display:block;width:100%;min-height:38px;padding:8px 12px;border:1px solid transparent;border-radius:9px;background:transparent;color:var(--cg-muted);font-size:13px;text-align:left;white-space:nowrap;}
 .cuigengji .settings-nav button:hover {background:color-mix(in srgb,var(--cg-ink) 6%,var(--cg-paper));color:var(--cg-ink);}
 .cuigengji .settings-nav button[aria-current=true] {border-color:color-mix(in srgb,var(--cg-accent) 34%,transparent);background:color-mix(in srgb,var(--cg-accent) 11%,var(--cg-paper));color:var(--cg-accent);font-weight:600;}
 .cuigengji .settings-nav button:focus-visible {outline:2px solid var(--cg-accent);outline-offset:-2px;}
 .cuigengji .settings-main {display:flex;flex-direction:column;min-height:0;min-width:0;}
-.cuigengji .settings-panels {flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding:18px 22px 6px;}
+.cuigengji .settings-panels {flex:1;min-height:0;min-width:0;overflow:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;padding:18px 22px 6px;}
 .cuigengji .settings-panel[hidden] {display:none;}
 .cuigengji .settings-panel {min-width:0;animation:cg-arrive 140ms ease-out;}
 .cuigengji .settings-card {min-width:0;margin:0 0 14px;padding:16px 18px 18px;border:1px solid var(--cg-line);border-radius:12px;background:color-mix(in srgb,var(--cg-ink) 1.6%,var(--cg-paper));}
@@ -68,16 +74,19 @@ export const settingsStyles=`
 .cuigengji .settings-fact {display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:9px 12px;border:1px solid var(--cg-line);border-radius:10px;font-size:12px;}
 .cuigengji .settings-fact span {color:var(--cg-muted);font-size:11px;}
 .cuigengji .settings-fact strong {font-weight:500;}
-.cuigengji .settings-footer {flex:none;display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:12px 22px;border-top:1px solid var(--cg-line);background:color-mix(in srgb,var(--cg-ink) 1.5%,var(--cg-paper));}
+.cuigengji .settings-footer {flex:none;display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;padding:12px 22px max(12px,env(safe-area-inset-bottom,0px));border-top:1px solid var(--cg-line);background:color-mix(in srgb,var(--cg-ink) 1.5%,var(--cg-paper));}
 .cuigengji .settings-footer button {min-height:28px;padding:4px 2px;border:0;border-radius:6px;background:transparent;color:var(--cg-accent);font-size:12px;}
 .cuigengji .settings-footer small {font-size:11px;color:var(--cg-muted);}
-@container(max-width:480px) {
+html[data-host-platform=mobile][data-host-mode=fullscreen] .cuigengji dialog.settings-modal {--settings-top:max(52px,var(--cg-host-top,0px),env(safe-area-inset-top,0px));}
+@container cg-utility (max-width:600px) {
+ .cuigengji .settings-search {padding:10px 14px;}
+ .cuigengji .settings-modal [aria-label="设置搜索结果"] {padding:0 14px 10px;}
  .cuigengji .settings-layout {grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);}
  .cuigengji .settings-nav {flex-direction:row;align-items:center;gap:6px;padding:8px 12px;border-right:0;border-bottom:1px solid var(--cg-line);overflow-x:auto;overflow-y:hidden;scrollbar-width:none;}
  .cuigengji .settings-nav::-webkit-scrollbar {display:none;}
  .cuigengji .settings-nav button {flex:none;width:auto;min-height:34px;padding:6px 13px;border-radius:999px;font-size:12px;text-align:center;}
  .cuigengji .settings-panels {padding:14px 14px 4px;}
- .cuigengji .settings-footer {padding:10px 14px;}
+ .cuigengji .settings-footer {padding:10px 14px max(10px,env(safe-area-inset-bottom,0px));}
  .cuigengji .settings-card {padding:14px;border-radius:11px;margin-bottom:12px;}
  .cuigengji .settings-themes {gap:8px;}
  .cuigengji .settings-theme {min-height:88px;padding:12px 6px;gap:7px;}
@@ -87,14 +96,16 @@ export const settingsStyles=`
  .cuigengji .settings-panel .card-color-fields {grid-template-columns:minmax(0,1fr);}
  .cuigengji .settings-legends,.cuigengji .settings-facts {grid-template-columns:minmax(0,1fr);}
 }
-@media(max-width:480px) {
- .cuigengji dialog.settings-modal {width:calc(100vw - 16px);height:calc(100dvh - 24px);max-height:calc(100dvh - 24px);}
+@media(max-width:600px) {
+ .cuigengji dialog.settings-modal {width:calc(100vw - 16px);height:calc(var(--cg-visible-height,100dvh) - var(--cg-host-bottom,0px) - var(--settings-top) - 24px);max-height:calc(100dvh - 24px);}
+ .cuigengji .settings-search {padding:10px 14px;}
+ .cuigengji .settings-modal [aria-label="设置搜索结果"] {padding:0 14px 10px;}
  .cuigengji .settings-layout {grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);}
  .cuigengji .settings-nav {flex-direction:row;align-items:center;gap:6px;padding:8px 12px;border-right:0;border-bottom:1px solid var(--cg-line);overflow-x:auto;overflow-y:hidden;scrollbar-width:none;}
  .cuigengji .settings-nav::-webkit-scrollbar {display:none;}
  .cuigengji .settings-nav button {flex:none;width:auto;min-height:34px;padding:6px 13px;border-radius:999px;font-size:12px;text-align:center;}
  .cuigengji .settings-panels {padding:14px 14px 4px;}
- .cuigengji .settings-footer {padding:10px 14px;}
+ .cuigengji .settings-footer {padding:10px 14px max(10px,env(safe-area-inset-bottom,0px));}
  .cuigengji .settings-card {padding:14px;border-radius:11px;margin-bottom:12px;}
  .cuigengji .settings-themes {gap:8px;}
  .cuigengji .settings-theme {min-height:88px;padding:12px 6px;gap:7px;}
