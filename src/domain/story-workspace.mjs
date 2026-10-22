@@ -1,3 +1,4 @@
+import {editStoryAxis,validateStoryAxis,validateStoryPlacement} from './story-axis.mjs';
 import {editRelation,validateRelationPoints} from './story-relation-edit.mjs';
 // V3.1 新模型。目录仅提供源对象；创作包含、展示实例、时间位置各自独立。
 import {trackPalette} from './story-presentation.mjs';
@@ -76,7 +77,7 @@ function cleanAttachments(state){
 function cardValue(value={}){
  if(!String(value.title||'').trim())fail('请填写剧情卡标题。');
  if(!['idea','selected','written','dropped'].includes(value.status||'idea'))fail('规划状态无效。');
- return {title:String(value.title).trim(),purpose:value.purpose||'情节',summary:String(value.summary||''),content:String(value.content||''),status:value.status||'idea',cast:clone(value.cast||[]),scope:clone(value.scope||[]),time:clone(value.time||{}),storyDateText:String(value.storyDateText||'').slice(0,200),points:clone(value.points||[]),foreshadowRefs:clone(value.foreshadowRefs||[]),evidence:clone(value.evidence||[])};
+ return {...(value.legacyStoryTime?{legacyStoryTime:clone(value.legacyStoryTime)}:{}),title:String(value.title).trim(),purpose:value.purpose||'情节',summary:String(value.summary||''),content:String(value.content||''),status:value.status||'idea',cast:clone(value.cast||[]),scope:clone(value.scope||[]),time:clone(value.time||{}),storyDateText:String(value.storyDateText||'').slice(0,200),points:clone(value.points||[]),foreshadowRefs:clone(value.foreshadowRefs||[]),evidence:clone(value.evidence||[])};
 }
 function validateCard(card,sources,state){
  const chapters=new Set(sources.chapters.map(c=>c.id));
@@ -86,11 +87,12 @@ function validateCard(card,sources,state){
  for(const mode of ['narration','story']){
   const time=card.time[mode];if(!time)continue;
   if(time.row!==undefined&&(!Number.isInteger(time.row)||time.row<0||time.row>10000))fail('时间线行位置无效。');
-  if(!state.tracks.some(t=>t.id===time.trackId))fail('时间轨道不存在。');
+  if(!(mode==='story'&&time.axisVersion===1?state.storyAxis?.tracks||[]:state.tracks).some(t=>t.id===time.trackId))fail('时间轨道不存在。');
   if(mode==='narration'){
    const order=sources.chapters.map(c=>c.id),a=order.indexOf(time.startChapterId),b=order.indexOf(time.endChapterId);
    if(a<0||b<0||!Number.isFinite(time.startOffset)||!Number.isFinite(time.endOffset)||time.startOffset<0||time.startOffset>=1||time.endOffset<=0||time.endOffset>1||b+time.endOffset<=a+time.startOffset)fail('叙述跨度的起止位置无效。');
-  }else if(!Number.isFinite(time.start)||!Number.isFinite(time.end)||Math.abs(time.start)>1000000||Math.abs(time.end)>1000000||time.end<=time.start)fail('故事时间终点必须晚于起点。');
+  }else if(time.axisVersion===1){validateStoryPlacement(time,state.storyAxis);}
+  else if(!Number.isFinite(time.start)||!Number.isFinite(time.end)||Math.abs(time.start)>1000000||Math.abs(time.end)>1000000||time.end<=time.start)fail('故事时间终点必须晚于起点。');
  }
  // 采用进度不等于已确认正文事实。事实只由后续证据确认接口写入。
 }
@@ -134,6 +136,7 @@ export function generatedOutline(state,sources,page,{relayoutExisting=false,adop
 export function applyStory(input,sources,operation,newId){
  const state=clone(input),objects=objectIndex(state,sources),op=operation;
  switch(op.type){
+  case 'storyAxis.configure':case 'storyAxis.place':case 'storyAxis.unplace':case 'storyAxis.marker.create':case 'storyAxis.marker.update':case 'storyAxis.marker.delete':case 'storyAxis.track.create':case 'storyAxis.track.update':case 'storyAxis.track.delete':editStoryAxis(state,op,newId);break;
   case 'relation.save': case 'relation.delete': case 'relation.order':{
    editRelation(state,op,newId);for(const card of Object.values(state.cards))validateRelationPoints(card.points,sources.chapters);break;
   }
@@ -145,7 +148,9 @@ export function applyStory(input,sources,operation,newId){
   }
   case 'card.update':{
    const card=state.cards[op.id];if(!card)fail('剧情卡不存在。');if(card.revision!==op.expectedRevision)throw Object.assign(new Error('剧情卡已有更新，草稿保留，请重新读取后核对。'),{code:'CONFLICT'});
-   const next={id:card.id,revision:card.revision+1,...cardValue({...card,...op.value})};validateCard(next,sources,state);
+   const next={id:card.id,revision:card.revision+1,...cardValue({...card,...op.value})};
+   if(state.storyAxis&&(JSON.stringify(next.time?.story)!==JSON.stringify(card.time?.story)||op.placement?.mode==='story'))fail('请在独立故事时间线中安排故事日期。');
+   validateCard(next,sources,state);
    if(op.placement){
     const {mode,row}=op.placement;if(!['narration','story'].includes(mode)||!Number.isInteger(row)||row<0||!next.time[mode])fail('请指定有效的轨道行位置。');
     const items=timelineItems(state.cards,sources.chapters,mode),candidate=timelineBounds(next,sources.chapters,mode),layout=projectTimeline(items,candidate,row);
@@ -243,6 +248,7 @@ export function validateRestore(value,sources){
  const safe=id=>typeof id==='string'&&id.length>0&&id.length<=200&&!['__proto__','constructor','prototype'].includes(id);if(!Number.isSafeInteger(value.revision)||value.revision<0)fail('工作区版本无效');
  for(const [id,card]of Object.entries(value.cards))if(!safe(id)||card.id!==id||!Number.isSafeInteger(card.revision)||card.revision<1||!card.title?.trim()||!Array.isArray(card.cast)||!Array.isArray(card.scope)||!Array.isArray(card.evidence))fail('剧情卡标识、版本或字段无效');
  for(const rows of [value.pages,value.tracks])if(rows.some(r=>!safe(r.id))||new Set(rows.map(r=>r.id)).size!==rows.length)fail('页面或轨道标识无效');
+ if(value.storyAxis)validateStoryAxis(value.storyAxis);
  const objects=objectIndex(value,sources);
  for(const ref of Object.keys(value.placements))if(!objects[ref])fail('备份包含当前目录中不存在的卷章；请使用配套测试作品。');
  assertTree(value,sources);

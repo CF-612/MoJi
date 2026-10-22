@@ -7,12 +7,12 @@ import {WritingHistory} from '../../shared/WritingHistory.jsx';
 import {foreshadowStyle} from './story-foreshadow-style.mjs';
 
 const kinds={plant:'埋设',progress:'推进',recover:'回收'};
-const compactStates={planned:'计划中',planted:'已埋设',developing:'推进中',partial:'部分回收',recovered:'已回收',open:'开放结局',abandoned:'已放弃'};
+const compactStates={planned:'计划中',planted:'已埋设',developing:'推进中',partial:'部分回收',recovered:'已回收',abandoned:'已放弃'};
 function summaryStatus(f){
  const plans=[...new Set((f.plotNodes||[]).filter(n=>!n.evidence).map(n=>n.kind))];
  return f.status==='planned'&&plans.length===1&&kinds[plans[0]]?'计划'+kinds[plans[0]]:compactStates[f.status]||'计划中';
 }
-const filters=[['all','全部'],['planned','未开始'],['active','进行中'],['partial','部分回收'],['recovered','已完成'],['open','开放结局']];
+const filters=[['all','全部'],['planned','未开始'],['active','进行中'],['partial','部分回收'],['recovered','已完成'],['abandoned','已放弃']];
 const blank=()=>({title:'',content:'',revision:0,plotNodes:[],resolution:'active'});
 const cleanNodes=nodes=>(nodes||[]).map(({review,...node})=>node);
 const placement=(card,chapters)=>{const ids=card?.chapterRefs?.map(c=>c.chapterId)||[],names=ids.map(id=>chapters.find(c=>c.id===id)?.title).filter(Boolean);return names.length?names[0]+(names.length>1?` 等 ${names.length} 章`:''):'时间待安排';};
@@ -59,7 +59,7 @@ export function Foreshadows({call,novelId,busy,run,onChapter,onPlanning,planning
 
 function ShadowEditor({call,novelId,busy,run,storyRevision,chapters,cards,f,mode,node,fresh,close,saved}){
  const {confirm}=useDialog(),write=useWritingRequest(call);
- const initial={...f,plotNodes:cleanNodes(f.plotNodes),draftNode:node?{...node,review:undefined}:null};
+ const initial={...f,resolution:f.resolution||(f.status==='abandoned'?'abandoned':f.status==='recovered'?'complete':'active'),plotNodes:cleanNodes(f.plotNodes),draftNode:node?{...node,review:undefined}:null};
  const {value,base,change,accept,dirty,cacheError}=useDraft(`${novelId}:v31-shadow:${f.id||'new'}:${mode}:${fresh?'new':node?.id||''}`,initial);
  const [error,setError]=useState(''),[saving,setSaving]=useState(false),[fact,setFact]=useState(!!value.draftNode?.evidence),[chapterId,setChapterId]=useState(value.draftNode?.evidence?.chapterId||''),[quote,setQuote]=useState(value.draftNode?.evidence?.evidence||'');
  const chapter=useResource(()=>chapterId?call('chapter.get',{novelId,chapterId,maxChars:200000}):Promise.resolve(null),[call,novelId,chapterId],chapterId?`${novelId}:shadow-evidence:${chapterId}`:null);
@@ -68,7 +68,7 @@ function ShadowEditor({call,novelId,busy,run,storyRevision,chapters,cards,f,mode
  const submit=async(remove=false)=>{
   let patch;
   if(mode==='body')patch={title:value.title,content:value.content,...(!f.id?{plotNodes:[],resolution:'active',evidence:[],memoryRefs:[]}: {})};
-  else if(mode==='resolution')patch={plotNodes:cleanNodes(value.plotNodes),resolution:value.resolution||'active'};
+  else if(mode==='resolution')patch={plotNodes:cleanNodes(value.plotNodes),resolution:value.resolution||'active',abandonReason:value.abandonReason||''};
   else{
    const previous=value.draftNode?.evidence;
    const evidence=fact?(previous?.coordinate==='lf-utf16'&&previous.chapterId===chapterId&&previous.revision===chapter.value?.revision&&previous.evidence===quote?previous:{chapterId,revision:chapter.value?.revision,evidence:quote}):null;
@@ -79,7 +79,7 @@ function ShadowEditor({call,novelId,busy,run,storyRevision,chapters,cards,f,mode
  };
  const current=chapter.value?.id===chapterId||chapter.value?.chapterId===chapterId?chapter.value:null;
  const validQuote=!!current&&!chapter.loading&&!chapter.error&&quote.trim()&&current.content?.includes(quote);
- const invalid=mode==='body'?!value.title.trim():mode==='node'?(!cards.has(value.draftNode.cardId)||(fact&&!validQuote)):false;
+ const invalid=mode==='body'?!value.title.trim():mode==='node'?(!cards.has(value.draftNode.cardId)||(fact&&!validQuote)):value.resolution==='abandoned'&&!value.abandonReason?.trim();
  const title=mode==='body'?(f.id?'编辑伏笔':'新建伏笔'):mode==='node'?(fresh?'添加伏笔节点':'编辑伏笔节点'):'管理伏笔进度';
  return <Modal title={title} close={discard} className="sf-dialog"><style>{foreshadowStyle}</style><form className="sf-form" onSubmit={e=>{e.preventDefault();void submit();}}>
   {mode==='body'?<><p className="sf-form-intro">先把想法记下来，剧情与正文依据以后再补。</p><label>名称<input aria-label="伏笔名称" autoFocus value={value.title} onChange={e=>set('title',e.target.value)} required/></label><label>说明<textarea aria-label="伏笔说明" placeholder="这条线索想留下什么悬念？" value={value.content} onChange={e=>set('content',e.target.value)}/></label></>:mode==='node'?<>
@@ -87,7 +87,7 @@ function ShadowEditor({call,novelId,busy,run,storyRevision,chapters,cards,f,mode
    <label>节点说明<textarea aria-label="节点说明" value={value.draftNode.note} onChange={e=>setNode('note',e.target.value)} placeholder="这一处埋下、推进或解答什么？"/></label>
    <div className="sf-mode" role="group" aria-label="节点性质"><button type="button" aria-pressed={!fact} onClick={()=>{setFact(false);setNode('evidence',null);}}>先做计划</button><button type="button" aria-pressed={fact} onClick={()=>{setFact(true);setNode('evidence',value.draftNode.evidence||{});}}>确认正文</button></div>
    {fact?<div className="sf-proof"><p>从已保存的正文中引用原文，保存即确认这一处事实。</p><label>依据章节<select aria-label="依据章节" value={chapterId} onChange={e=>{setChapterId(e.target.value);setQuote('');setNode('evidence',{chapterId:e.target.value});}}><option value="">选择已保存章节</option>{chapters.map(c=><option key={c.id} value={c.id}>{c.title}</option>)}</select></label>{chapter.error&&<p role="alert">{chapter.error}<button type="button" onClick={chapter.retry}>重试</button></p>}{current&&<details open><summary>已保存正文 · 版本 {current.revision}</summary><pre>{current.content}</pre></details>}<label>引用原文<textarea aria-label="引用原文" value={quote} onChange={e=>{setQuote(e.target.value);setNode('evidence',{chapterId,revision:current?.revision,evidence:e.target.value});}}/></label>{quote&&!validQuote&&<small>引用需要完整匹配当前已保存正文。</small>}</div>:<p className="sf-help">时间位置跟随剧情卡。移动或采用剧情卡，都不会自动变成正文事实。</p>}
-  </>:<><h3>{f.title}</h3><p className="sf-form-intro">一个回收节点只代表部分回收。由你决定何时结束这条线索。</p>{[['active','继续发展','根据已确认节点显示未开始、进行中或部分回收。'],['complete','确认完成','需要埋设与回收的正文依据；完成由你亲自决定。'],['open','保留开放结局','明确留下悬念，停止催促回收。']].map(([id,label,note])=><label className="sf-resolution" key={id}><input type="radio" name="resolution" value={id} checked={(value.resolution||'active')===id} onChange={()=>set('resolution',id)}/><span><strong>{label}</strong><small>{note}</small></span></label>)}</>}
+  </>:<><h3>{f.title}</h3><p className="sf-form-intro">一个回收节点只代表部分回收。由你决定何时结束这条线索。</p>{[['active','继续发展','根据已确认节点显示未开始、进行中或部分回收。'],['complete','确认完成','需要埋设与回收的正文依据；完成由你亲自决定。'],['abandoned','确认放弃','不再回收这条线索；保留说明、节点和正文依据。']].map(([id,label,note])=><label className="sf-resolution" key={id}><input type="radio" name="resolution" value={id} checked={(value.resolution||'active')===id} onChange={()=>set('resolution',id)}/><span><strong>{label}</strong><small>{note}</small></span></label>)}{value.resolution==='abandoned'&&<label>放弃原因<textarea required value={value.abandonReason||''} onChange={e=>set('abandonReason',e.target.value)} placeholder="记录不再回收的原因，保留创作来路"/></label>}</>}
   {(error||cacheError)&&<p className="sf-review" role="alert">{error||cacheError}</p>}
   {error&&f.id&&<button type="button" onClick={async()=>{const latest=await call('writing.foreshadow.get',{novelId,id:f.id});if(await confirm(`服务器现为版本 ${latest.revision}。重新读取会替换这份表单，确认后可重新编辑。`)){accept({...latest,plotNodes:cleanNodes(latest.plotNodes),draftNode:mode==='node'?(latest.plotNodes?.find(n=>n.id===node.id)||node):null});setError('');close();}}}>核对最新版本</button>}
   <footer className="sf-form-actions">{mode==='node'&&!fresh&&<button type="button" className="sf-danger" disabled={saving||busy} onClick={async()=>{if(await confirm('移除这个伏笔节点及它的依据？伏笔本体与剧情卡会保留。'))void submit(true);}}>移除节点</button>}<button type="button" onClick={discard}>取消</button><button type="submit" className="sf-primary" disabled={saving||busy||invalid}>{saving?'保存中…':mode==='node'&&fact?'确认正文并保存':'保存'}</button></footer>

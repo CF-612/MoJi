@@ -1,6 +1,6 @@
 import {selectionProof,normalizeProse} from './selection-proof.js';
 import {randomUUID} from 'node:crypto';
-import {checkForeshadowNodes,nodeProgress} from './foreshadow-nodes.js';
+import {checkForeshadowNodes,nodeProgress,legacyForeshadow} from './foreshadow-nodes.js';
 import {writingBoard} from './writing-board.js';
 import {projectStage} from './story-workspace.js';
 import {chapterPlacement} from './event-placement.js';
@@ -53,20 +53,23 @@ function checkValues(n,type,values,previous={}){
 }
 function linkView(n,link){const ch=n.chapters[link.chapterId],node=n.nodes[link.nodeId],v=ch?.versions.find(v=>v.revision===link.chapterRevision);return {...link,chapterTitle:ch?.title||'缺失章节',nodeName:node?.name||'缺失资料',excluded:!!ch?.deleted||!!node?.deleted,review:!link.manual&&!!ch&&!ch.deleted&&ch.contentHash!==v?.contentHash};}
 function cardView(n,nodeId){const node=get(n.nodes,nodeId,'资料'),record=data(n).cards[nodeId],links=active(data(n).links).filter(l=>l.nodeId===nodeId).map(l=>linkView(n,l)),order=new Map(chapters(n).map((c,i)=>[c.id,i]));links.sort((a,b)=>(order.get(a.chapterId)??Infinity)-(order.get(b.chapterId)??Infinity)||a.createdAt.localeCompare(b.createdAt));
- return {nodeId,kind:kind(node),nodeRevision:node.revision,revision:record?.revision||0,aliases:node.aliases||[],values:record?.values||{},fields:writingFields(n,kind(node)),links,firstAppearance:links.find(l=>!l.excluded&&!l.review&&l.kind==='appearance')||null,firstMention:links.find(l=>!l.excluded&&!l.review&&l.kind==='mention')||null,foreshadows:active(data(n).foreshadows).filter(f=>f.memoryRefs.includes(nodeId)),events:storyEvents(n,data(n),{nodeId})};}
+ return {nodeId,kind:kind(node),nodeRevision:node.revision,revision:record?.revision||0,aliases:node.aliases||[],values:record?.values||{},fields:writingFields(n,kind(node)),links,firstAppearance:links.find(l=>!l.excluded&&!l.review&&l.kind==='appearance')||null,firstMention:links.find(l=>!l.excluded&&!l.review&&l.kind==='mention')||null,foreshadows:active(data(n).foreshadows).filter(f=>f.memoryRefs.includes(nodeId)).map(legacyForeshadow),events:storyEvents(n,data(n),{nodeId})};}
 function stats(n){const rows=chapters(n).map(c=>({id:c.id,title:c.title,volumeId:c.volumeId,words:Array.from(c.content.replace(/\s/gu,'')).length})),volumes=[...active(n.volumes).sort((a,b)=>a.order-b.order).map(v=>({id:v.id,title:v.title})),{id:null,title:'未分卷'}].map(v=>({...v,chapters:rows.filter(c=>(c.volumeId||null)===v.id).length,words:rows.filter(c=>(c.volumeId||null)===v.id).reduce((s,c)=>s+c.words,0)}));return {chapters:rows.length,words:rows.reduce((s,c)=>s+c.words,0),rows,volumes,goal:data(n).goal||{revision:0,target:null}};}
 function foreshadowView(n,f,chapterId){
+ f=legacyForeshadow(f);
  const rank=new Map(chapters(n).map((c,i)=>[c.id,i])),at=chapterId?rank.get(chapterId):Math.max(-1,...chapters(n).filter(c=>c.content.trim()).map(c=>rank.get(c.id)));
  const needsReview=e=>{const ch=n.chapters[e.chapterId],v=ch?.versions.find(v=>v.revision===e.revision);return !ch||ch.deleted||!v||ch.contentHash!==v.contentHash;};
  const plotNodes=f.plotNodes?.map(node=>({...node,review:!!node.evidence&&needsReview(node.evidence)}));
- return {...f,...(plotNodes?{plotNodes}:{}),targetTitle:n.chapters[f.targetChapterId]?.title||null,due:!['recovered','abandoned','open'].includes(f.status)&&rank.has(f.targetChapterId)&&at>=rank.get(f.targetChapterId),review:f.evidence.some(needsReview)||!!plotNodes?.some(node=>node.review)};
+ return {...f,...(plotNodes?{plotNodes}:{}),targetTitle:n.chapters[f.targetChapterId]?.title||null,due:!['recovered','abandoned'].includes(f.status)&&rank.has(f.targetChapterId)&&at>=rank.get(f.targetChapterId),review:f.evidence.some(needsReview)||!!plotNodes?.some(node=>node.review)};
 }
 function checkedForeshadow(n,v){
- const title=text(v.title,'伏笔名称');let status=v.status||'planned';if(!['planned','planted','developing','partial','recovered','open','abandoned'].includes(status))fail('伏笔状态无效');
+ if(v.resolution!==undefined&&!['active','complete','abandoned'].includes(v.resolution))fail('伏笔结局无效');
+ const title=text(v.title,'伏笔名称');let status=v.status||'planned';if(!['planned','planted','developing','partial','recovered','abandoned'].includes(status))fail('伏笔状态无效');
  if(!Array.isArray(v.evidence)||v.evidence.length>200)fail('伏笔依据无效');
  const refs=v.evidence.map(e=>{if(!['plant','progress','recover'].includes(e.kind))fail('伏笔依据类型无效');return {...evidence(n,e),kind:e.kind};});
  const plotNodes=v.plotNodes===undefined?undefined:checkForeshadowNodes(v.plotNodes,e=>evidence(n,e),fail),resolution=v.resolution||'active';
  if(plotNodes)status=nodeProgress(plotNodes,refs,resolution,fail);
+ else if(resolution==='abandoned')status='abandoned';
  if(!plotNodes&&['planted','developing','recovered'].includes(status)&&!refs.some(e=>e.kind==='plant'))fail('请添加埋设的正文依据');
  if(!plotNodes&&status==='recovered'&&!refs.some(e=>e.kind==='recover'))fail('回收需要实际正文依据');
  if(status==='abandoned'&&!v.abandonReason?.trim())fail('放弃伏笔需要保留原因');
@@ -184,7 +187,7 @@ export function writingAction(n,action,a,actor){
   const old=get(draft.links,a.id,'关联');cas(old,a.expectedRevision);result=save(draft.links,old.id,{deleted:true},old,source,reason);
  }else if(action==='writing.foreshadow.create'||action==='writing.foreshadow.update'){
   if(a.confirmed!==true)fail('伏笔事实需作者确认','CONFIRM_REQUIRED');const old=action.endsWith('update')?get(draft.foreshadows,a.id,'伏笔'):null;cas(old,a.expectedRevision??(old?undefined:0));
-  const value=checkedForeshadow(n,{...old,...a.value});
+  const value=checkedForeshadow(n,{...legacyForeshadow(old),...a.value});
   for(const node of value.plotNodes||[]){
    const previous=old?.plotNodes?.find(p=>p.id===node.id);
    if(node.evidence&&(JSON.stringify(previous?.evidence)!==JSON.stringify(node.evidence)||previous?.kind!==node.kind)){
@@ -201,7 +204,7 @@ export function writingAction(n,action,a,actor){
  }else fail('不支持的结构操作','NOT_ALLOWED');
  const checked={...n,writing:draft};validateWriting(checked);
  n.writing=draft;if(action==='writing.card.update'&&a.aliases!==undefined||action==='writing.restore'&&a.collection==='cards'){const node=n.nodes[a.nodeId||a.id],aliases=action==='writing.restore'?result.aliases||[]:a.aliases;if(JSON.stringify(node.aliases||[])!==JSON.stringify(aliases)){node.aliases=clone(aliases);node.revision++;node.updatedAt=new Date().toISOString();}}
- n.revision++;n.updatedAt=new Date().toISOString();return clone(result);
+ n.revision++;n.updatedAt=new Date().toISOString();return clone(action==='writing.restore'&&a.collection==='foreshadows'?legacyForeshadow(result):result);
 }
 export function validateWriting(n){
  if(!n.writing)return;const w=n.writing;if(!obj(w)||![1,2].includes(w.version)||!['fields','cards','links','foreshadows'].every(k=>obj(w[k])))fail('结构资料格式无效','INVALID_BACKUP');
@@ -210,7 +213,7 @@ export function validateWriting(n){
  const fields=[...writingFields(n,'character'),...writingFields(n,'world')];
  for(const [id,r]of Object.entries(w.cards)){get(n.nodes,id,'字段所属资料');if(!obj(r.values))fail('字段值无效','INVALID_BACKUP');for(const [key,v]of Object.entries(r.values)){const f=fields.find(f=>f.id===key);if(!f)fail('未知字段值','INVALID_BACKUP');if(v===null||v==='')continue;if(f.type==='number'){if(typeof v!=='number'||!Number.isFinite(v))fail('数字字段无效','INVALID_BACKUP');}else if(['tags','reference'].includes(f.type)){if(!Array.isArray(v)||v.length>100||v.some(s=>typeof s!=='string'||s.length>1000))fail('标签或引用字段无效','INVALID_BACKUP');if(f.type==='reference')nodeIds(n,v);}else text(v,f.label,true);}}
  for(const l of Object.values(w.links)){get(n.nodes,l.nodeId,'关联资料');if(l.manual===true){const ch=get(n.chapters,l.chapterId,'章节');if(l.actor?.kind!=='human'||l.evidence!==''||!ch.versions.some(v=>v.revision===l.chapterRevision))fail('作者指定关联无效','INVALID_BACKUP');}else evidence(n,{chapterId:l.chapterId,revision:l.chapterRevision,evidence:l.evidence});if(l.selection){if(l.selection.chapterId!==l.chapterId||l.selection.revision!==l.chapterRevision||l.selection.evidence!==l.evidence)fail('选区与章节关联不一致','INVALID_BACKUP');selectionProof(get(n.chapters,l.chapterId,'章节'),l.selection,{historical:true});}if(!['appearance','mention','reference'].includes(l.kind)||typeof l.deleted!=='boolean')fail('章节关联无效','INVALID_BACKUP');}
- for(const f of Object.values(w.foreshadows)){const checked=checkedForeshadow(n,f);if(f.plotNodes&&checked.status!==f.status)fail('伏笔进度与节点依据不一致','INVALID_BACKUP');}
+ for(const f of Object.values(w.foreshadows)){if(f.plotNodes&&(f.status==='open'||f.resolution==='open')&&!(f.status==='open'&&f.resolution==='open'))fail('旧版伏笔进度与结局不一致','INVALID_BACKUP');const compatible=legacyForeshadow(f),checked=checkedForeshadow(n,compatible);if(f.plotNodes&&checked.status!==compatible.status)fail('伏笔进度与节点依据不一致','INVALID_BACKUP');}
  validateEvolution(n,w);
  validateReviews(n);
  if(w.goal&&(!Number.isSafeInteger(w.goal.revision)||w.goal.target!==null&&(!Number.isSafeInteger(w.goal.target)||w.goal.target<1)))fail('写作目标无效','INVALID_BACKUP');

@@ -16,7 +16,7 @@ export interface Preferences {
   numbering: 'chinese'|'arabic';
   fontSize: number; leading: number; directory: boolean;
   fontFamily:string; fontColor:string; fontWeight:number; fontItalic:boolean; fontUnderline:boolean; letterSpacing:number; titleAlign:string; pageMargin:number; mobilePageMargin:number; bottomSpace:number; showInfoBar:boolean; transparentTitle:boolean; countPunctuation:boolean; backdropBlur:boolean; openAtEnd:boolean; quickInput:boolean; pairedPunctuation:boolean; writingSpeed:boolean; writingSpeedCompact:boolean;
-  planningView: 'canvas' | 'timeline'; memoryView: 'canvas' | 'list'; motion: 'system' | 'reduce';
+  planningView: 'canvas' | 'outline' | 'timeline'; memoryView: 'canvas' | 'list'; motion: 'system' | 'reduce';
 }
 export const defaults: Preferences = { ...editorDefaults, modules:normalizeModules(), numbering:'chinese', theme:'system', cardColors: {...defaultCardColors}, fontSize: 18, leading: 1.95, directory: true, planningView: 'timeline', memoryView: 'list', motion: 'system' };
 const key = 'cuigengji:workbench:preferences:v1';
@@ -25,7 +25,7 @@ function read(): Preferences {
     const p = JSON.parse(localStorage.getItem(key) || '{}');
     return {modules:normalizeModules(p.modules),numbering:p.numbering==='arabic'?'arabic':'chinese',theme:['light','dark'].includes(p.theme)?p.theme:'system',cardColors:normalizeCardColors(p.cardColors),...normalizeEditorPreferences(p),
       directory: typeof p.directory === 'boolean' ? p.directory : defaults.directory,
-      planningView: ['list','timeline'].includes(p.planningView) ? 'timeline' : p.planningView === 'canvas' ? 'canvas' : defaults.planningView, memoryView: p.memoryView === 'canvas' ? 'canvas' : 'list',
+      planningView: ['list','timeline'].includes(p.planningView) ? 'timeline' : ['canvas','outline'].includes(p.planningView) ? p.planningView : defaults.planningView, memoryView: p.memoryView === 'canvas' ? 'canvas' : 'list',
       motion: p.motion === 'reduce' ? 'reduce' : 'system'};
   } catch { return defaults; }
 }
@@ -121,7 +121,7 @@ export function PreferencesDialog({close, novelTitle, onPreset}: {close: () => v
           </section>
           <section className="settings-panel" aria-label="界面与视图" hidden={tab!=='appearance'}>
             <SettingCard title="默认视图" note="下次进入对应页面时生效。">
-              <label className="settings-row"><span className="settings-row-text">规划默认视图<small>打开规划页时先显示时间线或画布</small></span><select value={p.planningView} onChange={event=>update({planningView:event.target.value as Preferences['planningView']})}><option value="timeline">时间线</option><option value="canvas">画布</option></select></label>
+              <label className="settings-row"><span className="settings-row-text">规划默认视图<small>作品尚未记录规划视图时使用；已有作品优先恢复上次视图</small></span><select value={p.planningView} onChange={event=>update({planningView:event.target.value as Preferences['planningView']})}><option value="timeline">时间线</option><option value="canvas">画布</option><option value="outline">大纲</option></select></label>
               <label className="settings-row"><span className="settings-row-text">设定默认视图<small>打开设定页时先显示列表或关系图</small></span><select value={p.memoryView} onChange={event=>update({memoryView:event.target.value as Preferences['memoryView']})}><option value="list">列表</option><option value="canvas">关系图</option></select></label>
               
             </SettingCard>

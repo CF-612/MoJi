@@ -19,8 +19,14 @@ export function editRelation(state,op,newId){
  const target=state.cards[op.cardId];cas(target,op.expectedRevision);if(target.status==='dropped')fail('请先采用这张剧情卡，再安排关系变化。');
  let destination=op.pointId?target.points.find(p=>p.id===op.pointId):null;if(op.pointId&&!destination)fail('目标发生点已不存在。');
  const value={id:source?(point.relationships[index].id||`${point.id}:${index}`):newId(),from:op.value?.from,to:op.value?.to,name:String(op.value?.name||'').trim(),reason:String(op.value?.reason||'').trim(),evidence:op.value?.evidence?structuredClone(op.value.evidence):null};
- if(!destination){destination={id:newId(),order:op.order??0,location:structuredClone(op.location||{}),relationships:[]};target.points.push(destination);}
- else if(destination===point){destination.location=structuredClone(op.location||{});destination.order=op.order??destination.order??0;}
+ if(!destination){
+  const location=structuredClone(op.location||{});
+  // Only newly created points on a configured axis default to card binding.
+  // Editing legacy absolute points preserves their coordinates unless explicitly changed.
+  if(state.storyAxis&&location.story===undefined)location.story={binding:{kind:'card',offset:0}};
+  destination={id:newId(),order:op.order??0,location,relationships:[]};target.points.push(destination);
+ }
+ else if(destination===point){destination.location=structuredClone(op.location??destination.location??{});destination.order=op.order??destination.order??0;}
  if(destination===point&&target===source)destination.relationships[index]=value;
  else {destination.relationships??=[];destination.relationships.push(value);if(source){point.relationships.splice(index,1);prune(source,point);}}
  target.revision++;if(source&&source!==target)source.revision++;
@@ -36,11 +42,13 @@ export function validateRelationPoints(points,chapters){
   const n=point.location?.narration,s=point.location?.story;
   // A removed chapter leaves a recoverable node, never silently relocates it.
   if(n&&(!n.chapterId||!Number.isFinite(n.offset)||n.offset<0||n.offset>=1))fail('关系变化的章节位置无效。');
-  if(s!==undefined&&s!==null&&!Number.isFinite(s))fail('故事时间位置无效。');
+  const binding=s?.binding;
+  const bound=!!binding&&binding.kind==='card'&&Number.isFinite(binding.ratio??0)&&(binding.ratio??0)>=0&&(binding.ratio??0)<=1&&Number.isSafeInteger(binding.offset??0);
+  if(s!==undefined&&s!==null&&!Number.isFinite(s)&&!bound)fail('故事时间位置无效。');
   const changes=new Set();for(const [i,r] of point.relationships.entries()){
    if(!r?.from||!r?.to||r.from===r.to||!String(r.name||'').trim())fail('关系变化需要不同的人物和关系名称。');
    const id=changeKey(r,i);if(changes.has(id))fail('同一发生点的变化 ID 重复。');changes.add(id);
-   if(r.evidence&&(!n&&!Number.isFinite(s)))fail('确认正文前需要明确关系发生位置。');
+   if(r.evidence&&(!n&&!Number.isFinite(s)&&!bound))fail('确认正文前需要明确关系发生位置。');
    if(r.evidence&&(!r.evidence.chapterId||!Number.isSafeInteger(r.evidence.revision)||r.evidence.revision<1||!r.evidence.evidence?.trim()))fail('正文依据需要章节、已保存版本与原文。');
   }
  }

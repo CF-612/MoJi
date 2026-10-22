@@ -1,3 +1,4 @@
+import {legacyForeshadow} from './foreshadow-nodes.js';
 import {createHash} from 'node:crypto';
 export const searchKinds=Object.freeze({chapter:'正文',character:'角色',world:'世界',planning:'规划',event:'事件',foreshadow:'伏笔',requirements:'写作要求'});
 const fail=message=>{throw Object.assign(new Error(message),{code:'INVALID_SEARCH'});};
@@ -24,7 +25,7 @@ function documents(n,fields,includeInactive){
  for(const p of (n.story?[]:active(n.planning?.nodes||n.plan?.nodes)))add('planning',p,[['title','标题',p.title,0],['summary','摘要',p.summary,2],['content','详述',p.content,4]],{status:p.status,location:cut(n.planning?.pages?.[p.pageId]?.name||'主线规划')});
  for(const c of Object.values(n.story?.state?.cards||{}))add('event',c,[['title','标题',c.title,0],['summary','摘要',c.summary,2],['content','详述',c.content,4],['storyDateText','故事时期',c.storyDateText,2]],{location:'剧情卡',unified:true});
  for(const e of (n.story?[]:active(n.writing?.events)))add('event',e,[['title','名称',e.title,0],['storyTime','故事时间',e.storyTime,2],['storyDate','故事日期',e.storyDate,2],['content','说明',e.content,4]],{planned:!!e.planned,location:cut((e.chapterRefs||[]).map(r=>n.chapters[r.chapterId]).filter(c=>c&&!c.deleted).map(c=>c.title).join('、')||e.plannedChapter||'尚未关联正文')});
- for(const f of active(n.writing?.foreshadows))add('foreshadow',f,[['title','名称',f.title,0],['content','说明',f.content,4],...((f.evidence||[]).map(e=>['evidence','正文依据',e.evidence,3]))],{status:f.status});
+ for(const f of active(n.writing?.foreshadows))add('foreshadow',f,[['title','名称',f.title,0],['content','说明',f.content,4],...((f.evidence||[]).map(e=>['evidence','正文依据',e.evidence,3]))],{status:legacyForeshadow(f).status});
  if(n.preset&&(includeInactive||n.preset.enabled))for(const b of n.preset.blocks||[])if(includeInactive||b.enabled)add('requirements',{...b,id:b.identifier,title:b.name,revision:n.preset.revision},[['name','条目名称',b.name,0],['content','写作要求',b.content,4]],{inactive:!n.preset.enabled||!b.enabled});
  return rows;
 }

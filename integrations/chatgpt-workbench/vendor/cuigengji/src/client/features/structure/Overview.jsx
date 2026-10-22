@@ -3,7 +3,7 @@ import {useModules} from '../../modules/context.tsx';
 import React,{useState} from 'react';
 import {ResourceState} from '../../shared/ui.jsx';
 import {useBoard} from './useBoard.js';
-const statuses={planned:['计划','#8a94a6'],planted:['已埋设','#b882da'],developing:['推进中','#438fbf'],partial:['部分回收','#c2964e'],open:['开放结局','#8a78ba'],recovered:['已回收','#42a592'],abandoned:['已放弃','#d56c75']};
+const statuses={planned:['计划','#8a94a6'],planted:['已埋设','#b882da'],developing:['推进中','#438fbf'],partial:['部分回收','#c2964e'],recovered:['已回收','#42a592'],abandoned:['已放弃','#d56c75']};
 export function WritingOverview({call,novelId,tick,run,busy,onChapter,onForeshadow}){
  const modules=useModules();
  const resource=useBoard(call,novelId,tick),[volume,setVolume]=useState('all'),[status,setStatus]=useState(null),[start,setStart]=useState(0);

@@ -11,8 +11,8 @@ import {legacyCanvasSvg} from '../vendor/cuigengji/src/client/shared/canvas-expo
 import {planningConnection,planningSvg,planningPalette} from '../vendor/cuigengji/src/client/shared/planning-canvas-geometry.mjs';
 const root=new URL('../../../',import.meta.url).pathname,ui=new URL('../vendor/cuigengji/src/client/',import.meta.url).pathname;
 const source=ui+'features/planning/UnifiedPlanning.jsx',folder=await mkdtemp(join(tmpdir(),'moji-planning-ui-'));
-const stub=`export const useModules=()=>globalThis.testPlanningModules||({pages:true,timeline:true,foreshadow:true,evolution:true}),useDialog=()=>({ask:async()=>null,confirm:async()=>true}),useRelationClock=()=>({}),useResource=()=>({value:[]}),usePreference=(key,value)=>[key.endsWith('area')?'canvas':value,()=>{}],SessionScope={};
-export const InternalPoints=()=>null,CanvasExport=()=>null,RelationPointManager=()=>null,Modal=()=>null,GraphControls=()=>null,CastAvatars=()=>null,CardChapterLinks=()=>null,Foreshadows=()=>null,PlotForeshadows=()=>null,UnifiedTimeline=()=>null,Icon=()=>null,PlanningToolsDialog=()=>null,PlanningToolGroup=()=>null;
+const stub=`export const useModules=()=>globalThis.testPlanningModules||({pages:true,timeline:true,foreshadow:true,evolution:true}),useDialog=()=>({ask:async()=>null,confirm:async()=>true}),useRelationClock=()=>({}),useResource=()=>({value:[]}),useWorkbenchPreferences=()=>({preferences:globalThis.testPlanningPreferences||{planningView:'timeline'}}),usePreference=(key,value)=>globalThis.testPlanningPreferenceHook?globalThis.testPlanningPreferenceHook(key,value):[key.endsWith('area')?'canvas':value,()=>{}],SessionScope={};
+export const InternalPoints=()=>null,CanvasExport=()=>null,RelationPointManager=()=>null,Modal=()=>null,GraphControls=()=>null,CastAvatars=()=>null,CardChapterLinks=()=>null,Foreshadows=()=>null,PlotForeshadows=()=>null,UnifiedTimeline=()=>null,StoryTimeAxis=()=>null,Icon=()=>null,PlanningToolsDialog=()=>null,PlanningToolGroup=()=>null;
 export const relationEditStyle='',foreshadowStyle='',unifiedStoryStyle='',useGraph=()=>({}),curve=()=>'',CARD_WIDTH=248,CARD_HEIGHT=208,narrationChapters=()=>[];`;
 await build({stdin:{contents:`export{UnifiedPlanning}from${JSON.stringify(source)};import React from'react';export{React};`,resolveDir:root},outfile:join(folder,'ui.cjs'),bundle:true,platform:'node',format:'cjs',alias:{react:root+'node_modules/react'},plugins:[{name:'contexts-only',setup(b){b.onResolve({filter:/.*/},a=>a.importer===source&&!a.path.startsWith('react')&&!/story-workspace\.mjs|story-create-intent\.mjs|planning-canvas-geometry\.mjs|resource-error\.mjs|drafts\.js/.test(a.path)?{path:'contexts',namespace:'qa'}:undefined);b.onLoad({filter:/.*/,namespace:'qa'},()=>({contents:stub}));}}]});
 const require=createRequire(import.meta.url),{UnifiedPlanning,React}=require(join(folder,'ui.cjs'));
@@ -60,4 +60,20 @@ test('actual Generate UI requires opt-in before relayout of all-already-visible 
 
 test('unrelated material graph export keeps relationship names instead of reclassifying them as plot precedence',()=>{
  const {svg}=legacyCanvasSvg([{id:'a',name:'甲'},{id:'b',name:'乙'}],[{from:'a',to:'b',name:'师徒'}],{a:{x:0,y:0},b:{x:400,y:40}});assert.ok(svg.includes('师徒'));assert.ok(!svg.includes('data-relation="precedence"'));
+});
+
+
+test('actual planning view honors new-work global default and preserves per-work remembered view',async()=>{
+ globalThis.localStorage=memoryStorage();const {rpc,novelId}=await setup(),initial=await rpc('story.get');
+ try{
+  for(const configured of ['timeline','canvas','outline']){
+   globalThis.testPlanningPreferences={planningView:configured};
+   globalThis.testPlanningPreferenceHook=(key,fallback)=>[fallback,()=>{}];
+   let ui=mount(rpc,novelId,initial);assert.ok(ui.render().props.className.includes(`area-${configured}`));
+   globalThis.testPlanningPreferenceHook=(key,fallback)=>[key.endsWith('v31-area')?'canvas':fallback,()=>{}];
+   ui=mount(rpc,novelId,initial);assert.ok(ui.render().props.className.includes('area-canvas'),'remembered per-work view wins over global default');
+  }
+  globalThis.testPlanningPreferences={planningView:'timeline'};globalThis.testPlanningModules={pages:true,timeline:false,foreshadow:false,evolution:false};globalThis.testPlanningPreferenceHook=(key,fallback)=>[fallback,()=>{}];
+  assert.ok(mount(rpc,novelId,initial).render().props.className.includes('area-outline'),'disabled timeline gets an available default');
+ }finally{delete globalThis.testPlanningPreferences;delete globalThis.testPlanningPreferenceHook;delete globalThis.testPlanningModules;}
 });

@@ -1,5 +1,5 @@
 import {randomUUID} from 'node:crypto';
-import {copyStory,copyAppearance} from '../../domain/story-copy.js';
+import {copyStory,copyAppearance,storyAxisCompatible} from '../../domain/story-copy.js';
 import {copyWriting} from '../../domain/writing.js';
 import {ensurePlanning} from '../../domain/planning/model.ts';
 import {validatePreset} from '../../domain/preset/index.js';
@@ -21,6 +21,8 @@ function uniqueName(name: string, items: {name: string}[]) {
 /** Share/copy never aliases source IDs or treats imported settings as confirmed facts.
  * Version numbers remain meaningful inside the copied chapters and their references. */
 export function copyInto(source: Novel, target: Novel, options: ImportOptions): void {
+  if (!storyAxisCompatible(source.story?.state?.storyAxis, target.story?.state?.storyAxis))
+    throw Object.assign(new Error('两部作品的故事时间坐标系不同；请分别导入，或先由作者明确统一历法与锚点。'), {code: 'STORY_AXIS_INCOMPATIBLE'});
   const n = copy(source), time = new Date().toISOString();
   const volumeIds = idMap(n.volumes), chapterIds = idMap(n.chapters), nodeIds = idMap(n.nodes), edgeIds = idMap(n.edges), groupIds = idMap(n.memoryGroups);
   let planningIds = new Map<string,string>();
