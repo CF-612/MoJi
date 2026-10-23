@@ -1,11 +1,25 @@
 # 墨叽 · 发布入口
 
-`moji-release` 保留为默认发布分支；当前源码更新至 `0.11.0-v31.3` 候选测试版内容。分支名称不表示候选版已经转为正式版。
+当前正式版为 **[0.11.0](https://github.com/CF-612/MoJi/releases/tag/moji-v0.11.0)**。`moji-release` 是默认发布分支，`codex/main` 是开发分支；日常安装优先使用正式 Release，不以开发分支代替发布包。
 
-- [公开正式版 0.10.1](https://github.com/CF-612/MoJi/releases/tag/moji-v0.10.1)
-- [候选测试版 0.11.0-v31.3](https://github.com/CF-612/MoJi/releases/tag/moji-v0.11.0-v31.3)：验证范围和可下载文件以该 Release 为准。
-- `distribution/latest.json` 仅提供正式版更新信息；不将候选版或未公开草稿列入正式更新。
+## 选择安装包
 
-安装与试用见[开始使用](../docs/getting-started.md)、[桌面插件安装](../docs/agent-installation.md)及[个人云端部署](../docs/cloud-agent-deployment.md)。升级前请阅读[更新与备份说明](../docs/upgrade.md)，确认备份和实际数据目录。请勿将不同宿主、桌面和云端作品库视为自动同步。
+| 用途 | 正式版文件 |
+| --- | --- |
+| DSH 原生插件 | [dsh-moji-0.11.0.tgz](https://github.com/CF-612/MoJi/releases/download/moji-v0.11.0/dsh-moji-0.11.0.tgz) |
+| Windows 独立本机版 | [Moji-0.11.0-windows-x64.zip](https://github.com/CF-612/MoJi/releases/download/moji-v0.11.0/Moji-0.11.0-windows-x64.zip) |
+| 个人云端插件包生成器 | [Moji-0.11.0-plugin-generator.zip](https://github.com/CF-612/MoJi/releases/download/moji-v0.11.0/Moji-0.11.0-plugin-generator.zip) |
+| SHA-256 校验文件 | [SHA256SUMS-0.11.0.txt](https://github.com/CF-612/MoJi/releases/download/moji-v0.11.0/SHA256SUMS-0.11.0.txt) |
 
-源码保留 MIT 许可和上游署名；本页不承诺超出 Release 记录的签名、平台兼容或在线部署验收。
+- **DSH**：安装 `.tgz` 原生插件，可使用本机作品库或连接自己的个人云端。
+- **Windows 独立版**：解压后按包内说明启动本机工作台，不是 Codex 插件的本地模式。
+- **Codex／网页 GPT／手机 GPT 可视化插件**：先部署自己的个人云端，再使用生成器为该实例生成可上传的插件 ZIP。生成器 ZIP 本身不是可直接上传的成品插件，也不包含作者的私有实例配置。
+- 校验文件用于比对下载文件的 SHA-256；源代码 ZIP/TAR 不替代上面的成品包。
+
+`distribution/latest.json` 仅提供正式版更新信息，不把预发布版或未公开草稿列入正式更新。后续版本请查看[最新正式版](https://github.com/CF-612/MoJi/releases/latest)；各版变更及验证边界以对应发布说明为准。
+
+安装见[开始使用](../docs/getting-started.md)、[DSH 安装与更新](../docs/agent-installation.md)、[个人云端部署与更新](../docs/cloud-agent-deployment.md)和[插件打包指南](../docs/plugin-package.md)。升级前阅读[更新与备份说明](../docs/upgrade.md)，备份作品并核对实际数据目录。
+
+**更新源码或安装包，不代表个人云端已经更新。** 已有云端必须按部署文档使用原账号、原实例清单和原资源执行更新；不重新新建替代实例。本机和云端作品库不会自动同步，迁移需使用备份导出与导入。
+
+源码保留 MIT 许可和上游署名。本页不额外承诺代码签名、平台兼容或真实宿主／云端验收结果。

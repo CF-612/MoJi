@@ -1,6 +1,6 @@
 {
   "product": "moji",
-  "version": "0.10.1",
-  "downloadUrl": "https://github.com/CF-612/MoJi/releases/tag/moji-v0.10.1",
-  "notes": "正式更新渠道当前指向已公开的 0.10.1。0.11.0-v31.3 是候选测试版，不进入正式版更新提醒；请在 GitHub Releases 中查看候选版及其验证范围。"
+  "version": "0.11.0",
+  "downloadUrl": "https://github.com/CF-612/MoJi/releases/tag/moji-v0.11.0",
+  "notes": "墨叽 0.11.0 正式版。请按使用入口选择 DSH 原生插件、Windows 独立版或个人云端插件包生成器，并核对 SHA256SUMS。升级前备份作品；安装包更新不会自动更新个人云端实例，本机与云端作品库不自动同步。"
 }
