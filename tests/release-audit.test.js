@@ -14,7 +14,7 @@ test('release audit derives current version and still rejects stale versions/pri
  assert.notEqual((await run({files:[...required,'src/.env'].map(path=>({path}))})).status,0);
  assert.notEqual((await run({files:required.filter(path=>path!=='lib/client.js').map(path=>({path}))})).status,0);
 });
-test('installation guide states source-build limits rather than sending users to obsolete release assets',async()=>{
+test('installation guide uses verified packages and generic native-host update safeguards',async()=>{
  const doc=await readFile(new URL('../docs/agent-installation.md',import.meta.url),'utf8');
- assert.match(doc,/暂无当前版本的 Windows 成品安装包/);assert.match(doc,/npm pack/);assert.match(doc,/package\.json/);assert.doesNotMatch(doc,/https:\/\/github\.com\/mistnest\/.*releases/);assert.doesNotMatch(doc,/"expectedVersion":"0\.4\.0"/);
+ assert.match(doc,/优先安装已核实的 DSH 插件/);assert.match(doc,/目标版本以所选包的 `package\.json` 为准/);assert.match(doc,/备份/);assert.match(doc,/完整重启/);assert.match(doc,/原生插件管理安装/);assert.match(doc,/开发者备用：源码构建/);assert.doesNotMatch(doc,/0\.11\.0-v31\.[0-9]+/);assert.match(doc,/npm pack/);assert.match(doc,/package\.json/);assert.doesNotMatch(doc,/https:\/\/github\.com\/mistnest\/.*releases/);assert.doesNotMatch(doc,/"expectedVersion":"0\.4\.0"/);
 });

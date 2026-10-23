@@ -1,4 +1,5 @@
 import manifest from '../package.json' with {type:'json'};
+import {healthResponse} from './readiness.mjs';
 import {ListResourcesRequestSchema} from '@modelcontextprotocol/sdk/types.js';
 import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import {WebStandardStreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
@@ -34,7 +35,7 @@ function createServer(service,auth,env){
 async function handleRequest(request,env,context){
   const url=new URL(request.url);
   try{
-    if(url.pathname==='/health')return Response.json({service:'moji-private-cloud',version:manifest.version});
+    if(url.pathname==='/health')return healthResponse(env);
     if(['/.well-known/oauth-protected-resource','/.well-known/oauth-protected-resource/mcp'].includes(url.pathname)){
       const config=authConfig(env);return Response.json({resource:config.resource,authorization_servers:[config.issuer],scopes_supported:['novel:read','novel:write'],bearer_methods_supported:['header']});
     }

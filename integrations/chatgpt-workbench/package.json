@@ -1,6 +1,6 @@
 {
   "name": "moji-chatgpt-workbench",
-  "version": "0.11.0-v31.2",
+  "version": "0.11.0-v31.3",
   "private": true,
   "type": "module",
   "engines": {
@@ -30,7 +30,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "wrangler": "^4.149.0"
+    "wrangler": "4.151.3"
   },
   "displayName": "墨叽 · 小说工作台",
   "description": "墨叽：陪你写故事的烟灰蛸小说工作台，支持正文、自由画布、情节连线与人物世界资料。",

@@ -117,7 +117,13 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
     assert.equal(quickCard.title,'未命名剧情');assert.deepEqual(quickCard.evidence,[]);
     assert.equal((await mf.dispatchFetch('http://localhost/index.html')).status,404);
     await mf.setOptions(convertV4MiniflareOptions({...testOptions,bindings:{...env,MOJI_AUTH:'builtin'}}));
+    assert.equal((await mf.dispatchFetch('http://localhost/health')).status,503,'旧令牌过渡不代表新部署已就绪');
+    assert.equal((await mf.dispatchFetch('http://localhost/')).status,503,'未配置内置授权时入口不得声称已就绪');
     assert.ok((await call('tools/list')).tools.some(t=>t.name==='workbench_open'),'切换内置授权后，原作者已签发的旧令牌仍可安全过渡');
     assert.equal((await mf.dispatchFetch('http://localhost/mcp',{headers:{Authorization:'Bearer forged.invalid.signature'}})).status,401,'旧令牌兼容分支仍必须验签');
+    for(const [subject,issuer,status]of [['auth0|other-author',env.AUTH0_ISSUER,403],[env.OWNER_SUB,'https://wrong-issuer.example/',401]]){
+      const invalid=await new SignJWT({scope:'novel:read novel:write'}).setProtectedHeader({alg:'RS256',kid:'test'}).setSubject(subject).setIssuer(issuer).setAudience(env.MCP_RESOURCE).setIssuedAt().setExpirationTime('5m').sign(privateKey);
+      assert.equal((await mf.dispatchFetch('http://localhost/mcp',{headers:{Authorization:'Bearer '+invalid}})).status,status,'旧令牌过渡仍须核对原作者与签发者');
+    }
   }finally{await mf.dispose();}
 });

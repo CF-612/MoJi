@@ -6,7 +6,7 @@
 
 本项目以 **Codex 工作台体验为主**，兼容 **DeepSeek Harness（DSH）**，也可通过 **MCP** 让 Gemini 等客户端访问作品。源码基于 [mistnest 的催更姬](https://github.com/mistnest/dsh-cuigengji-plugin) 继续开发，现以独立名称维护。
 
-> 当前开发分支是 [`codex/main`](https://github.com/CF-612/MoJi/tree/codex/main)，源码版本为 `0.11.0-v31.2`。这是持续打磨中的版本，不代表所有新功能已通过真实宿主验收。仓库默认分支 `moji-release` 与开发分支进度不同；请按下面的命令选择分支，不要混用旧版说明或安装包。
+> 当前开发分支是 [`codex/main`](https://github.com/CF-612/MoJi/tree/codex/main)，源码版本为 `0.11.0-v31.3`。这是持续打磨中的版本，不代表所有新功能已通过真实宿主验收。仓库默认分支 `moji-release` 与开发分支进度不同；请按下面的命令选择分支，不要混用旧版说明或安装包。
 
 ## 可以做什么
 
@@ -57,25 +57,28 @@ npm start --prefix integrations/chatgpt-workbench
 
 云端用于让 Codex、Gemini、DSH 等入口访问同一份作品。它是**部署到你自己 Cloudflare 账号的单作者实例**，不是公共共享作品库，也不开放用户注册。托管费用与用量由实例所有者承担，不承诺永久免费。
 
-完成上面的依赖安装后，在仓库根目录操作：
+完成上面的两套依赖安装后，在仓库根目录操作。先确认自己的账号、资源范围和可能费用；以下命令会创建或修改真实云资源，不是模拟测试：
 
-1. 检查根目录 [`wrangler.jsonc`](wrangler.jsonc)，为自己的 Worker 和数据库设置合适的名称。新建实例与更新已有实例请勿混用配置。
-2. 登录 Cloudflare，部署服务并应用数据库迁移：
+1. 自行完成 Cloudflare 登录，并确认账号 ID 和已有的 workers.dev 子域名（脚本不会代为注册账号级子域名）。
+2. **新建**：一个实例名生成带随机后缀的独立 Worker、D1、KV；遇到冲突停止，不复用旧库。
 
    ```sh
    node integrations/chatgpt-workbench/node_modules/wrangler/bin/wrangler.js login
-   npm run deploy
+   npm run deploy:new -- --account YOUR_ACCOUNT_ID --instance my-writing --manifest .moji-cloud/my-writing.json
    ```
 
-3. 设置至少 **24 个字符的随机工作台密钥**，通过交互输入，不写进源码：
+3. 在隐藏输入提示中输入至少 **24 个字符的随机工作台密钥**。不要通过命令参数、聊天或文件传递密钥。非交互环境会停在密钥阶段，不声称成功。
+4. **更新同一实例**：选择原清单，脚本核对账号、D1/KV ID 和 Worker 绑定，保留原密钥与作品，不自动创建替代库。
 
    ```sh
-   node integrations/chatgpt-workbench/node_modules/wrangler/bin/wrangler.js secret put MOJI_OWNER_KEY --config wrangler.jsonc
+   npm run deploy:update -- --account YOUR_ACCOUNT_ID --manifest .moji-cloud/my-writing.json
    ```
 
-4. 将部署输出的 HTTPS 地址加上 `/mcp`，填入客户端的 MCP 连接设置；在授权页核对连接方与回调地址，输入密钥并批准连接。
+失败后按输出的同模式命令增加 `--resume`，不要重新新建。清单及生成配置位于被 Git 忽略的 `.moji-cloud/`，只含账号、资源、版本与阶段状态，不含密钥；请妥善备份，**不要提交公共仓库**。创建请求超时且结果不明确时，脚本先查询然后暂停；同名不证明所有权，需人工核实精确 ID 和创建记录后再恢复，不盲目重建或删除。
 
-`npm run deploy` 会构建工作台和云端代码、部署 Worker，再执行远程 D1 迁移；它会创建或修改云资源。密钥未配置完成时，作品访问保持关闭。当前根模板使用**内置 OAuth，无需 Auth0**；旧私有部署的认证配置不要直接照搬。
+流程分别记录资源、数据库迁移、上传、密钥、服务检查；当前已审核的加法迁移先于上传执行，新增或修改的 SQL 必须先做兼容性审查。DO 迁移随上传执行。失败不会自动删除资源或回滚数据库。裸 `npm run deploy` 只给出显式模式用法，不会部署。
+
+只有根页、OAuth discovery 和数据库/密钥健康检查通过后，才显示服务就绪；**真实客户端验收仍单独待办**。将输出的 HTTPS 地址加上 `/mcp` 填入客户端，在内置 OAuth 授权页输入密钥并核对回调地址；无需 Auth0，不把密钥作为 Bearer token 手填。登录、创建资源和真实客户端验证需各自获得授权。已有私人部署没有本工具清单时不会自动导入，切勿伪造新建流程覆盖它。
 
 **云端根地址目前是 MCP 连接说明页，不是独立网页版编辑器。** 完整界面由支持的宿主打开；本机浏览器入口见上一节。这里不提供作者个人实例地址。
 
@@ -85,7 +88,9 @@ npm start --prefix integrations/chatgpt-workbench
 
 从旧 `dsh-cuigengji` 安装升级时，先导出作品备份并保存 profile 配置，记录原数据根。通过 DSH 原生插件管理停用／移除**旧插件本身**，保留作品目录，再安装 `dsh-moji` 并核对原数据根。安装脚本检测到旧依赖、bundle 或 patch 会停止，不自动改写旧安装。不能并行启用新旧实例，也不能只把旧压缩包重命名当成升级。
 
-安装好根目录与工作台依赖后，可从根目录构建 DSH 插件包：
+普通安装或更新优先使用已核实的 `dsh-moji-<版本>.tgz`，通过 DSH 原生插件管理安装；完整步骤、备份和重启验收见 [DSH 安装与更新指南](docs/agent-installation.md)。Windows 独立版 ZIP 不是 DSH 插件包。
+
+仅需源码构建时，安装好根目录与工作台依赖，再从根目录构建 DSH 插件包：
 
 ```sh
 npm pack
