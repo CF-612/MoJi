@@ -32,5 +32,5 @@ test('workbench More panel gives every action a coherent compact card without a 
  assert.match(workbenchMenuStyles,/workbench-menu-icon\{[^}]*width:34px;height:34px/);
  assert.doesNotMatch(workbenchMenuStyles,/#2867d9|--mn-blue/);
  const header=await readFile('integrations/chatgpt-workbench/vendor/cuigengji/src/client/shared/WorkbenchHeader.tsx','utf8');
- assert.match(header,/workbench-more-options/);assert.match(header,/<MenuRow icon="refresh" navigation=\{false\}/);assert.match(header,/navigation&&<span className="workbench-menu-arrow"/);assert.match(header,/<MenuRow icon="settings"/);assert.match(header,/<MenuRow icon="about"/);
+ assert.match(header,/workbench-more-options/);assert.match(header,/<MenuRow key="refresh" icon="refresh" navigation=\{false\}/);assert.match(header,/navigation&&<span className="workbench-menu-arrow"/);assert.match(header,/<MenuRow key="settings" icon="settings"/);assert.match(header,/<MenuRow key="about" icon="about"/);
 });

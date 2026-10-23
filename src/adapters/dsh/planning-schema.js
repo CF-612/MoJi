@@ -8,7 +8,7 @@ export const planningArgsSchema = {
     reason:{type:'string',description:'本次修改的原因'},
     expectedRevision:{type:'integer',description:'story.get 返回的工作区 state.revision；每次修改都需提供'},
     operation:{type:'object',additionalProperties:true,description:'单次剧情操作。返回完整 state；新对象 ID 从返回结果取得，不支持临时 ref/mapping。',properties:{
-      type:{type:'string',description:'如 card.create/card.update/card.delete/move/precedence/page.create/instance.add/instance.remove/instance.layout；其他操作按当前工作区合同使用'},
+      type:{type:'string',description:'如 card.create/card.update/card.delete/card.deleteMany/move/precedence/page.create/page.generate/page.delete/instance.add/instance.remove/instance.removeMany/instance.layout。group 为包含篇章；group.create/group.rename/group.assign/group.delete 为独立自定义分类，删除分类保留成员；其他操作按当前工作区合同使用'},
       id:{type:'string',description:'card.update/delete 的真实卡片 ID'},
       expectedRevision:{type:'integer',description:'card.update 的卡片 revision，不是工作区 revision'},
       value:{type:'object',additionalProperties:true,description:'剧情卡字段，如 title/summary/content/status/cast/scope/evidence/time/points；更新只提交变更字段'},
