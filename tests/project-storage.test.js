@@ -177,3 +177,31 @@ test('legacy planning checkpoint includes full prose and history before first gr
   assert.deepEqual(checkpoint,state.novels[novel.id]);
   assert.equal(checkpoint.chapters[chapter.id].content,'雨落在旧书铺的门前。');
 });
+
+
+test('graph list preserves tags, appearance proofs and content search without full-book reads', async t => {
+  const {store,run,chapter,otherChapter,memory,otherMemory}=await fixture(t);
+  await run('writing.card.update',{nodeId:memory.id,expectedRevision:0,values:{'character:gender':'女','character:occupation':'店主'}});
+  await run('writing.link.create',{nodeId:memory.id,chapterId:chapter.id,expectedChapterRevision:chapter.revision,kind:'appearance',confirmed:true,evidence:'雨落'});
+  await run('writing.link.create',{nodeId:memory.id,chapterId:otherChapter.id,expectedChapterRevision:otherChapter.revision,kind:'appearance',confirmed:true,manual:true});
+  const reads=[],read=store.readText.bind(store);
+  store.readText=async path=>{reads.push(path);return read(path);};
+  const assertNoBookBodies=()=>assert.ok(reads.every(path=>!path.includes('/history/')&&!/\/chapters\/(?!index\.json$)/.test(path)&&!/\/planning\/(?!index\.json$)/.test(path)),reads.join('\n'));
+  const listed=await run('graph.list',{type:'character_card',groupId:null});
+  assert.deepEqual(listed.map(node=>node.id),[memory.id]);
+  assert.deepEqual(listed[0].cardTags,['女','店主']);
+  assert.deepEqual(listed[0].appearances,[
+    {chapterId:chapter.id,revision:chapter.revision,offset:0,manual:false},
+    {chapterId:otherChapter.id,revision:otherChapter.revision,offset:0,manual:true},
+  ]);
+  assert.equal(listed[0].content,undefined);
+  assertNoBookBodies();assert.ok(reads.every(path=>!path.includes('/settings/entries/')));
+  reads.length=0;
+  assert.deepEqual((await run('graph.list',{query:'钟声'})).map(node=>node.id),[otherMemory.id]);
+  assertNoBookBodies();assert.ok(reads.some(path=>path.includes('/settings/entries/')));
+  await run('chapter.update',{chapterId:chapter.id,expectedRevision:chapter.revision,content:'新的正文不再含有旧证据。'});
+  reads.length=0;
+  const after=(await run('graph.list')).find(node=>node.id===memory.id);
+  assert.deepEqual(after.appearances,[{chapterId:otherChapter.id,revision:otherChapter.revision,offset:0,manual:true}]);
+  assert.deepEqual(after.cardTags,['女','店主']);assertNoBookBodies();
+});

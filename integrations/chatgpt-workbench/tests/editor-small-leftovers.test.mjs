@@ -26,7 +26,7 @@ test('实际计数 JSX 复用同一按钮，顶部/底部互斥，顶部不依�
  for(const position of ['top','bottom'])for(const punctuation of [true,false]){
   const p=normalizeEditorPreferences({wordCountPosition:position,countPunctuation:punctuation,showInfoBar:false});
   let changed;const element=render(React,p,{content:'甲， A😀\n'},v=>changed=v,manuscriptCount);
-  assert.match(renderToStaticMarkup(element),punctuation?/4 字 · 含标点/:/2 字 · 不含标点/);
+  assert.match(renderToStaticMarkup(element),punctuation?/4 字<span class="wordcount-mode"> · 含标点/:/2 字<span class="wordcount-mode"> · 不含标点/);
   element.props.children.props.onClick();assert.deepEqual(changed,{countPunctuation:!punctuation});
  }
 });

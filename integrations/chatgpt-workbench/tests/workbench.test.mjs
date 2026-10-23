@@ -30,21 +30,27 @@ test('完整工作台：独立作品选择、设定关系、规划事务、写�
   assert.equal((await human('graph.get',{nodeId:person.id})).content,written.content);
   const events=await agent.collaborationHistory({novelId,entityId:person.id});
   assert.equal(events[0].actor.kind,'agent');assert.equal(events[0].before.content,'她珍惜朋友。');
-  const page=await human('planning.page.create',{name:'雨夜来信',requestId:crypto.randomUUID()});
-  const tx=await model('planning.apply',{requestId:crypto.randomUUID(),reason:'讨论两种后续',operations:[
-    {op:'node.create',ref:'a',value:{title:'收到来信',pageId:page.id,content:'伏笔：信的来历尚未揭晓。',memoryRefs:[person.id]}},
-    {op:'node.create',ref:'b',value:{title:'寻找寄信人',pageId:page.id}},
-    {op:'edge.create',value:{from:'a',to:'b'}},
-    {op:'decoration.create',value:{kind:'note',pageId:page.id,content:'先讨论动机，不直接写正文。'}}
-  ]});
-  assert.equal((await human('planning.list',{pageId:page.id})).items.length,2);
-  assert.equal((await model('planning.get',{nodeId:tx.mapping.a})).node.memoryRefs[0],person.id);
-  await model('planning.revert',{transactionId:tx.transactionId,requestId:crypto.randomUUID()});
-  assert.equal((await human('planning.list',{pageId:page.id})).items.length,0);
+  let story=await model('story.get');
+  const change=async operation=>(story=await model('story.apply',{requestId:crypto.randomUUID(),expectedRevision:story.state.revision,operation}));
+  await change({type:'page.create',name:'雨夜来信'});const pageId=story.state.pages.at(-1).id;
+  await change({type:'card.create',pageId,value:{title:'收到来信',content:'伏笔：信的来历尚未揭晓。待讨论动机，不直接写正文。',cast:[person.id]}});
+  const a=Object.values(story.state.cards).find(c=>c.title==='收到来信');
+  await change({type:'card.create',pageId,value:{title:'寻找寄信人'}});
+  const b=Object.values(story.state.cards).find(c=>c.title==='寻找寄信人');
+  const beforeLink=structuredClone(story.state);
+  await change({type:'precedence',from:'card:'+a.id,to:'card:'+b.id});
+  assert.equal(Object.keys((await human('story.get')).state.pages.find(p=>p.id===pageId).instances).length,2);
+  assert.equal((await model('story.get')).state.cards[a.id].cast[0],person.id);
+  assert.ok(story.state.precedence.some(e=>e.from==='card:'+a.id&&e.to==='card:'+b.id));
+  await assert.rejects(model('story.undo',{expectedRevision:story.state.revision}),{code:'NOT_ALLOWED'});
+  story=await human('story.undo',{expectedRevision:story.state.revision});
+  assert.deepEqual(story.state.precedence,beforeLink.precedence);
+  assert.deepEqual(story.state.cards,beforeLink.cards,'undo relation preserves both cards');
+  await assert.rejects(model('planning.apply',{operations:[]}),{code:'NOT_ALLOWED'});
   const preset=await human('preset.set',{expectedRevision:0,preset:{name:'写作要求',enabled:true,blocks:[{identifier:'voice',name:'文风',enabled:true,content:'第三人称，不替作者决定情节。'}]}});
   assert.match((await model('preset.read')).content,/第三人称/);
-  await model('preset.set',{expectedRevision:preset.revision,preset:{...preset,blocks:[{...preset.blocks[0],content:'第三人称；保留段落和标点。'}]}});
-  await assert.rejects(model('preset.set',{expectedRevision:preset.revision,preset}),{code:'CONFLICT'});
+  await human('preset.set',{expectedRevision:preset.revision,preset:{...preset,blocks:[{...preset.blocks[0],content:'第三人称；保留段落和标点。'}]}});
+  await assert.rejects(human('preset.set',{expectedRevision:preset.revision,preset}),{code:'CONFLICT'});
   const chapter=await model('chapter.get',{chapterId});
   const text='　　雨停了。\n\n“请进。”——她说。';
   await model('chapter.update',{chapterId,expectedRevision:chapter.revision,content:text,reason:'段落保真验收'});

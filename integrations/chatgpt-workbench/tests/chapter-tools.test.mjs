@@ -19,7 +19,19 @@ test('chapter actions are categorized and use secondary pages, without adding un
  assert.match(editor,/<ChapterOperations icons/);
  assert.doesNotMatch(editor,/<ToolSheet label="正文其他操作"/);
  const operations=await read('features/chapters/ChapterOperations.jsx');
- for(const icon of ['edit','download','history','trash','refresh'])assert.ok(operations.includes(`<Icon name="${icon}"/>`));
+ for(const icon of ['rename','export','history','trash','restore'])assert.ok(operations.includes(`<ChapterToolIcon name="${icon}"/>`));
+ // Dedicated pictograms must not alter action dispatch or hide directory rename.
+ assert.match(operations,/onRename&&<button/);
+ assert.match(operations,/onRename\(title.trim\(\)\)/);
+ for(const handler of ['onExport','onHistory','onRemove','onRestore'])assert.ok(operations.includes(`onClick={${handler}}`));
+ const common=tools.slice(tools.indexOf('aria-label="常用"'),tools.indexOf('aria-label="写作工具"'));
+ const chapterData=tools.slice(tools.indexOf('aria-label="章节"'),tools.indexOf("{page==='display'"));
+ assert.doesNotMatch(common,/本章资料/);
+ assert.match(chapterData,/onClick=\{onMaterials\}><ChapterToolIcon name="materials"\/>/);
+ assert.match(chapterData,/\{children\}/);
+ assert.match(chapterData,/onClick=\{onBackup\}><ChapterToolIcon name="backup"\/>/);
+ assert.match(tools,/<ChapterToolIcon name=\{icon\}/);
+ for(const [label,icon] of [['快捷复制','copy'],['码字时速','speed'],['快捷输入','quick'],['长图分享','share'],['页面布局','layout']])assert.ok(tools.includes(`'${label}','${icon}'`));
  // Existing save/concurrency boundaries are preserved when opening find and export.
  assert.match(editor,/if\(conflict\)throw new Error\('请先合并正文冲突'\);await prepare\(\)/);
  assert.match(editor,/prepareTransferDrafts/);

@@ -42,11 +42,11 @@ description: 接手催更姬小说项目，定位作者的协作目标，按需�
 | 工具 | 常用 action 与参数 |
 | --- | --- |
 | `cuigengji_project` | `novel.handoff {chapterLimit?}`；`chapter.list {volumeId?}`；`chapter.search {query,chapterId?,limit?}`；`chapter.get {chapterId,start?,maxChars?}`；`chapter.create/update/history/restore`；`volume.list/create/update/delete` |
-| `cuigengji_plan` | `planning.groups`；`planning.search/list {query?,groupId?,status?,offset?,limit?}`；`planning.get {nodeId}`；`planning.continue`；`planning.apply`；`planning.history/changes/revert` |
+| `cuigengji_plan` | `story.get {}`；`story.apply {expectedRevision,requestId,operation:{type,...}}`（单操作，卡片更新另带卡片版本） |
 | `cuigengji_memory` | `graph.groups`；`graph.list {query?,type?,groupId?}`；`graph.get {nodeId}`；`graph.create/update/move`；`graph.group.create/update/delete`；`edge.list {nodeId?}`；`edge.get/create/update/delete` |
 | `cuigengji_context` | `binding.get`；`preset.read`；`context.get`（显式参考预览，通常直接按对象读取更省） |
 
-`chapter.list`、`graph.list`、`planning.list/search` 不返回正文。规划查询返回 `items/nextOffset/sequence`；需要下一页时沿 nextOffset 读取，sequence 改变则重新定位，不能拼成同一时刻的全图。`context.get` 不带章节参数时不隐式加载正文；指定章节会连带前文，局部修改优先 `chapter.get`。
+`chapter.list`、`graph.list` 不返回正文。`story.get` 返回 `state`（cards、placements、pages、precedence、tracks 和 revision）与正文目录 `sources`，不是旧式分页节点查询；卡片内容不代表已写正文。`context.get` 不带章节参数时不隐式加载正文；指定章节会连带前文，局部修改优先 `chapter.get`。
 
 整理目录时，`volume.create {title,order?}` 新建卷；`volume.update {volumeId,expectedRevision,title?,order?}` 修改卷；章节归卷用 `chapter.update` 的 volumeId。删除非空卷还需明确 chapterPolicy：detach 保留章节并移出卷，delete 连章节一起软删除；先核对范围再操作。
 

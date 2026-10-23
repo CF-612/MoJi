@@ -1,3 +1,4 @@
+import {planningCardColorStyle} from '../../shared/planning-card-presentation.mjs';
 export const unifiedStoryStyle=`
 .unified-story{display:flex;flex-direction:column;min-width:0;min-height:0;flex:1;color:var(--cg-ink);font-size:13px;--u-surface:var(--cg-paper);--u-line:var(--cg-line)}
 .cuigengji .unified-story button{transform:none;clip-path:none;border-radius:7px;min-height:30px;padding:6px 10px;line-height:1.4;white-space:nowrap;font-size:12px}
@@ -33,4 +34,5 @@ export const unifiedStoryStyle=`
 .cuigengji .u-outline-handle{touch-action:none;cursor:grab;background:none;border:0;color:var(--cg-muted);font-size:19px!important;min-height:28px;padding:1px 4px!important;flex:none;user-select:none}.u-outline-ghost{position:fixed;max-width:280px;padding:12px 16px;border:1px solid var(--cg-accent);background:var(--cg-paper);color:var(--cg-ink);border-radius:9px;box-shadow:0 10px 25px #102c4325;pointer-events:none;z-index:30000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px;transform:rotate(-1deg)}
 .unified-story.area-timeline{position:relative}.area-timeline>.u-notice{position:absolute;bottom:12px;left:12px;right:12px;z-index:25;width:fit-content;max-width:calc(100% - 24px);box-sizing:border-box;border:1px solid var(--cg-line);border-radius:9px;box-shadow:0 4px 20px #102c4320;background:var(--cg-paper)}
 .u-chapter-links{display:block;font-size:10px;color:var(--cg-muted);line-height:1.6;margin-top:5px}.u-canvas-card-info{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px}.u-canvas-card-info .u-chapter-links{margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.u-canvas-card.kind-card>p{-webkit-line-clamp:2}.u-form>.u-chapter-links{background:var(--cg-wash);border-radius:6px;padding:8px 10px;line-height:1.7;font-size:11px}
+${planningCardColorStyle}
 `;

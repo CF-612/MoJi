@@ -1,6 +1,7 @@
 import {mapSelection} from './selection.ts';
 import React,{useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {Icon} from '../../shared/icons.tsx';
+import {ChapterToolIcon} from './ChapterToolIcon.jsx';
 import {ReferenceButton} from '../../shared/collaboration.tsx';
 import {ChapterTypography,ChapterLayout,ChapterFormat,ChapterEditingPreferences} from './ChapterAppearance.jsx';
 import {chapterCopy} from './editor-text.mjs';
@@ -12,24 +13,23 @@ export function ChapterTools({busy,deleted,onUndoFormat,onFormat,onMaterials,onR
  const open=next=>{returnTo.current=next;setPage(next);};
  const close=()=>{setPage(null);requestAnimationFrame(()=>{const el=target?.current,saved=snapshot.current;if(el&&saved){el.focus({preventScroll:true});const mapped=mapSelection(saved.content,el.value,saved);el.setSelectionRange(mapped.start,mapped.end,mapped.direction);if(scrollTarget?.current)scrollTarget.current.scrollTop=saved.top;}});};
  const action=fn=>()=>{close();fn?.();};
- const button=(id,label,icon,tone)=> <button data-tool={id} data-tone={tone} disabled={busy||deleted} onClick={()=>open(id)}><Icon name={icon}/><span>{label}</span></button>;
+ const button=(id,label,icon,tone)=> <button data-tool={id} data-tone={tone} disabled={busy||deleted} onClick={()=>open(id)}><ChapterToolIcon name={icon}/><span>{label}</span></button>;
  return <><style>{chapterToolsStyle}</style><button type="button" className="tool-trigger" aria-label="正文其他操作" aria-expanded={page!==null} aria-haspopup="dialog" title="正文其他操作" onClick={()=>{const el=target?.current;snapshot.current=el?{content:el.value,start:el.selectionStart,end:el.selectionEnd,direction:el.selectionDirection,top:scrollTarget?.current?.scrollTop||0}:null;document.querySelectorAll('details.menu[open]').forEach(el=>el.removeAttribute('open'));returnTo.current=null;setPage('menu');}}><Icon name="more"/></button>
  {page&&<ChapterToolDialog page={page} returnTo={returnTo.current} working={false} close={close} back={()=>setPage('menu')}>
   {page==='menu'&&<>
    <section className="chapter-tool-group" aria-label="常用"><h3>常用</h3><div className="chapter-tool-grid">
-    <button data-tool="find" data-tone="purple" disabled={busy||deleted} onClick={action(()=>requestAnimationFrame(onFind))}><Icon name="search"/><span>查找与替换</span></button>
-    {button('copy','快捷复制','book','blue')}
-    {onUndoFormat&&<button onClick={action(onUndoFormat)}><Icon name="undo"/><span>撤销文本操作</span></button>}
-    <button data-tone="blue" disabled={busy||deleted} onClick={action(onMaterials)}><Icon name="folder"/><span>本章资料</span></button>
-    <ReferenceButton reference={reference}><Icon name="message"/><span>围绕此内容讨论</span></ReferenceButton>
+    {button('copy','快捷复制','copy','green')}
+    <button data-tool="find" data-tone="purple" disabled={busy||deleted} onClick={action(()=>requestAnimationFrame(onFind))}><ChapterToolIcon name="search"/><span>查找与替换</span></button>
+    <ReferenceButton reference={reference}><ChapterToolIcon name="discussion"/><span>围绕此内容讨论</span></ReferenceButton>
+    <button data-tone="green" disabled={busy||deleted} onClick={action(onReview)}><ChapterToolIcon name="review"/><span>整理建议</span></button>
+    {onUndoFormat&&<button onClick={action(onUndoFormat)}><ChapterToolIcon name="undo"/><span>撤销文本操作</span></button>}
    </div></section>
    <section className="chapter-tool-group" aria-label="写作工具"><h3>写作工具</h3><div className="chapter-tool-grid">
-    {button('speed','码字时速','history','green')}{button('quick','快捷输入','edit','blue')}{button('share','长图分享','download','purple')}
-    <button disabled={busy} onClick={action(onHistory)}><Icon name="history"/><span>版本历史</span></button>
-    <button data-tone="green" disabled={busy||deleted} onClick={action(onReview)}><Icon name="list"/><span>整理建议</span></button>
+    {button('speed','码字时速','speed','purple')}{button('quick','快捷输入','quick','red')}{button('share','长图分享','share','green')}
+    <button data-tone="orange" disabled={busy} onClick={action(onHistory)}><ChapterToolIcon name="history"/><span>版本历史</span></button>
    </div></section>
-   <section className="chapter-tool-group" aria-label="外观"><h3>外观与排版</h3><div className="chapter-tool-grid">{button('display','字体字号','type','red')}{button('layout','页面布局','canvas','blue')}{button('format','正文排版','format','green')}{button('editing','编辑偏好','settings','purple')}</div></section>
-   <section className="chapter-tool-group" aria-label="章节"><h3>章节与数据</h3><div className="chapter-tool-grid" onClick={e=>{if(e.target.closest('button:not(:disabled)'))close();}}>{children}{onBackup&&<button onClick={onBackup}><Icon name="download"/><span>整本备份</span></button>}</div></section>
+   <section className="chapter-tool-group" aria-label="外观"><h3>外观与排版</h3><div className="chapter-tool-grid">{button('display','字体字号','type','red')}{button('layout','页面布局','layout','blue')}{button('format','正文排版','format','green')}{button('editing','编辑偏好','settings','purple')}</div></section>
+   <section className="chapter-tool-group" aria-label="章节"><h3>章节与数据</h3><div className="chapter-tool-grid" onClick={e=>{if(e.target.closest('button:not(:disabled)'))close();}}><button data-tone="blue" disabled={busy||deleted} onClick={onMaterials}><ChapterToolIcon name="materials"/><span>本章资料</span></button>{children}{onBackup&&<button data-tone="purple" onClick={onBackup}><ChapterToolIcon name="backup"/><span>整本备份</span></button>}</div></section>
   </>}
   {page==='display'&&<ChapterTypography/>}{page==='layout'&&<ChapterLayout/>}{page==='format'&&<ChapterFormat apply={onFormat} undo={onUndoFormat} disabled={busy||deleted}/>}{page==='editing'&&<ChapterEditingPreferences/>}
   {page==='copy'&&<ChapterCopy title={title} content={content}/>}{page==='quick'&&quickSettings}{page==='speed'&&speedSettings}{page==='share'&&share}

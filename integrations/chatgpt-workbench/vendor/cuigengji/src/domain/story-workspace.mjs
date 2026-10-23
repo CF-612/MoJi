@@ -87,11 +87,11 @@ function validateCard(card,sources,state){
  for(const mode of ['narration','story']){
   const time=card.time[mode];if(!time)continue;
   if(time.row!==undefined&&(!Number.isInteger(time.row)||time.row<0||time.row>10000))fail('时间线行位置无效。');
-  if(!(mode==='story'&&time.axisVersion===1?state.storyAxis?.tracks||[]:state.tracks).some(t=>t.id===time.trackId))fail('时间轨道不存在。');
+  if(!(mode==='story'&&time.axisVersion===1)&&!state.tracks.some(t=>t.id===time.trackId))fail('时间轨道不存在。');
   if(mode==='narration'){
    const order=sources.chapters.map(c=>c.id),a=order.indexOf(time.startChapterId),b=order.indexOf(time.endChapterId);
    if(a<0||b<0||!Number.isFinite(time.startOffset)||!Number.isFinite(time.endOffset)||time.startOffset<0||time.startOffset>=1||time.endOffset<=0||time.endOffset>1||b+time.endOffset<=a+time.startOffset)fail('叙述跨度的起止位置无效。');
-  }else if(time.axisVersion===1){validateStoryPlacement(time,state.storyAxis);}
+  }else if(time.axisVersion===1){validateStoryPlacement(time,state.storyAxis,state.tracks);}
   else if(!Number.isFinite(time.start)||!Number.isFinite(time.end)||Math.abs(time.start)>1000000||Math.abs(time.end)>1000000||time.end<=time.start)fail('故事时间终点必须晚于起点。');
  }
  // 采用进度不等于已确认正文事实。事实只由后续证据确认接口写入。
@@ -149,7 +149,8 @@ export function applyStory(input,sources,operation,newId){
   case 'card.update':{
    const card=state.cards[op.id];if(!card)fail('剧情卡不存在。');if(card.revision!==op.expectedRevision)throw Object.assign(new Error('剧情卡已有更新，草稿保留，请重新读取后核对。'),{code:'CONFLICT'});
    const next={id:card.id,revision:card.revision+1,...cardValue({...card,...op.value})};
-   if(state.storyAxis&&(JSON.stringify(next.time?.story)!==JSON.stringify(card.time?.story)||op.placement?.mode==='story'))fail('请在独立故事时间线中安排故事日期。');
+   if(state.storyAxis&&(op.placement?.mode==='story'||(JSON.stringify(next.time?.story)!==JSON.stringify(card.time?.story)&&op.storyPlacement!==true)))fail('请在独立故事时间线中安排故事日期。');
+   if(op.storyPlacement===true&&next.time?.story?.axisVersion===1&&card.time?.story&&card.time.story.axisVersion!==1&&!next.legacyStoryTime)next.legacyStoryTime=clone(card.time.story);
    validateCard(next,sources,state);
    if(op.placement){
     const {mode,row}=op.placement;if(!['narration','story'].includes(mode)||!Number.isInteger(row)||row<0||!next.time[mode])fail('请指定有效的轨道行位置。');

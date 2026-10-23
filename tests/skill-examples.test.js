@@ -6,6 +6,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {apply} from '../src/index.js';
 import {TOOL_ACTIONS} from '../src/contracts/actions.js';
+import {planningArgsSchema} from '../src/adapters/dsh/planning-schema.js';
 
 const examples = {};
 for (const skill of ['plan','memory','write']) {
@@ -29,60 +30,51 @@ async function fixture(t, {independentPage = false} = {}) {
   const character=await seed('graph.create',{type:'character_card',name:'来客',aliases:['夜间店主'],content:'她继承了母亲留下的书铺。',knownBy:[]});
   const place=await seed('graph.create',{type:'world_entry',name:'夜间书铺',content:'旧址仍有灯火。'});
   const memoryGroup=await seed('graph.group.create',{name:'雨城'});
-  const scenePage = independentPage ? (await seed('planning.page.create', {name:'假账推演', requestId:crypto.randomUUID()})).id : null;
-  const tx=await seed('planning.apply',{requestId:crypto.randomUUID(),operations:[
-    {op:'group.create',ref:'group',value:{name:'假账线'}},
-    {op:'node.create',ref:'start',value:{pageId:scenePage,title:'发现假账',content:'留存可疑账册。',groupId:'group',position:{x:60,y:90}}},
-    {op:'node.create',ref:'end',value:{pageId:scenePage,title:'追查码头',content:'确认目的地后出发。',groupId:'group'}},
-    {op:'edge.create',value:{from:'start',to:'end'}},
-  ]});
-  const initial=await seed('planning.get',{nodeId:tx.mapping.start});
-  const ids={SCENE_ID:tx.mapping.start,NEXT_SCENE_ID:tx.mapping.end,PLAN_GROUP_ID:tx.mapping.group,
-    DIRECT_EDGE_ID:initial.edges[0].id,CHARACTER_ID:character.id,PLACE_ID:place.id,
-    MEMORY_GROUP_ID:memoryGroup.id,CHAPTER_ID:chapter.id,SCENE_PAGE_ID:scenePage};
+  let story=await seed('story.get');
+  const change=async operation=>(story=await seed('story.apply',{expectedRevision:story.state.revision,requestId:crypto.randomUUID(),operation}));
+  if(independentPage)await change({type:'page.create',name:'假账推演'});
+  const scenePage=story.state.pages.at(-1).id;
+  await change({type:'card.create',pageId:scenePage,position:{x:60,y:90},value:{title:'发现假账',content:'留存可疑账册。'}});
+  const start=Object.keys(story.state.cards)[0];
+  await change({type:'card.create',pageId:scenePage,value:{title:'追查码头',content:'确认目的地后出发。'}});
+  const end=Object.keys(story.state.cards).find(id=>id!==start);
+  await change({type:'precedence',from:'card:'+start,to:'card:'+end});
+  const ids={CARD_ID:start,NEXT_CARD_ID:end,CHARACTER_ID:character.id,PLACE_ID:place.id,
+    MEMORY_GROUP_ID:memoryGroup.id,CHAPTER_ID:chapter.id,PAGE_ID:scenePage};
   let callId=0;
   const invoke=async(action,args={})=>{
     const entry=Object.entries(TOOL_ACTIONS).find(([,actions])=>actions.includes(action));
     assert.ok(entry,`Documented action must exist: ${action}`);
     return JSON.parse(await tools.get(entry[0]).execute({action,args},{agent:{id:actor.sessionId},callId:`example-${++callId}`,signal:new AbortController().signal}));
   };
-  const expand = value => typeof value==='string'?(Object.hasOwn(ids,value)?ids[value]:value):Array.isArray(value)?value.map(expand)
+  const expand = value => typeof value==='string'?(Object.hasOwn(ids,value)?ids[value]:value.startsWith('card:')&&ids[value.slice(5)]?'card:'+ids[value.slice(5)]:value):Array.isArray(value)?value.map(expand)
     :value&&typeof value==='object'?Object.fromEntries(Object.entries(value).map(([key,item])=>[key,expand(item)])):value;
   const execute=example=>{const input=expand(example);return invoke(input.action,input.args);};
-  return {ids,invoke,execute,seed};
+  return {ids,invoke,execute,seed,planTool:(action,args={})=>tools.get('cuigengji_plan').execute({action,args},{agent:{id:actor.sessionId},callId:`blocked-${++callId}`,signal:new AbortController().signal})};
 }
 
 test('all planning skill examples execute and retry through actual host tools',async t=>{
-  for(const example of examples.plan)await t.test(example.args.requestId,async t=>{
+  assert.equal(examples.plan.length,4);
+  for(const example of examples.plan)await t.test(example.args.requestId||'read workspace',async t=>{
     const {ids,invoke,execute}=await fixture(t);
-    const result=await execute(example);
-    assert.deepEqual(await execute(example),result,'an identical retry must not duplicate the graph');
-    const current=await invoke('planning.get',{nodeId:ids.SCENE_ID});
-    if(example.args.operations?.some(op=>op.op==='node.update'&&op.id==='SCENE_ID')){
-      assert.equal((await invoke('planning.list')).total,2);
-      assert.equal(current.node.revision,2);
-      assert.equal(current.node.summary,example.args.operations[0].value.summary);
-      assert.deepEqual(current.node.position,{x:60,y:90});
-      assert.equal(current.node.groupId,ids.PLAN_GROUP_ID);
-      await assert.rejects(execute({...example,args:{...example.args,requestId:'stale-update'}}),/版本已变化/);
-    }else if(example.action==='planning.continue'){
-      const next=await invoke('planning.get',{nodeId:result.node.id});
-      assert.equal(next.node.groupId,ids.PLAN_GROUP_ID);
-      assert.equal(next.node.status,'idea');
-      assert.equal(next.flow.previous[0].id,ids.SCENE_ID);
-      assert.equal(current.flow.next.length,2);
-    }else if(result.mapping.clue){
-      const middle=await invoke('planning.get',{nodeId:result.mapping.clue});
-      assert.deepEqual(current.flow.next.map(n=>n.id),[middle.node.id]);
-      assert.deepEqual(middle.flow.next.map(n=>n.id),[ids.NEXT_SCENE_ID]);
-      assert.equal(current.edges.some(e=>e.id===ids.DIRECT_EDGE_ID),false);
-      await invoke('planning.revert',{transactionId:result.transactionId,requestId:'undo-insertion'});
-      const restored=await invoke('planning.get',{nodeId:ids.SCENE_ID});
-      assert.deepEqual(restored.flow.next.map(n=>n.id),[ids.NEXT_SCENE_ID]);
-    }else{
-      assert.deepEqual(current.node.position,{x:60,y:90},'new workspaces preserve the existing author layout');
-      assert.equal(current.node.revision,1);
-    }
+    const before=await invoke('story.get');
+    const request=structuredClone(example);
+    if(request.action==='story.apply')request.args.expectedRevision=before.state.revision;
+    const result=await execute(request);
+    assert.deepEqual(await execute(request),result,'an identical retry must not duplicate cards or relations');
+    const current=await invoke('story.get');
+    assert.deepEqual(current.state.pages[0].instances['card:'+ids.CARD_ID],before.state.pages[0].instances['card:'+ids.CARD_ID],'preserve author layout');
+    if(request.args.operation?.type==='card.update'){
+      assert.equal(Object.keys(current.state.cards).length,2);
+      assert.equal(current.state.cards[ids.CARD_ID].revision,2);
+      assert.equal(current.state.cards[ids.CARD_ID].summary,request.args.operation.value.summary);
+      await assert.rejects(execute({...request,args:{...request.args,requestId:'stale-update'}}),/已有更新/);
+    }else if(request.args.operation?.type==='card.create'){
+      assert.equal(Object.keys(current.state.cards).length,3);
+      const created=Object.values(current.state.cards).find(c=>!before.state.cards[c.id]);
+      assert.equal(created.status,'idea');assert.deepEqual(created.evidence,[]);
+      assert.deepEqual(current.state.pages[0].instances['card:'+created.id],{x:100,y:120,revision:1});
+    }else if(request.args.operation?.type==='precedence')assert.deepEqual(current.state.precedence,before.state.precedence,'existing edge not duplicated');
   });
 });
 
@@ -125,57 +117,76 @@ test('writing skill patch preserves surrounding prose and feeds saved revisions 
   const chapter=await invoke('chapter.get',{chapterId:ids.CHAPTER_ID});
   assert.equal(chapter.content,`她发现账本被改过。${examples.write[0].args.patch.newText}书铺由来客经营。`);
   await assert.rejects(execute({...examples.write[0],args:{...examples.write[0].args,requestId:'stale-prose'}}),/版本已变化/);
-  const node=(await invoke('planning.get',{nodeId:ids.SCENE_ID})).node;
-  await invoke('planning.apply',{requestId:'link-written-scene',operations:[{op:'node.update',id:node.id,expectedRevision:node.revision,value:{status:'written',chapterRefs:[{chapterId:chapter.id,revision:chapter.revision}],memoryRefs:[ids.CHARACTER_ID]}}]});
-  const saved=await invoke('planning.get',{nodeId:ids.SCENE_ID});
-  assert.equal(saved.node.status,'written');
-  assert.deepEqual(saved.node.chapterRefs,[{chapterId:chapter.id,revision:2}]);
+  let story=await invoke('story.get');
+  const evidence={chapterId:chapter.id,revision:chapter.revision,evidence:chapter.content};
+  story=await invoke('story.apply',{requestId:'link-written-scene',expectedRevision:story.state.revision,operation:{type:'card.update',id:ids.CARD_ID,expectedRevision:story.state.cards[ids.CARD_ID].revision,value:{status:'written',evidence:[evidence],cast:[ids.CHARACTER_ID]}}});
+  assert.equal(story.state.cards[ids.CARD_ID].status,'written');
+  assert.equal(story.state.cards[ids.CARD_ID].evidence[0].revision,2);
+  assert.equal(story.state.cards[ids.CARD_ID].evidence[0].evidence,chapter.content);
+  await assert.rejects(invoke('story.apply',{requestId:'invented-proof',expectedRevision:story.state.revision,operation:{type:'card.update',id:ids.CARD_ID,expectedRevision:2,value:{evidence:[{...evidence,evidence:'不存在的正文'}]}}}),/依据不在/);
+  assert.deepEqual((await invoke('story.get')).state,story.state,'invalid proof is atomic');
 });
 
-test('planning page skill example creates isolated scene and annotation via actual host tool',async t=>{
- const example=examples.plan.find(e=>e.args.operations?.some(op=>op.ref==='journey'));
- assert.ok(example);
- const {execute,invoke}=await fixture(t),result=await execute(example);
- assert.deepEqual(await execute(example),result);
- const pages=await invoke('planning.pages');assert.equal(pages.find(p=>p.id===result.mapping.journey).nodeCount,1);
- const list=await invoke('planning.list',{pageId:result.mapping.journey});assert.equal(list.total,1);assert.equal(list.edges.length,0);
- const note=await invoke('planning.decorations',{pageId:result.mapping.journey});assert.equal(note.items[0].id,result.mapping.question);
- assert.equal((await invoke('planning.list',{pageId:null})).total,2);
+test('independent page instances share content without duplicating cards; author undo restores membership',async t=>{
+ const {ids,invoke,seed}=await fixture(t,{independentPage:true});let story=await invoke('story.get');
+ const before=structuredClone(story.state),ref='card:'+ids.CARD_ID;
+ story=await invoke('story.apply',{requestId:'display-existing',expectedRevision:story.state.revision,operation:{type:'instance.add',pageId:'main',ref,position:{x:500,y:300}}});
+ assert.equal(Object.keys(story.state.cards).length,2);
+ assert.deepEqual(Object.keys(story.state.pages.find(p=>p.id===ids.PAGE_ID).instances).sort(),['card:'+ids.CARD_ID,'card:'+ids.NEXT_CARD_ID].sort());
+ assert.ok(story.state.pages[0].instances[ref]);assert.deepEqual(story.state.precedence,before.precedence);
+ story=await seed('story.undo',{expectedRevision:story.state.revision});
+ assert.deepEqual(story.state.pages,before.pages);assert.deepEqual(story.state.cards,before.cards);
 });
 
-test('documented insertion also preserves independent page membership and causal neighbors',async t=>{
-  const example=examples.plan.find(e=>e.args.operations?.some(op=>op.ref==='clue'));
-  const {ids,execute,invoke}=await fixture(t,{independentPage:true});
-  const result=await execute(example),middle=await invoke('planning.get',{nodeId:result.mapping.clue});
-  assert.equal(middle.node.pageId,ids.SCENE_PAGE_ID);
-  assert.deepEqual(middle.flow.previous.map(node=>node.id),[ids.SCENE_ID]);
-  assert.deepEqual(middle.flow.next.map(node=>node.id),[ids.NEXT_SCENE_ID]);
-  assert.equal((await invoke('planning.list',{pageId:null})).total,0);
-  await invoke('planning.revert',{transactionId:result.transactionId,requestId:'undo-independent-insertion'});
-  assert.equal((await invoke('planning.list',{pageId:ids.SCENE_PAGE_ID})).total,2);
+test('parallel sandbox converges three actions, preserves author layout and keeps unresolved notes in content',async t=>{
+ const {ids,invoke}=await fixture(t);let story=await invoke('story.get');const original=structuredClone(story.state);
+ const change=async operation=>(story=await invoke('story.apply',{requestId:crypto.randomUUID(),expectedRevision:story.state.revision,operation}));
+ await change({type:'page.create',name:'码头决战推演'});const pageId=story.state.pages.at(-1).id;
+ const create=async(title,x,y,content='')=>{const old=new Set(Object.keys(story.state.cards));await change({type:'card.create',pageId,position:{x,y},value:{title,content,status:'idea'}});return Object.keys(story.state.cards).find(id=>!old.has(id));};
+ const meeting=await create('黑暗中抢夺账本',820,420,'待讨论：完整带走，还是付出损失保住证据？');
+ const starts=[],ends=[];
+ for(const [i,title]of ['主角潜入','守方设伏','第三方等候'].entries()){const id=await create(title,100,120+i*300),end=await create(['识破诱饵','封锁出口','切断照明'][i],420,120+i*300);starts.push(id);ends.push(end);await change({type:'precedence',from:'card:'+id,to:'card:'+end});await change({type:'precedence',from:'card:'+end,to:'card:'+meeting});}
+ assert.equal(Object.keys(story.state.pages.at(-1).instances).length,7);
+ assert.equal(story.state.precedence.length-original.precedence.length,6);
+ assert.deepEqual(new Set(story.state.precedence.filter(e=>e.to==='card:'+meeting).map(e=>e.from)),new Set(ends.map(id=>'card:'+id)));
+ const positions=Object.values(story.state.pages.at(-1).instances);
+ for(const [i,a] of positions.entries())for(const b of positions.slice(i+1))assert.ok(Math.abs(a.x-b.x)>=248||Math.abs(a.y-b.y)>=208,'story cards do not overlap');
+ assert.ok(starts.every(id=>story.state.cards[id].status==='idea'&&story.state.cards[id].evidence.length===0));
+ assert.equal(new Set(starts.map(id=>story.state.pages.at(-1).instances['card:'+id].y)).size,3);
+ assert.match(story.state.cards[meeting].content,/待讨论/);
+ assert.deepEqual(story.state.pages[0],original.pages[0]);assert.deepEqual(story.state.cards[ids.CARD_ID],original.cards[ids.CARD_ID]);
+ const before=structuredClone(story.state);
+ await assert.rejects(change({type:'decoration.create',value:{kind:'frame'}}),/不支持/);
+ assert.deepEqual((await invoke('story.get')).state,before,'retired frame writes cannot mutate state');
 });
 
-test('parallel sandbox example converges three tracks and actively creates frames and an unresolved note',async t=>{
- const example=examples.plan.find(e=>e.args.operations?.some(op=>op.ref==='converge'));
- assert.ok(example);
- const {execute,invoke,ids}=await fixture(t),result=await execute(example),pageId=result.mapping.dock;
- const board=await invoke('planning.list',{pageId});
- assert.equal(board.total,7);assert.equal(board.edges.length,6);
- assert.ok(board.items.every(node=>node.status==='idea'&&node.chapterRefs.length===0));
- const meeting=await invoke('planning.get',{nodeId:result.mapping.converge});
- assert.deepEqual(new Set(meeting.flow.previous.map(node=>node.id)),new Set([result.mapping.alarm,result.mapping.block,result.mapping.blackout]));
- const starts=await Promise.all(['infiltrate','ambush','observe'].map(ref=>invoke('planning.get',{nodeId:result.mapping[ref]})));
- assert.equal(new Set(starts.map(({node})=>node.position.y)).size,3);
- assert.ok(starts.every(({flow})=>flow.previous.length===0&&flow.next.length===1));
- for(const [i,a] of board.items.entries())for(const b of board.items.slice(i+1)) {
-  assert.ok(Math.abs(a.position.x-b.position.x)>=224||Math.abs(a.position.y-b.position.y)>=144,'story cards do not overlap');
+test('published planning actions stay aligned with the AI allowlist; legacy writes remain forbidden',async t=>{
+ assert.deepEqual(TOOL_ACTIONS.cuigengji_plan,['story.get','story.apply']);
+ assert.ok(planningArgsSchema.properties.operation.properties.type);
+ assert.equal(planningArgsSchema.properties.operations,undefined);
+ assert.equal(planningArgsSchema.properties.nodeId,undefined);
+ const {planTool}=await fixture(t);
+ for(const action of ['planning.apply','planning.continue','planning.page.create','writing.event.create'])await assert.rejects(planTool(action,{}),/action.*must be one of/);
+ for(const name of ['plan','project','write','revise']){
+  const text=await readFile(new URL(`../skills/cuigengji-${name}/SKILL.md`,import.meta.url),'utf8');
+  assert.doesNotMatch(text,/planning\.(?:apply|get|list|continue|search|page|revert)|writing\.event\./);
  }
- const decorations=await invoke('planning.decorations',{pageId});
- assert.equal(decorations.items.filter(d=>d.kind==='frame'&&d.moveContents).length,3);
- assert.equal(decorations.items.filter(d=>d.kind==='note').length,1);
- assert.ok(decorations.items.every(d=>d.pageId===pageId));
- assert.equal((await invoke('planning.pages')).find(p=>p.id===pageId).decorationCount,4);
- const main=await invoke('planning.list',{pageId:null});
- assert.equal(main.total,2);assert.equal(main.edges.length,1);
- assert.deepEqual((await invoke('planning.get',{nodeId:ids.SCENE_ID})).node.position,{x:60,y:90});
+});
+
+// The current public contract intentionally has no multi-operation transaction.
+// Exercise insertion as explicit steps and verify each committed result, not a
+// false claim that the removed planning.apply batch is still atomic.
+test('inserting a scene preserves independent page and causal neighbors through explicit story steps',async t=>{
+ const {ids,invoke,seed}=await fixture(t,{independentPage:true});let story=await invoke('story.get');
+ const original=structuredClone(story.state),from='card:'+ids.CARD_ID,to='card:'+ids.NEXT_CARD_ID;
+ const change=async operation=>(story=await invoke('story.apply',{requestId:crypto.randomUUID(),expectedRevision:story.state.revision,operation}));
+ await change({type:'card.create',pageId:ids.PAGE_ID,value:{title:'核对送账时间',content:'账本时间与码头收据不符。'}});
+ const middle=Object.keys(story.state.cards).find(id=>!original.cards[id]),ref='card:'+middle;
+ await change({type:'precedence',from,to,remove:true});
+ await change({type:'precedence',from,to:ref});await change({type:'precedence',from:ref,to});
+ assert.deepEqual(story.state.precedence.map(e=>[e.from,e.to]),[[from,ref],[ref,to]]);
+ assert.ok(story.state.pages.find(p=>p.id===ids.PAGE_ID).instances[ref]);
+ assert.equal(Object.keys(story.state.pages[0].instances).length,0);
+ for(let i=0;i<4;i++)story=await seed('story.undo',{expectedRevision:story.state.revision});
+ assert.deepEqual(story.state.cards,original.cards);assert.deepEqual(story.state.pages,original.pages);assert.deepEqual(story.state.precedence,original.precedence);
 });

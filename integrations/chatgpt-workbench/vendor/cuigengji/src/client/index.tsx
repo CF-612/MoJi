@@ -101,7 +101,7 @@ function WorkbenchContent({ sessionId, rpc }) {
         {tab==='detail'&&<WorkDetail {...{call,novelId,tick,run,busy}} onChapter={id=>{if(id)jump('chapters','chapter',id);else setTab('chapters');}} onPlanning={id=>id?onStoryCard(id):setTab('plan')} onMemory={()=>setTab('memory')} onForeshadow={onForeshadow}/>}
 
         {tab==='overview'&&<ModulePage id="overview" {...{call,novelId,tick,run,busy,onForeshadow}} onChapter={onChapter}/>}
-        {tab==='chapters' && <Chapters {...{call,novelId,tick,run,busy,onEvent,onForeshadow,onStoryCard,proseRequest}} onProseLocated={()=>setProseRequest(null)} onMemory={id=>jump('memory','memory-selected',id)} onTransfer={openTransfer}/>}
+        {tab==='chapters' && <Chapters novelTitle={novel?.title} {...{call,novelId,tick,run,busy,onEvent,onForeshadow,onStoryCard,proseRequest}} onProseLocated={()=>setProseRequest(null)} onMemory={id=>jump('memory','memory-selected',id)} onTransfer={openTransfer}/>}
         {tab==='memory' && <Memory {...{call,novelId,tick,run,busy,onForeshadow,onPlanning,onRelation}} onEvent={onStoryCard} onTransfer={openTransfer} onChapter={onChapter}/>}
         {tab==='plan' && <Planning {...{call,novelId,tick,run,busy,onEvent,onPlanning,onCreateMemory,relationRequest,cardRequest}} onCardOpened={()=>setCardRequest(null)} onRelationOpened={()=>setRelationRequest(null)} onTransfer={openTransfer} onMemory={id=>jump('memory','memory-selected',id)} onChapter={onChapter}/>}
         {tab==='preset' && <Preset {...{call,novelId,run,busy}} {...managementBack} onTransfer={openTransfer}/>}

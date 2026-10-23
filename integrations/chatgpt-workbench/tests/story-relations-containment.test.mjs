@@ -5,6 +5,23 @@ const require=createRequire(import.meta.url),{StoryTimeAxis,React,renderToStatic
 const axis={schemaVersion:1,calendar:{kind:'gregorian',name:'公历',era:'公元',visibility:{year:true,month:true,day:true}},anchor:{coordinate:739617,label:'第一章'},coordinateUnit:'day',primaryTick:{unit:'year',step:1},legacyMode:'unmapped',tracks:[{id:'t',name:'明线',color:'#778899',side:'above'}],markers:[]};
 const points=[0,1].map(i=>({id:'p'+i,order:i,location:{story:{binding:{kind:'card',offset:i}}},relationships:[{id:'r'+i,from:'a',to:'b',name:'变化'+i,reason:'记录故事变化'}]}));
 const props={state:{storyAxis:axis,cards:{c:{id:'c',title:'共享卡',status:'selected',cast:[],time:{story:{axisVersion:1,start:739617,end:739619,trackId:'t'}},points}}},sources:{chapters:[]},people:[{id:'a',type:'character_card',name:'甲'},{id:'b',type:'character_card',name:'乙'}],relations:[],evolution:true,relationClock:{setMode(){}},novelId:'synthetic-scroll',save:async()=>true};
-test('actual standalone story relations render own styles and constrained focusable region, not narration-dependent bare aside',()=>{const html=renderToStaticMarkup(React.createElement(StoryTimeAxis,{...props,relationTarget:{}}));assert.match(html,/story-axis sa-relations-view/);assert.match(html,/\.cuigengji \.unified-story&gt;\.story-axis\{[^}]*display:flex/,'root layout must outrank legacy .cuigengji .story-axis block rule');assert.match(html,/\.cuigengji \.unified-story&gt;\.story-axis:before\{content:none/,'old vertical-axis decoration must not leak');assert.match(html,/class="sa-relations-region" role="region" aria-label="故事关系内容" tabindex="0"/);assert.equal((html.match(/>定位<\/button>/g)||[]).length,2);assert.match(html,/\.u-rel-scroll\{overflow:auto;min-height:0;flex:1/,'shared relation styles must mount without UnifiedTimeline');assert.match(html,/\.sa-relations-region\{flex:1 1 0;min-height:0;min-width:0;overflow:auto/);assert.ok(!html.includes('<details class="sa-tray"'),'unrelated tray cannot expand relation viewport');});
-test('axis view retains its pending tray and does not add a second relationship scroller',()=>{const html=renderToStaticMarkup(React.createElement(StoryTimeAxis,props));assert.match(html,/<details class="sa-tray"/);assert.ok(!html.includes('role="region" aria-label="故事关系内容"'));});
+test('actual standalone story relations render own styles and one constrained focusable region beside a separate tray',()=>{
+ const html=renderToStaticMarkup(React.createElement(StoryTimeAxis,{...props,relationTarget:{}}));
+ assert.match(html,/class="story-axis [^"]*sa-relations-view/);
+ assert.match(html,/\.cuigengji \.unified-story&gt;\.story-axis\{[^}]*display:flex/,'root layout must outrank legacy .cuigengji .story-axis block rule');
+ assert.match(html,/\.cuigengji \.unified-story&gt;\.story-axis:before\{content:none/,'old vertical-axis decoration must not leak');
+ assert.match(html,/class="sa-relations-region" role="region" aria-label="故事关系内容" tabindex="0"/);
+ assert.equal((html.match(/>定位<\/button>/g)||[]).length,2);
+ assert.match(html,/\.u-rel-scroll\{overflow:auto;min-height:0;flex:1/,'shared relation styles must mount without UnifiedTimeline');
+ assert.match(html,/\.sa-workspace&gt;\.sa-relations-region\{display:none;min-height:0;min-width:0;overflow:auto/);
+ assert.match(html,/<details class="sa-tray"[\s\S]*?<\/details><\/section><div class="sa-relations-region"/,'tray remains in its own axis column, never inside relationship scroll region');
+ assert.match(html,/\.sa-relations-view \.sa-workspace&gt;\.sa-axis-column\{display:none\}/,'narrow relation view hides the whole axis/tray column');
+});
+test('axis view retains pending tray and one persistent relationship pane with no nested scroll owner',()=>{
+ const html=renderToStaticMarkup(React.createElement(StoryTimeAxis,props));
+ assert.match(html,/<details class="sa-tray"/);
+ assert.equal((html.match(/role="region" aria-label="故事关系内容"/g)||[]).length,1,'wide layout needs exactly one persistent relation region');
+ assert.match(html,/\.sa-relations-region \.u-rel-scroll\{overflow:visible\}/,'outer region owns story relation scroll; nested content must not compete');
+ assert.match(html,/\.sa-has-relations \.sa-workspace&gt;\.sa-relations-region\{display:block\}/,'wide workspace displays the existing region rather than a duplicate');
+});
 test.after(()=>rm(folder,{recursive:true,force:true}));

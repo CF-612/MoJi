@@ -331,7 +331,7 @@ export class ProjectStore extends AtomicStore<Workspace> {
     const id = action === 'novel.import' ? args.backup?.novel?.id : args.novelId || binding?.novelId;
     if (!id || !own(state.novels, id)) return state;
     const book = await this.book(state, view, id), novel = state.novels[id];
-    if (action === 'novel.import' || action === 'novel.export' || action === 'chapter.create' && (args.characters?.length || args.events?.length) || action.startsWith('writing.') || action.startsWith('story.') || ['graph.list','graph.history','graph.restore','graph.update'].includes(action) || action === 'writing_context.get') return this.fullBook(state, view, book);
+    if (action === 'novel.import' || action === 'novel.export' || action === 'chapter.create' && (args.characters?.length || args.events?.length) || action.startsWith('writing.') || action.startsWith('story.') || ['graph.history','graph.restore','graph.update'].includes(action) || action === 'writing_context.get') return this.fullBook(state, view, book);
     const preset = action.startsWith('preset.');
     const directory = !preset && !['novel.update', 'novel.archive', 'volume.list', 'volume.create', 'volume.update'].includes(action);
     if (directory) await this.chapterIndex(novel, book, view);
@@ -356,6 +356,8 @@ export class ProjectStore extends AtomicStore<Workspace> {
     if (['graph.get', 'graph.update', 'graph.delete', 'graph.continue'].includes(action)) nodeIds.add(args.nodeId);
     if (['graph.duplicate', 'graph.remove'].includes(action) && Array.isArray(args.members)) for (const member of args.members) if (member?.id) nodeIds.add(member.id);
     if (action === 'graph.layout' && Array.isArray(args.positions)) for (const value of args.positions) if (value?.nodeId) nodeIds.add(value.nodeId);
+    // Listing uses indexed node metadata, chapter version hashes and writing data
+    // already in project.json; only content search needs individual node bodies.
     if (action === 'graph.list' && args.query) for (const id of Object.keys(novel.nodes)) nodeIds.add(id);
     for (const id of nodeIds) await this.node(novel, book, view, id);
     if (action.startsWith('planning.') || ['novel.get', 'novel.handoff'].includes(action)) {

@@ -1,25 +1,28 @@
-import { PLANNING_OPERATIONS } from '../../contracts/planning.ts';
-
-// Keep the canonical shape visible to the model. Extra fields remain allowed
-// for read actions and the narrowly supported legacy operation spellings.
+// Public AI schema follows TOOL_ACTIONS.cuigengji_plan (story.get/story.apply).
+// Internal legacy readers are not a supported AI write protocol.
 export const planningArgsSchema = {
   type:'object',additionalProperties:true,
-  description:'使用本会话绑定的小说。读取/续接用 nodeId；apply 内用 operations:[{op,id,expectedRevision,value}]，id/版本与 op 同层。',
+  description:'使用本会话绑定的小说。story.get 读取 state、sources 和历史摘要。story.apply 每次提交单个 operation，最外层 expectedRevision 使用 state.revision；不是旧版 operations 批量事务。',
   properties:{
-    operation:{type:'object',additionalProperties:true,description:'V3.1 story.apply 的单次操作；type 为 card.create/card.update/card.delete/move/relation.save 等。更新须对象 expectedRevision；最外层 expectedRevision 为 story.get 返回的工作区版本。'},
-    requestId:{type:'string',description:'一次修改的唯一请求标识，重试同一请求保持不变'},
-    nodeId:{type:'string',description:'planning.get/continue 的节点 ID'},
-    expectedRevision:{type:'integer',description:'continue 或页面/分组更新所读取的版本'},
-    operations:{type:'array',description:'planning.apply 的 1–200 条操作，整批一起成功或失败',items:{
-      type:'object',additionalProperties:true,properties:{
-        op:{type:'string',enum:PLANNING_OPERATIONS,description:'操作名'},
-        id:{type:'string',description:'更新/删除对象的真实 ID，与 op 同层'},
-        expectedRevision:{type:'integer',description:'更新/删除对象的已读取版本，与 op 同层'},
-        ref:{type:'string',description:'新对象的临时名字，本次后续操作直接用此字符串引用'},
-        value:{type:'object',additionalProperties:true,description:'要保存的字段；连线用 {from,to}，位置用 position:{x,y} 数值'},
-        confirm:{type:'boolean',description:'删除操作须明确为 true'},
-        childPolicy:{type:'string',enum:['detach','subtree'],description:'有下级节点时保留下级或删除子树'},
-      },
+    requestId:{type:'string',description:'一次修改的唯一请求标识；结果不明时重试同一请求必须保留原参数与标识'},
+    reason:{type:'string',description:'本次修改的原因'},
+    expectedRevision:{type:'integer',description:'story.get 返回的工作区 state.revision；每次修改都需提供'},
+    operation:{type:'object',additionalProperties:true,description:'单次剧情操作。返回完整 state；新对象 ID 从返回结果取得，不支持临时 ref/mapping。',properties:{
+      type:{type:'string',description:'如 card.create/card.update/card.delete/move/precedence/page.create/instance.add/instance.remove/instance.layout；其他操作按当前工作区合同使用'},
+      id:{type:'string',description:'card.update/delete 的真实卡片 ID'},
+      expectedRevision:{type:'integer',description:'card.update 的卡片 revision，不是工作区 revision'},
+      value:{type:'object',additionalProperties:true,description:'剧情卡字段，如 title/summary/content/status/cast/scope/evidence/time/points；更新只提交变更字段'},
+      pageId:{type:'string',description:'读取到的真实页面 ID；不是 null 或临时 ref'},
+      ref:{type:'string',description:'已有对象引用，形如 card:ID/chapter:ID/volume:ID'},
+      refs:{type:'array',items:{type:'string'},description:'move 的已有对象引用列表'},
+      parent:{type:'string',description:'包含目标对象引用，顶层为 root'},
+      before:{type:'string',description:'同级前置锚点引用；与 after 二选一'},
+      after:{type:'string',description:'同级后置锚点引用；与 before 二选一'},
+      from:{type:'string',description:'precedence 起点对象引用'},
+      to:{type:'string',description:'precedence 终点对象引用'},
+      remove:{type:'boolean',description:'precedence 为 true 时移除该先后关系'},
+      name:{type:'string',description:'新页面名称'},
+      position:{type:'object',additionalProperties:false,properties:{x:{type:'number'},y:{type:'number'}},description:'新增展示坐标，不改变已有布局'},
     }},
   },
 };

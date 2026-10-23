@@ -10,7 +10,7 @@ export const relationCategories={other:'其他',family:'亲属',partner:'伙伴'
 const refs=(ids,map,label)=>{if(!Array.isArray(ids)||ids.length>100||new Set(ids).size!==ids.length)fail(`${label}无效`);ids.forEach(id=>get(map,id,label));return clone(ids);};
 const eventOrder=(a,b)=>a.order-b.order||a.id.localeCompare(b.id);
 function chapterRanks(n){const volumes=active(n.volumes).sort((a,b)=>a.order-b.order||a.id.localeCompare(b.id)),rank=id=>!id?volumes.length:volumes.findIndex(v=>v.id===id);return new Map(active(n.chapters).sort((a,b)=>rank(a.volumeId)-rank(b.volumeId)||a.order-b.order||a.id.localeCompare(b.id)).map((c,i)=>[c.id,i]));}
-function checkedEvent(n,w,v){
+export function checkedEvent(n,w,v){
  v={...v,chapterRefs:v.chapterRefs===undefined?[]:v.chapterRefs};
  if(!Number.isFinite(v.order))fail('故事排序需要明确数字');
  if(v.storyDate&&!calendarDate(v.storyDate))fail('故事日期请使用有效的 YYYY-MM-DD；不确定可留空');

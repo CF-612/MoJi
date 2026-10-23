@@ -62,7 +62,7 @@ function foreshadowView(n,f,chapterId){
  const plotNodes=f.plotNodes?.map(node=>({...node,review:!!node.evidence&&needsReview(node.evidence)}));
  return {...f,...(plotNodes?{plotNodes}:{}),targetTitle:n.chapters[f.targetChapterId]?.title||null,due:!['recovered','abandoned'].includes(f.status)&&rank.has(f.targetChapterId)&&at>=rank.get(f.targetChapterId),review:f.evidence.some(needsReview)||!!plotNodes?.some(node=>node.review)};
 }
-function checkedForeshadow(n,v){
+export function checkedForeshadow(n,v){
  if(v.resolution!==undefined&&!['active','complete','abandoned'].includes(v.resolution))fail('伏笔结局无效');
  const title=text(v.title,'伏笔名称');let status=v.status||'planned';if(!['planned','planted','developing','partial','recovered','abandoned'].includes(status))fail('伏笔状态无效');
  if(!Array.isArray(v.evidence)||v.evidence.length>200)fail('伏笔依据无效');

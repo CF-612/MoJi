@@ -1,3 +1,4 @@
+import {resolveStoryTrack} from './story-tracks.mjs';
 // Exact day coordinates, independent of narrative order and display tick density.
 export const STORY_DAY_LIMIT=100000000000000;
 const fail=message=>{throw Object.assign(new Error(message),{code:'STORY_INVALID'});};
@@ -37,21 +38,21 @@ export function validateStoryAxis(a){
  a.tracks.forEach(validateTrack);a.markers.forEach(validateMarker);
  for(const list of [a.tracks,a.markers])if(new Set(list.map(x=>x.id)).size!==list.length)fail('故事轨道或标记标识重复。');return a;
 }
-export function validateStoryPlacement(t,axis){
- validateStoryAxis(axis);if(t.axisVersion!==1||!isStoryCoordinate(t.start)||!isStoryCoordinate(t.end)||t.end<=t.start||!axis.tracks.some(x=>x.id===t.trackId)||!Number.isInteger(t.row??0)||(t.row??0)<0||(t.row??0)>10000)fail('故事时间位置、跨度或独立轨道无效。');
+export function validateStoryPlacement(t,axis,sharedTracks=[]){
+ validateStoryAxis(axis);if(t.axisVersion!==1||!isStoryCoordinate(t.start)||!isStoryCoordinate(t.end)||t.end<=t.start||!resolveStoryTrack(t,axis,sharedTracks)||(t.trackSource!==undefined&&t.trackSource!=='shared')||(t.side!==undefined&&!['above','below'].includes(t.side))||!Number.isInteger(t.row??0)||(t.row??0)<0||(t.row??0)>10000)fail('故事时间位置、跨度或独立轨道无效。');
 }
 export function editStoryAxis(state,op,newId){
  if(op.type==='storyAxis.configure'){
   const next=structuredClone(op.value);validateStoryAxis(next);
   if(state.storyAxis){const signature=a=>JSON.stringify([a.schemaVersion,a.calendar.kind,a.calendar.kind==='custom'?a.calendar.monthLengths:null,a.coordinateUnit,a.anchor.coordinate]);if(signature(next)!==signature(state.storyAxis)&&(state.storyAxis.markers.length>0||Object.values(state.cards).some(c=>c.time?.story?.axisVersion===1)))fail('已有故事日期，不能直接更换时间域；请先明确迁移日期。');}
-  for(const c of Object.values(state.cards))if(c.time?.story?.axisVersion===1)validateStoryPlacement(c.time.story,next);
+  for(const c of Object.values(state.cards))if(c.time?.story?.axisVersion===1)validateStoryPlacement(c.time.story,next,state.tracks);
   state.storyAxis=next;return;
  }
  validateStoryAxis(state.storyAxis);const axis=state.storyAxis;
  if(op.type==='storyAxis.place'||op.type==='storyAxis.unplace'){
   const card=state.cards[op.id];if(!card)fail('剧情卡已不存在。');if(op.expectedRevision!==undefined&&card.revision!==op.expectedRevision)throw Object.assign(new Error('剧情卡已变化，请刷新后重试。'),{code:'CONFLICT'});
   if(op.type==='storyAxis.unplace'){card.time={...card.time,story:null};card.revision++;return;}
-  const time={axisVersion:1,start:op.start,end:op.end,trackId:op.trackId,row:op.row??0};validateStoryPlacement(time,axis);
+  const time={axisVersion:1,start:op.start,end:op.end,trackId:op.trackId,row:op.row??0,...(op.trackSource!==undefined?{trackSource:op.trackSource}:{}),...(op.side!==undefined?{side:op.side}:{})};validateStoryPlacement(time,axis,state.tracks);
   // Preserve legacy coordinates as explicit provenance, never reinterpret them.
   if(card.time?.story&&card.time.story.axisVersion!==1&&!card.legacyStoryTime)card.legacyStoryTime=structuredClone(card.time.story);
   card.time={...card.time,story:time};card.revision++;return;
@@ -60,7 +61,7 @@ export function editStoryAxis(state,op,newId){
  const list=kind==='marker'?axis.markers:axis.tracks,index=list.findIndex(x=>x.id===op.id);
  if(action!=='create'&&index<0)fail('故事时间对象已不存在。');
  if(action==='delete'){
-  if(kind==='track'&&(list.length===1||Object.values(state.cards).some(c=>c.time?.story?.axisVersion===1&&c.time.story.trackId===op.id)))fail('请先移走轨道上的卡片，并保留至少一条故事轨道。');list.splice(index,1);return;
+  if(kind==='track'&&(list.length===1||Object.values(state.cards).some(c=>c.time?.story?.axisVersion===1&&c.time.story.trackSource!=='shared'&&c.time.story.trackId===op.id)))fail('请先移走轨道上的卡片，并保留至少一条故事轨道。');list.splice(index,1);return;
  }
  const value=kind==='marker'?{id:action==='create'?newId():op.id,label:op.label,coordinate:op.coordinate}:{id:action==='create'?newId():op.id,name:op.name,color:op.color,side:op.side};
  (kind==='marker'?validateMarker:validateTrack)(value);if(action==='create')list.push(value);else list[index]={...list[index],...value};
