@@ -12,6 +12,7 @@ await mkdir(resolve(out,'server'),{recursive:true});await mkdir(resolve(out,'dis
 // Fully bundle the local adapter and command engine: no npm, source tree or user data.
 const bundled=await build({entryPoints:[resolve(integration,'server/index.mjs')],outfile:resolve(out,'server/index.mjs'),bundle:true,metafile:true,platform:'node',format:'esm',target:'node24',external:['node:*'],banner:{js:"import {createRequire as mojiCreateRequire} from 'node:module';const require=mojiCreateRequire(import.meta.url);"}});
 await copyFile(resolve(integration,'dist/workbench-dev.html'),resolve(out,'dist/workbench-dev.html'));
+await copyFile(resolve(integration,'dist/native-paused.html'),resolve(out,'dist/native-paused.html'));
 await copyFile(resolve(runtime,'node.exe'),resolve(out,'node.exe'));
 await copyFile(resolve(runtime,'LICENSE'),resolve(out,'NODE-LICENSE.txt'));
 await copyFile(resolve(runtime,'SOURCE.txt'),resolve(out,'NODE-SOURCE.txt'));
