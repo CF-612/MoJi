@@ -1,4 +1,4 @@
-export const editorDefaults={fontSize:18,leading:1.95,fontFamily:'system',fontColor:'auto',fontWeight:400,fontItalic:false,fontUnderline:false,letterSpacing:0,titleAlign:'center',pageMargin:24,mobilePageMargin:8,bottomSpace:32,showInfoBar:true,transparentTitle:false,countPunctuation:true,backdropBlur:false,openAtEnd:false,quickInput:false,pairedPunctuation:true,writingSpeed:false,writingSpeedCompact:true};
+export const editorDefaults={fontSize:18,leading:1.95,fontFamily:'system',fontColor:'auto',fontWeight:400,fontItalic:false,fontUnderline:false,letterSpacing:0,titleAlign:'center',pageMargin:24,mobilePageMargin:8,bottomSpace:32,showInfoBar:true,transparentTitle:false,countPunctuation:true,wordCountPosition:'bottom',backdropBlur:false,openAtEnd:false,quickInput:false,pairedPunctuation:true,writingSpeed:false,writingSpeedCompact:true};
 const number=(value,min,max,fallback)=>Number.isFinite(value)?Math.max(min,Math.min(max,value)):fallback;
 export function normalizeEditorPreferences(p={}){
  const next={...editorDefaults};
@@ -8,6 +8,7 @@ export function normalizeEditorPreferences(p={}){
  if(p.fontColor==='auto'||/^#[0-9a-f]{6}$/i.test(p.fontColor||''))next.fontColor=p.fontColor;
  if([300,400,500,600,700].includes(p.fontWeight))next.fontWeight=p.fontWeight;
  if(['left','center','right','hidden'].includes(p.titleAlign))next.titleAlign=p.titleAlign;
+ if(['top','bottom'].includes(p.wordCountPosition))next.wordCountPosition=p.wordCountPosition;
  return next;
 }
 export const proseFontFamily=value=>({system:'inherit',serif:'"Noto Serif SC","Songti SC",SimSun,serif',sans:'"Noto Sans SC","Microsoft YaHei",sans-serif',mono:'ui-monospace,Consolas,monospace'}[value]||'inherit');

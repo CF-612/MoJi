@@ -15,7 +15,7 @@ export interface Preferences {
   cardColors: Record<string,string>;
   numbering: 'chinese'|'arabic';
   fontSize: number; leading: number; directory: boolean;
-  fontFamily:string; fontColor:string; fontWeight:number; fontItalic:boolean; fontUnderline:boolean; letterSpacing:number; titleAlign:string; pageMargin:number; mobilePageMargin:number; bottomSpace:number; showInfoBar:boolean; transparentTitle:boolean; countPunctuation:boolean; backdropBlur:boolean; openAtEnd:boolean; quickInput:boolean; pairedPunctuation:boolean; writingSpeed:boolean; writingSpeedCompact:boolean;
+  fontFamily:string; fontColor:string; fontWeight:number; fontItalic:boolean; fontUnderline:boolean; letterSpacing:number; titleAlign:string; pageMargin:number; mobilePageMargin:number; bottomSpace:number; showInfoBar:boolean; transparentTitle:boolean; countPunctuation:boolean; wordCountPosition:string; backdropBlur:boolean; openAtEnd:boolean; quickInput:boolean; pairedPunctuation:boolean; writingSpeed:boolean; writingSpeedCompact:boolean;
   planningView: 'canvas' | 'outline' | 'timeline'; memoryView: 'canvas' | 'list'; motion: 'system' | 'reduce';
 }
 export const defaults: Preferences = { ...editorDefaults, modules:normalizeModules(), numbering:'chinese', theme:'system', cardColors: {...defaultCardColors}, fontSize: 18, leading: 1.95, directory: true, planningView: 'timeline', memoryView: 'list', motion: 'system' };
@@ -104,14 +104,14 @@ export function PreferencesDialog({close, novelTitle, onPreset}: {close: () => v
             <SettingCard title="动效">
               <label className="settings-row"><span className="settings-row-text">动画效果<small>跟随系统时按系统的减少动态效果设置。</small></span><select value={p.motion} onChange={event=>update({motion:event.target.value as Preferences['motion']})}><option value="system">跟随系统</option><option value="reduce">减少动态效果</option></select></label>
             </SettingCard>
-            <SettingCard title="正文排版" note="字号与行距在独立分类里统一调整。">
-              <button type="button" className="settings-link-row" onClick={()=>setTab('typography')}><span className="settings-row-text"><strong>字号与行距</strong><small>当前 {p.fontSize}px 字号 · {leadingName(p.leading)}行距</small></span><span className="settings-link-mark" aria-hidden="true">›</span></button>
+            <SettingCard title="正文排版" note="正文显示偏好统一在编辑器“更多”中调整。">
+              <button type="button" className="settings-link-row" onClick={()=>setTab('typography')}><span className="settings-row-text"><strong>正文显示设置说明</strong><small>当前 {p.fontSize}px 字号 · {leadingName(p.leading)}行距</small></span><span className="settings-link-mark" aria-hidden="true">›</span></button>
             </SettingCard>
           </section>
           <section className="settings-panel" aria-label="正文与目录" hidden={tab!=='typography'}>
-            <SettingCard title="正文显示" note="用于此设备的所有章节正文。更多字体和页面布局选项在正文“更多 → 外观与排版”。">
-              <label className="settings-row"><span className="settings-row-text">正文字号<small>14–32 像素，默认 18</small></span><select aria-label="默认正文字号" value={p.fontSize} onChange={event=>update({fontSize:Number(event.target.value)})}>{Array.from({length:19},(_,i)=>i+14).map(number=><option key={number} value={number}>{number}</option>)}</select></label>
-              <label className="settings-row"><span className="settings-row-text">行距<small>正文行与行之间的距离</small></span><select aria-label="正文行距" value={p.leading} onChange={event=>update({leading:Number(event.target.value)})}>{![1.7,1.95,2.2].includes(p.leading)&&<option value={p.leading}>{p.leading.toFixed(2)} 倍</option>}<option value={1.7}>紧凑</option><option value={1.95}>适中</option><option value={2.2}>宽松</option></select></label>
+            <SettingCard title="正文显示" note="字号、字体与行距统一在正文编辑器中设置，避免重复入口。">
+              <p className="muted">打开任意章节 → 更多 → 字体字号 / 页面布局。字数显示位置和统计口径在“编辑偏好”中设置。</p>
+              <p className="muted">当前 {p.fontSize}px 字号 · {leadingName(p.leading)}行距。原有偏好继续保留。</p>
             </SettingCard>
             <SettingCard title="章节编号" note="统一显示已有编号和新建默认标题；保留自定义标题及已保存的原始名称。">
               <label className="settings-row"><span className="settings-row-text">章节与分卷编号<small>中文章节名或阿拉伯数字</small></span><select aria-label="章节编号格式" value={p.numbering} onChange={event=>update({numbering:event.target.value as Preferences['numbering']})}><option value="chinese">中文数字 · 第一章</option><option value="arabic">阿拉伯数字 · 第1章</option></select></label>
