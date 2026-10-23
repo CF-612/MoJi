@@ -1,3 +1,4 @@
+import {validateTrackPreferences,reorderTracks,setStoryTrackSide} from './story-tracks.mjs';
 import {editStoryAxis,validateStoryAxis,validateStoryPlacement} from './story-axis.mjs';
 import {editRelation,validateRelationPoints} from './story-relation-edit.mjs';
 // V3.1 新模型。目录仅提供源对象；创作包含、展示实例、时间位置各自独立。
@@ -232,6 +233,8 @@ export function applyStory(input,sources,operation,newId){
     if(!Number.isFinite(point.x)||!Number.isFinite(point.y))fail('坐标无效。');page.instances[ref]={x:point.x,y:point.y,revision:item.revision+1};
    }break;
   }
+  case 'track.reorder':reorderTracks(state,op);break;
+  case 'storyAxis.track.side':setStoryTrackSide(state,op);break;
   case 'track.create':if(!String(op.name||'').trim())fail('请填写轨道名称。');else {if(op.color&&!/^#[0-9a-f]{6}$/i.test(op.color))fail('轨道颜色无效。');state.tracks.push({id:newId(),name:op.name.trim(),color:op.color||trackPalette[state.tracks.length%trackPalette.length]});}break;
   case 'track.update':{const track=state.tracks.find(t=>t.id===op.id);if(!track)fail('轨道不存在。');if(!String(op.name||'').trim()||!/^#[0-9a-f]{6}$/i.test(op.color))fail('请填写轨道名称并选择颜色。');track.name=op.name.trim();track.color=op.color;break;}
   case 'track.compact':{
@@ -242,7 +245,7 @@ export function applyStory(input,sources,operation,newId){
   }
   default:fail('不支持的剧情操作。');
  }
- assertTree(state,sources);cleanAttachments(state);state.revision=input.revision+1;return state;
+ validateTrackPreferences(state);assertTree(state,sources);cleanAttachments(state);state.revision=input.revision+1;return state;
 }
 export function validateRestore(value,sources){
  if(value?.format!=='moji-story-v1'||!value.cards||!value.placements||!Array.isArray(value.pages)||!value.pages.length||!Array.isArray(value.tracks)||!value.tracks.length||!Array.isArray(value.precedence))fail('不是本轮新结构的规划备份。');
@@ -250,6 +253,7 @@ export function validateRestore(value,sources){
  for(const [id,card]of Object.entries(value.cards))if(!safe(id)||card.id!==id||!Number.isSafeInteger(card.revision)||card.revision<1||!card.title?.trim()||!Array.isArray(card.cast)||!Array.isArray(card.scope)||!Array.isArray(card.evidence))fail('剧情卡标识、版本或字段无效');
  for(const rows of [value.pages,value.tracks])if(rows.some(r=>!safe(r.id))||new Set(rows.map(r=>r.id)).size!==rows.length)fail('页面或轨道标识无效');
  if(value.storyAxis)validateStoryAxis(value.storyAxis);
+ validateTrackPreferences(value);
  const objects=objectIndex(value,sources);
  for(const ref of Object.keys(value.placements))if(!objects[ref])fail('备份包含当前目录中不存在的卷章；请使用配套测试作品。');
  assertTree(value,sources);

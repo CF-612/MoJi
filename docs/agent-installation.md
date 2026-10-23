@@ -1,19 +1,24 @@
-# 交给 Agent 安装或更新催更姬（Windows）
+# 交给 Agent 安装或更新墨叽（源码构建包）
 
-普通用户使用 DSH 桌面版自带的插件管理和预构建包即可，无需 Git、Node.js、pnpm 或源码构建。此文可以在首次安装前交给 Agent；安装后另有 `cuigengji-maintenance` Skill 指导维护验收。
+当前版本以仓库 `package.json` 为准。**暂无当前版本的 Windows 成品安装包**；旧上游催更姬的 0.4.0 Release 不是当前墨叽安装源，不要把旧包当成升级包。打包脚本存在也不表示对应资产已经发布。
 
-## 下载入口
+## 当前支持的来源
 
-- 当前发布：[0.4.0](https://github.com/mistnest/dsh-cuigengji-plugin/releases/tag/v0.4.0)
-- 成品安装包：[dsh-cuigengji-0.4.0.tgz](https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.0/dsh-cuigengji-0.4.0.tgz)
-- 哈希校验：[SHA256SUMS](https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.0/SHA256SUMS)
-- 已验证宿主：DSH Windows 桌面版 **0.2.0-rc.2**。后续宿主版本以对应发布说明为准。
+使用 [墨叽开发分支 codex/main](https://github.com/CF-612/MoJi/tree/codex/main)，不要混用默认 moji-release 分支的旧说明。环境需要 Git、Node.js 24+ 与 npm。详细工作台与 DSH 入口见 [README](../README.md)。
 
-安装源用上面的 `.tgz` URL，或下载后的 Windows 绝对路径。GitHub 的源码 ZIP 是源码，仓库地址会让宿主调用 Git，二者都不作为免 Git 安装源。本项目尚未发布 npm 包，不把 `dsh-cuigengji@0.4.0` 当成可用 registry 安装命令。
+```sh
+git clone --branch codex/main https://github.com/CF-612/MoJi.git
+cd MoJi
+npm ci
+npm ci --prefix integrations/chatgpt-workbench
+npm pack
+```
 
-## 用户可直接交给 Agent 的话
+`npm pack` 会运行类型检查与构建，生成本地 `dsh-cuigengji-<package.json版本>.tgz`。必须检查命令真实成功和输出包版本；构建不是宿主验收，也不是已经安装。通过 DSH 原生插件安装入口选择这个本地包。没有获得用户授权时不替用户安装依赖、改宿主或创建云资源。
 
-> 请按催更姬的 Windows Agent 安装指南帮我安装或更新到 0.4.0。使用 DSH 原生插件管理和 GitHub Release 成品包，保留已有配置和小说数据，完整重启后用维护工具确认实际加载版本、正确的数据目录和迁移校验结果。用户重新进入插件时应能直接继续写作。
+## 用户可交给 Agent 的要求
+
+请从墨叽当前开发分支构建并核对本地包，通过我的 DSH 原生插件管理安装；保留已有配置和小说数据。安装前记录 package.json 的目标版本和现有数据目录；重启后确认实际加载版本及迁移校验结果。没有对应发布资产时不要下载旧上游包，也不要声称免源码安装。
 
 ## 1. 查明当前环境
 
@@ -29,23 +34,15 @@ DSH 中的 Agent 可使用原生 `plugin_manager`。已验证宿主在 Creator �
 
 ## 2. 取得并核对包
 
-下载真实的发布资产，核对 `SHA256SUMS` 的 SHA-256。下载失败时可以重试下载或改为本地 `.tgz` 路径；不要给用户临时搭建 Git 或源码构建环境。
-
-Windows 外部 Agent 可以用 PowerShell 的 `Get-FileHash -Algorithm SHA256` 核对已下载文件。安装目标始终是用户当前的 DSH profile，不新建同名 desktop 环境。
+使用上面的源码构建结果。记录本地包绝对路径、源码版本、构建日志和 SHA-256（Windows 可用 `Get-FileHash -Algorithm SHA256`）。只有官方实际发布对应版本资产时才使用发布 URL，并核对该资产附带的哈希；本文不提供或猜测不存在的下载链接。
 
 ## 3. 由宿主安装和启用
 
-通过 DSH 原生工具安装 URL：
+通过 DSH 原生插件管理的 `install_bundle` 选择已核实的本地 `.tgz` 绝对路径；不要把本文占位符作为路径调用。没有管理工具权限时由用户在原生插件页选择该包。
 
-```json
-{"action":"install_bundle","target":"https://github.com/mistnest/dsh-cuigengji-plugin/releases/download/v0.4.0/dsh-cuigengji-0.4.0.tgz","enabled":true}
-```
+读取安装返回的 `application`、`error`、`packageResult`。`restart-required` 表示磁盘包已更新，当前进程仍可能使用旧代码，需要完整重启。失败时保留诊断，不把下载或构建成功当成安装成功。
 
-或把 `target` 换成已经核对过的本地 `.tgz` 绝对路径。没有原生工具访问能力的外部 Agent，可以先准备好包，交由 DSH 的原生插件页安装，并继续接手后面的验证。
-
-读取安装返回的 `application`、`error`、`packageResult`。`restart-required` 表示磁盘上的包已更新，当前进程仍使用旧代码，需要一次完整重启。若宿主报告安装失败，保留具体诊断，不把已下载文件当成已安装。
-
-desktop profile 由桌面应用管理。普通 DSH CLI 会拒绝对它直接操作；不要创建同名 profile、手工改 bundles 或在用户 profile 直接运行 `pnpm add`。本仓库的 `install-desktop.ps1` 是开发者维护脚本，不属于普通用户安装路径。
+desktop profile 由宿主管理，不创建同名 profile、不手工修改 bundles，也不在用户 profile 直接运行 `pnpm add`。开发者脚本不替代普通用户安装路径。
 
 ## 4. 完整重启与自动迁移
 
@@ -61,15 +58,15 @@ desktop profile 由桌面应用管理。普通 DSH CLI 会拒绝对它直接操�
 {"action":"status","args":{}}
 ```
 
-再核对版本、原数据根和原作品 ID；下面的数据目录是示例，请换成之前查明的目录：
+再核对版本、原数据根和原作品 ID；下面的 PACKAGE_JSON_VERSION 和数据目录是占位符，必须替换成构建时实际版本与之前查明的目录：
 
 ```json
-{"action":"verify","args":{"expectedVersion":"0.4.0","expectedDataRoot":"C:\\Users\\用户名\\AppData\\Local\\cuigengji","expectedNovelIds":[]}}
+{"action":"verify","args":{"expectedVersion":"PACKAGE_JSON_VERSION","expectedDataRoot":"C:\\Users\\用户名\\AppData\\Local\\cuigengji","expectedNovelIds":[]}}
 ```
 
 `expectedNovelIds` 可填升级前作品的真实 ID，不用新 ID 替代。确认：
 
-- `status.status=ready`，实际加载版本为 0.4.0，数据根与更新前一致。
+- `status.status=ready`，实际加载版本与构建时 package.json 版本一致，数据根与更新前一致。
 - `verify.verified=true`，各作品、正文版本、回收站、设定、规划页和绑定数量符合原数据。
 - 原有作品仍能通过只读工具访问。初次安装应是可用空库，不会附带作者小说。
 
@@ -79,7 +76,7 @@ desktop profile 由桌面应用管理。普通 DSH CLI 会拒绝对它直接操�
 
 ## 失败时怎样处理
 
-- **找不到 Git / `git ls-remote`**：核对是否误用了仓库地址，换成已核实的 `.tgz`。
+- **找不到 Git / `git ls-remote`**：核对是否误用了仓库地址，源码构建需先安装 Git；已有本地包时改选已核实的 `.tgz`。
 - **不兼容或构建批准提示**：保留宿主的具体结果，按相应发布说明处理，不绕过宿主检查。
 - **安装完仍是旧版本**：核对完整退出和重新加载结果，不因磁盘包版本更新就宣称已生效。
 - **迁移 `failed`**：查询维护结果中的 `failedStage`、错误代码、原数据根与 `backupPath`，保留现场。重新加载会恢复挂起事务并继续同一次升级；反复失败时把元数据交给维护者。

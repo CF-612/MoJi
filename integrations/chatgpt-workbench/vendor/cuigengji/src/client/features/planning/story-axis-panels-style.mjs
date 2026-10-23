@@ -4,4 +4,7 @@ export const storyAxisPanelsStyle=`
 html[data-host-platform=mobile] .cuigengji dialog.story-axis-sheet{--sap-bottom:var(--cg-host-bottom,84px)}html[data-host-platform=mobile][data-host-mode=fullscreen] .cuigengji dialog.story-axis-sheet{--sap-top:max(52px,var(--cg-host-top,0px),env(safe-area-inset-top,0px))}
 @media(max-width:600px){.cuigengji dialog.story-axis-sheet{width:calc(100vw - 16px);border-radius:20px;margin:auto auto 8px;max-height:calc(var(--cg-visible-height,100dvh) - var(--sap-top) - var(--sap-bottom) - 8px)}.cuigengji .story-axis-sheet .utility-head{padding:12px 14px}.cuigengji .story-axis-sheet .utility-content{padding:0 14px 16px}.cuigengji .sap-section{padding:13px;gap:12px}.cuigengji .sap-form{gap:15px}.cuigengji .sap-form input:not([type=checkbox]):not([type=color]),.cuigengji .sap-form select{font-size:16px}.cuigengji .sap-grid{gap:9px}.cuigengji .sap-date{gap:7px}.cuigengji .sap-footer button{flex:1}.cuigengji .sap-position{padding:12px}}
 @media(max-width:360px){.cuigengji .sap-grid{grid-template-columns:1fr}.cuigengji .sap-options button{padding:8px}.cuigengji .sap-section{padding:11px}}
+
+/* Shared preview polish uses !important; retain this sheet's full host-safe bounds. */
+.cuigengji dialog.utility-modal.story-axis-sheet{margin:0 auto!important;max-height:calc(var(--cg-visible-height,100dvh) - var(--sap-top) - var(--sap-bottom) - 16px)!important;min-height:0;box-sizing:border-box}
 `;

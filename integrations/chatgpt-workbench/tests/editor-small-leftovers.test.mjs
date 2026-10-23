@@ -1,3 +1,4 @@
+import {openSearchHit} from '../vendor/cuigengji/src/client/shared/search-navigation.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -32,7 +33,11 @@ test('实际计数 JSX 复用同一按钮，顶部/底部互斥，顶部不依�
 });
 
 test('普通搜索不显示修订号但保留原始命中引用，历史比较仍保留版本',async()=>{
- const search=await source('shared/WorkSearch.jsx');assert.doesNotMatch(search,/版本 \{hit.revision\}/);assert.match(search,/onOpen\(hit\)/);assert.match(search,/hit.match.label/);
+ const search=await source('shared/WorkSearch.jsx');assert.doesNotMatch(search,/版本 \{hit.revision\}/);assert.match(search,/openSearchHit\(hit,\{onOpen,onLegacy:setError\}\)/);
+ const hit={kind:'event',unified:true,id:'card',revision:7,match:{label:'正文'}};let opened,notice;
+ assert.equal(openSearchHit(hit,{onOpen:value=>opened=value,onLegacy:value=>notice=value}),true);assert.equal(opened,hit,'navigation passes the original complete hit object');assert.equal(notice,undefined);
+ for(const legacy of [{...hit,unified:false},{...hit,kind:'planning'}]){opened=undefined;assert.equal(openSearchHit(legacy,{onOpen:value=>opened=value,onLegacy:value=>notice=value}),false);assert.equal(opened,undefined,'legacy IDs never masquerade as unified cards');assert.match(notice,/只读/);}
+ assert.match(search,/hit.match.label/);
  const chapter=await source('features/chapters/index.jsx');assert.match(chapter,/版本 \{h.revision\}/);assert.match(chapter,/expectedRevision:before.revision/);
 });
 

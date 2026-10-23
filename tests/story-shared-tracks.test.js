@@ -17,3 +17,57 @@ test('restore/configure retain source and side; unrelated card edits remain vali
 test('copy maps shared story and narration to same new catalog ID, separate from legacy collision',()=>{let {s,id}=fixture();s=place(s,id,{trackSource:'shared',side:'below'});s=apply(s,{type:'card.create',value:{title:'旧轨道事件',time:{story:{axisVersion:1,start:20,end:21,trackId:'main',row:0}}}});const old=Object.keys(s.cards).find(k=>k!==id),before=structuredClone(s);const project=state=>({title:'作品',volumes:{},chapters:{},story:{state,history:[],redo:[]}});const target=project(emptyWorkspace());target.chapters={'new-ch':{id:'new-ch',title:'第一章',order:0}};copyStory(project(s),target,{story:new Map([[id,'new-shared'],[old,'new-old']]),chapters:new Map([['ch','new-ch']]),volumes:new Map(),nodes:new Map(),foreshadows:new Map()});const shared=target.story.state.cards['new-shared'],legacy=target.story.state.cards['new-old'];assert.equal(shared.time.story.trackId,shared.time.narration.trackId);assert.notEqual(shared.time.story.trackId,'main');assert.notEqual(shared.time.story.trackId,legacy.time.story.trackId);assert.equal(shared.time.story.trackSource,'shared');assert.equal(shared.time.story.side,'below');assert.ok(target.story.state.tracks.some(t=>t.id===shared.time.story.trackId));assert.ok(target.story.state.storyAxis.tracks.some(t=>t.id===legacy.time.story.trackId));assert.deepEqual(s,before);});
 test('service backup restore undo redo preserve shared source and per-event side',async()=>{const {storyAction}=await import('../src/domain/story-v31.js');const n={id:'novel',revision:1,volumes:{},chapters:{ch:{id:'ch',title:'第一章',order:0,revision:1,versions:[],content:'正文'}},nodes:{},writing:{foreshadows:{}}};const call=(action,args={})=>storyAction(n,action,args,{kind:'human'},()=>{});let r=call('story.get');const run=operation=>r=call('story.apply',{expectedRevision:r.state.revision,operation});run({type:'card.create',value:{title:'事件'}});const id=Object.keys(r.state.cards)[0];run({type:'storyAxis.configure',value:fixture().s.storyAxis});run({type:'storyAxis.place',id,start:10,end:11,trackId:'main',trackSource:'shared',side:'below'});const placed=structuredClone(r.state.cards[id].time.story),backup=call('story.backup');r=call('story.undo',{expectedRevision:r.state.revision});assert.equal(r.state.cards[id].time.story,undefined);r=call('story.redo',{expectedRevision:r.state.revision});assert.deepEqual(r.state.cards[id].time.story,placed);run({type:'storyAxis.place',id,start:20,end:21,trackId:'main',trackSource:'shared',side:'above'});r=call('story.restore',{expectedRevision:r.state.revision,backup});assert.deepEqual(r.state.cards[id].time.story,placed);});
 test('partial package preserves shared catalog/source/side without changing original',async()=>{const {selectStoryPackage}=await import('../src/domain/story-package.js');let {s,id}=fixture();s=place(s,id,{trackSource:'shared',side:'below'});s.pages[0].instances[`card:${id}`]={x:0,y:0};const original={title:'作品',volumes:{},chapters:{ch:{id:'ch',title:'第一章',order:0}},nodes:{},edges:{},memoryGroups:{},story:{state:s,history:[],redo:[]}};const before=structuredClone(original);const {projects}=selectStoryPackage(original,{pageIds:['main'],includeDependencies:false});assert.deepEqual(projects[0].story.state.cards[id].time.story,s.cards[id].time.story);assert.deepEqual(projects[0].story.state.tracks,s.tracks);assert.deepEqual(original,before);});
+
+test('per-view reorder is independent, read-only catalogs append newly created tracks',async()=>{
+ const {narrationTrackCatalog}=await import('../src/domain/story-tracks.mjs');let {s}=fixture();
+ s=apply(s,{type:'track.create',name:'支线'});const second=s.tracks[1].id,before=structuredClone(s);
+ s=apply(s,{type:'track.reorder',mode:'narration',order:[{trackId:second},{trackId:'main'}]});
+ assert.deepEqual(narrationTrackCatalog(s).map(t=>t.id),[second,'main']);assert.deepEqual(s.tracks,before.tracks);assert.deepEqual(s.cards,before.cards);
+ const storyOrder=storyTrackCatalog(s.storyAxis,s.tracks).reverse().map(t=>storyTrackReference(t.key));
+ s=apply(s,{type:'track.reorder',mode:'story',order:storyOrder});assert.deepEqual(storyTrackCatalog(s.storyAxis,s.tracks).map(t=>storyTrackReference(t.key)),storyOrder);
+ assert.deepEqual(narrationTrackCatalog(s).map(t=>t.id),[second,'main']);assert.deepEqual(s.cards,before.cards);
+ s=apply(s,{type:'track.create',name:'新增'});assert.equal(narrationTrackCatalog(s).at(-1).id,s.tracks.at(-1).id);assert.equal(storyTrackCatalog(s.storyAxis,s.tracks).at(-1).id,s.tracks.at(-1).id);
+ const snapshot=structuredClone(s);storyTrackCatalog(s.storyAxis,s.tracks);narrationTrackCatalog(s);assert.deepEqual(s,snapshot);assert.deepEqual(validateRestore(s,sources),s);
+});
+test('whole-track side distinguishes colliding sources and changes only matching placement side',()=>{
+ let {s,id}=fixture();s=place(s,id,{trackSource:'shared',side:'above'});
+ s=apply(s,{type:'card.create',value:{title:'旧目录同ID',time:{story:{axisVersion:1,start:100,end:103,trackId:'main',row:7,side:'above'}}}});const before=structuredClone(s);
+ s=apply(s,{type:'storyAxis.track.side',trackId:'main',trackSource:'shared',side:'below'});
+ const expected=structuredClone(before.cards[id]);expected.time.story.side='below';expected.revision++;assert.deepEqual(s.cards[id],expected);
+ for(const [key,card]of Object.entries(before.cards))if(key!==id)assert.deepEqual(s.cards[key],card);
+ for(const key of ['tracks','placements','pages','precedence'])assert.deepEqual(s[key],before[key]);
+ const unchanged=apply(s,{type:'storyAxis.track.side',trackId:'main',trackSource:'shared',side:'below'});assert.deepEqual(unchanged.cards,s.cards);
+ assert.equal(storyPlacementSide({trackId:'main',trackSource:'shared'},s.storyAxis,s.tracks),'below');
+ s=apply(s,{type:'storyAxis.track.side',trackId:'other',side:'below'});assert.equal(storyPlacementSide({trackId:'other'},s.storyAxis,s.tracks),'below');assert.deepEqual(validateRestore(s,sources),s);
+});
+test('invalid orders/default sides reject atomically and deleting legacy cleans only its preferences',()=>{
+ let {s}=fixture();const before=structuredClone(s),valid=storyTrackCatalog(s.storyAxis,s.tracks).map(t=>storyTrackReference(t.key));
+ for(const op of [{type:'track.reorder',mode:'bad',order:[]},{type:'track.reorder',mode:'story',order:valid.slice(1)},{type:'track.reorder',mode:'story',order:[valid[0],valid[0],valid[2]]},{type:'track.reorder',mode:'narration',order:[{trackId:'main',trackSource:'shared'}]},{type:'storyAxis.track.side',trackId:'missing',side:'below'},{type:'storyAxis.track.side',trackId:'main',side:'bad'},{type:'storyAxis.track.side',trackId:'main',trackSource:'bad',side:'above'}])assert.throws(()=>apply(s,op));assert.deepEqual(s,before);
+ s=apply(s,{type:'track.reorder',mode:'story',order:valid});for(const trackSource of [undefined,'shared'])s=apply(s,{type:'storyAxis.track.side',trackId:'main',trackSource,side:'below'});
+ s=apply(s,{type:'storyAxis.track.delete',id:'main'});assert.ok(s.storyAxis.trackOrder.some(t=>t.trackId==='main'&&t.trackSource==='shared'));assert.ok(s.storyAxis.trackSides.every(t=>t.trackSource==='shared'));assert.deepEqual(validateRestore(s,sources),s);
+ for(const edit of [v=>v.narrationTrackOrder=['missing'],v=>v.storyAxis.trackOrder=[{trackId:'missing'}],v=>v.storyAxis.trackSides=[{trackId:'main',trackSource:'shared',side:'wrong'}]]){const bad=structuredClone(s);edit(bad);assert.throws(()=>validateRestore(bad,sources));}
+});
+test('copy maps ordered and sided track references without cross-source collisions',()=>{
+ let {s}=fixture();s=apply(s,{type:'track.create',name:'新支线'});s=apply(s,{type:'track.reorder',mode:'narration',order:s.tracks.slice().reverse().map(t=>({trackId:t.id}))});
+ s=apply(s,{type:'track.reorder',mode:'story',order:storyTrackCatalog(s.storyAxis,s.tracks).reverse().map(t=>storyTrackReference(t.key))});
+ for(const trackSource of [undefined,'shared'])s=apply(s,{type:'storyAxis.track.side',trackId:'main',trackSource,side:'below'});
+ const project=state=>({title:'作品',volumes:{},chapters:{},story:{state,history:[],redo:[]}}),target=project(emptyWorkspace()),before=structuredClone(s);
+ const mapping={story:new Map(Object.keys(s.cards).map(id=>[id,'copy-'+id])),chapters:new Map(),volumes:new Map(),nodes:new Map(),foreshadows:new Map()};copyStory(project(s),target,mapping);
+ const out=target.story.state;assert.doesNotThrow(()=>validateRestore(out,{chapters:[],volumes:[]}));
+ assert.deepEqual(out.narrationTrackOrder.slice(1).map(id=>out.tracks.find(t=>t.id===id).name),s.narrationTrackOrder.map(id=>s.tracks.find(t=>t.id===id).name));
+ assert.deepEqual(storyTrackCatalog(out.storyAxis,out.tracks).slice(1).map(t=>t.name),storyTrackCatalog(s.storyAxis,s.tracks).map(t=>t.name));
+ assert.equal(out.storyAxis.trackSides.length,2);assert.notEqual(out.storyAxis.trackSides[0].trackId,out.storyAxis.trackSides[1].trackId);assert.deepEqual(s,before);
+});
+test('track edits are atomic service CAS operations with undo, redo, backup and partial export',async()=>{
+ const {storyAction}=await import('../src/domain/story-v31.js'),{selectStoryPackage}=await import('../src/domain/story-package.js');
+ const {s,id}=fixture();const n={id:'novel',title:'作品',revision:1,volumes:{},chapters:{ch:{id:'ch',title:'第一章',order:0,revision:1,versions:[],content:'正文'}},nodes:{},edges:{},memoryGroups:{},writing:{version:1,fields:{},cards:{},links:{},foreshadows:{}},story:{state:s,history:[],redo:[]}};
+ const call=(action,args={})=>storyAction(n,action,args,{kind:'human'},()=>{});let r=call('story.get');const run=operation=>r=call('story.apply',{expectedRevision:r.state.revision,operation});
+ run({type:'storyAxis.place',id,start:10,end:11,trackId:'main',trackSource:'shared',side:'above'});const before=structuredClone(r.state);
+ run({type:'storyAxis.track.side',trackId:'main',trackSource:'shared',side:'below'});const changed=structuredClone(r.state);
+ assert.throws(()=>call('story.apply',{expectedRevision:before.revision,operation:{type:'storyAxis.track.side',trackId:'main',side:'above'}}),{code:'CONFLICT'});
+ r=call('story.undo',{expectedRevision:r.state.revision});assert.deepEqual(r.state.cards,before.cards);assert.deepEqual(r.state.storyAxis,before.storyAxis);
+ r=call('story.redo',{expectedRevision:r.state.revision});assert.deepEqual(r.state.cards,changed.cards);assert.deepEqual(r.state.storyAxis,changed.storyAxis);
+ run({type:'track.reorder',mode:'story',order:storyTrackCatalog(r.state.storyAxis,r.state.tracks).reverse().map(t=>storyTrackReference(t.key))});
+ const backup=call('story.backup');run({type:'storyAxis.track.side',trackId:'main',trackSource:'shared',side:'above'});r=call('story.restore',{expectedRevision:r.state.revision,backup});assert.deepEqual(r.state.storyAxis,backup.state.storyAxis);
+ const exported=selectStoryPackage(n,{includeDependencies:false}).projects[0];const exportedAxis=structuredClone(r.state.storyAxis);delete exportedAxis.anchor.chapterId;assert.deepEqual(exported.story.state.storyAxis,exportedAxis);assert.deepEqual(exported.story.state.narrationTrackOrder,r.state.narrationTrackOrder);
+});

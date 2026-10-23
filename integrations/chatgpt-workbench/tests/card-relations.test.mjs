@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtemp,mkdir} from 'node:fs/promises';
 import {resolve,join} from 'node:path';
 import {createService} from '../server/service.mjs';
-import {projectStage} from '../../../src/domain/story-workspace.js';
+import {relationSnapshot} from '../../../src/domain/story-relations.mjs';
 async function setup(){const root=resolve(import.meta.dirname,'../.data/tests');await mkdir(root,{recursive:true});const s=await createService(await mkdtemp(join(root,'card-relations-'))),call=(action,args={})=>s.rpc(action,{novelId:s.novelId,...args},'relations-test','human');return {s,call};}
 const character=(call,name,values={})=>call('writing.card.create',{type:'character_card',name,values});
 const organization=(call,name)=>call('writing.card.create',{type:'world_book',name,values:{'world:category':'组织'}});
@@ -28,19 +28,28 @@ test('新建角色与组织连线原子保存，非法组织或陈旧版本不�
  await assert.rejects(call('writing.card.create',{type:'character_card',name:'失败角色',organizationIds:[org.id],organizationRevisions:{[org.id]:0}}),{code:'CONFLICT'});assert.equal((await call('graph.list')).length,before);
  const actor=await call('writing.card.create',{type:'character_card',name:'成功角色',organizationIds:[org.id],organizationRevisions:{[org.id]:org.revision}});assert.equal((await call('writing.cardRelations.get',{nodeId:actor.id})).affiliations[0].to,org.id);
 });
-test('多条同人物关系、事件起点、未定时间、计划隔离和原子冲突；完整备份复制可还原',async()=>{
- const {s,call}=await setup(),a=await character(call,'岑予'),b=await character(call,'江遥'),org=await organization(call,'邮局');
- const event=(title,order,planned=false)=>call('writing.event.create',{confirmed:true,value:{title,order,planned,narrativeKind:'linear'}}),early=await event('初识',0),start=await event('结盟',10),later=await event('后续',20),planned=await event('反目计划',30,true);
- const args={nodeId:a.id,targetId:b.id,expectedNodeRevision:a.revision,expectedTargetRevision:b.revision,confirmed:true,name:'伙伴',category:'partner',style:'dashed',timing:'event',eventId:start.id,expectedEventRevision:start.revision,requestId:'relation-intent'};
- const relation=await call('writing.relationship.create',args);assert.equal((await call('writing.relationship.create',args)).edge.id,relation.edge.id);
- const family=await call('writing.relationship.create',{...args,name:'兄妹',category:'family',style:'solid',timing:'base',requestId:'family'}),unknown=await call('writing.relationship.create',{...args,name:'待定师生',timing:'undated',category:'mentor',requestId:'unknown'});
- let board=await call('writing.board.get');assert.equal(projectStage(board,early.id).edges.length,1);assert.equal(projectStage(board,start.id).edges.length,2);assert.equal(projectStage(board,later.id).edges.find(e=>e.id===relation.edge.id).style,'dashed');assert.equal(projectStage(board,later.id).edges.some(e=>e.id===unknown.edge.id),false);
- await call('writing.relationshipChange.create',{confirmed:true,value:{edgeId:relation.edge.id,eventId:planned.id,value:{name:'敌人',category:'enemy',active:true}}});
- assert.equal(projectStage(await call('writing.board.get'),planned.id).edges.find(e=>e.id===relation.edge.id).name,'敌人');assert.equal((await call('writing.relationship.list',{phase:'latest'})).find(e=>e.id===relation.edge.id).name,'伙伴');
- const count=(await call('edge.list')).length;await assert.rejects(call('writing.relationship.create',{...args,expectedEventRevision:0,requestId:'stale'}),{code:'CONFLICT'});assert.equal((await call('edge.list')).length,count);
+async function workspace(call){let current=await call('story.get');return {
+ get:()=>current,
+ async refresh(){return current=await call('story.get');},
+ async apply(operation,extra={}){return current=await call('story.apply',{requestId:crypto.randomUUID(),expectedRevision:current.state.revision,operation,...extra});},
+ async create(value,extra={}){const before=new Set(Object.keys(current.state.cards));current=await call('story.apply',{requestId:crypto.randomUUID(),expectedRevision:current.state.revision,operation:{type:'card.create',value,...extra}});return Object.values(current.state.cards).find(c=>!before.has(c.id));},
+};}
+const narration=chapterId=>({trackId:'main',startChapterId:chapterId,endChapterId:chapterId,startOffset:0,endOffset:1});
+
+test('同人物基础关系和发生点独立；未定位置、计划隔离、原子冲突与复制引用完整',async()=>{
+ const {s,call}=await setup(),a=await character(call,'岑予'),b=await character(call,'江遥'),org=await organization(call,'邮局'),w=await workspace(call);
+ const family=await call('writing.relationship.create',{nodeId:a.id,targetId:b.id,expectedNodeRevision:a.revision,expectedTargetRevision:b.revision,confirmed:true,name:'兄妹',category:'family',timing:'base',requestId:'family'});
+ const start=await w.create({title:'结盟'}),planned=await w.create({title:'反目计划'}),unknown=await w.create({title:'未定师生'});
+ const relation={requestId:'relation-intent',expectedRevision:w.get().state.revision,operation:{type:'relation.save',cardId:start.id,expectedRevision:1,location:{story:10},value:{from:a.id,to:b.id,name:'伙伴'}}};
+ const saved=await call('story.apply',relation);assert.deepEqual(await call('story.apply',relation),saved);await w.refresh();
+ await w.apply({type:'relation.save',cardId:unknown.id,expectedRevision:1,location:{},value:{from:a.id,to:b.id,name:'待定师生'}});
+ await w.apply({type:'relation.save',cardId:planned.id,expectedRevision:1,location:{story:30},value:{from:a.id,to:b.id,name:'敌人计划'}});
+ const base=await call('edge.list'),at=(cursor,plans=true)=>relationSnapshot(w.get().state.cards,base,w.get().sources.chapters,'story',cursor,plans);
+ assert.equal(at(0).relations[0].name,'兄妹');assert.equal(at(10).relations[0].name,'伙伴');assert.equal(at(30).relations[0].name,'敌人计划');assert.equal(at(30,false).relations[0].name,'兄妹');assert.equal(at(30).undated[0].name,'待定师生');assert.equal(at(30).changes.length,2);
+ const before=structuredClone(w.get().state);await assert.rejects(w.apply({type:'relation.save',cardId:start.id,expectedRevision:0,value:{from:a.id,to:b.id,name:'错误'}}),{code:'CONFLICT'});assert.deepEqual((await call('story.get')).state,before);assert.equal((await call('edge.list')).length,base.length);
  await call('writing.affiliation.set',{nodeId:a.id,...selection(await call('writing.cardRelations.get',{nodeId:a.id}),[org.id])});
- const exported=await call('novel.export'),file={name:'relations.json',json:exported},options={mode:'copy'},preview=await call('transfer.preview',{file,options}),copy=await call('transfer.import',{file,options,proof:preview.proof,requestId:crypto.randomUUID()}),copied=(await s.rpc('novel.export',{novelId:copy.novelIds[0]},'copy','human')).novel;
- const copiedPartner=Object.values(copied.edges).find(e=>e.name==='伙伴');assert.notEqual(copiedPartner.id,relation.edge.id);assert.equal(copiedPartner.baseActive,false);assert.equal(copiedPartner.category,'partner');assert.ok(copied.nodes[copiedPartner.from]);assert.ok(Object.values(copied.writing.relationshipChanges).some(c=>c.edgeId===copiedPartner.id&&copied.writing.events[c.eventId]));
- assert.ok(Object.values(copied.edges).some(e=>e.category==='affiliation'&&copied.writing.cards[e.to].values['world:category']==='组织'));
- assert.equal((await call('writing.relationship.list',{phase:'base'})).find(e=>e.id===family.edge.id).category,'family');
+ const file={name:'relations.json',json:await call('novel.export')},options={mode:'copy'},preview=await call('transfer.preview',{file,options}),copy=await call('transfer.import',{file,options,proof:preview.proof,requestId:crypto.randomUUID()}),copied=(await s.rpc('novel.export',{novelId:copy.novelIds[0]},'copy','human')).novel;
+ const copiedCard=Object.values(copied.story.state.cards).find(c=>c.title==='结盟'),partner=copiedCard.points[0].relationships[0];assert.notEqual(copiedCard.id,start.id);assert.notEqual(partner.from,a.id);assert.ok(copied.nodes[partner.from]&&copied.nodes[partner.to]);assert.equal(partner.name,'伙伴');assert.equal(partner.evidence,null);
+ assert.ok(Object.values(copied.edges).some(e=>e.category==='affiliation'&&copied.writing.cards[e.to].values['world:category']==='组织'));assert.ok(Object.values(copied.edges).some(e=>e.category==='family'&&e.id!==family.edge.id));assert.equal((await call('edge.get',{edgeId:family.edge.id})).name,'兄妹');
+ await assert.rejects(call('writing.relationshipChange.create',{}),{code:'NOT_ALLOWED'});
 });

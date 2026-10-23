@@ -61,7 +61,7 @@ export function editStoryAxis(state,op,newId){
  const list=kind==='marker'?axis.markers:axis.tracks,index=list.findIndex(x=>x.id===op.id);
  if(action!=='create'&&index<0)fail('故事时间对象已不存在。');
  if(action==='delete'){
-  if(kind==='track'&&(list.length===1||Object.values(state.cards).some(c=>c.time?.story?.axisVersion===1&&c.time.story.trackSource!=='shared'&&c.time.story.trackId===op.id)))fail('请先移走轨道上的卡片，并保留至少一条故事轨道。');list.splice(index,1);return;
+  if(kind==='track'&&(list.length===1||Object.values(state.cards).some(c=>c.time?.story?.axisVersion===1&&c.time.story.trackSource!=='shared'&&c.time.story.trackId===op.id)))fail('请先移走轨道上的卡片，并保留至少一条故事轨道。');list.splice(index,1);if(kind==='track')for(const field of ['trackOrder','trackSides'])if(axis[field])axis[field]=axis[field].filter(t=>t.trackSource==='shared'||t.trackId!==op.id);return;
  }
  const value=kind==='marker'?{id:action==='create'?newId():op.id,label:op.label,coordinate:op.coordinate}:{id:action==='create'?newId():op.id,name:op.name,color:op.color,side:op.side};
  (kind==='marker'?validateMarker:validateTrack)(value);if(action==='create')list.push(value);else list[index]={...list[index],...value};

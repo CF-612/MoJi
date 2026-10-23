@@ -20,6 +20,9 @@ test('真实 MCP 连接包含 thread 入口、内嵌资源、读写和版本恢�
     const tools=await client.listTools();
     assert.ok(tools.tools.some(x=>x.name==='workbench_import_preview'));
     assert.ok(tools.tools.some(x=>x.name==='workbench_import'));
+    const editDescription=tools.tools.find(x=>x.name==='workbench_edit').description;
+    assert.match(editDescription,/story\.apply 使用工作区 expectedRevision/);
+    assert.doesNotMatch(editDescription,/planning\.apply/);
     const importFile={name:'第1章.txt',text:'　　“原文不改写。”——他说。'},importOptions={mode:'copy',title:'本地 AI 导入验收'};
     const preview=await client.callTool({name:'workbench_import_preview',arguments:{file:importFile,options:importOptions}});assert.equal(preview.isError,undefined);
     const imported=await client.callTool({name:'workbench_import',arguments:{file:importFile,options:importOptions,proof:preview.structuredContent.result.proof,requestId:crypto.randomUUID()}});assert.equal(imported.isError,undefined);

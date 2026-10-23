@@ -45,4 +45,6 @@ export const timelineInteractionStyle=`
 .cuigengji .u-time-lane{background-color:var(--cg-paper)}
 .cuigengji .u-time-strip .u-span-handle:after{opacity:0}.cuigengji .u-time-strip:hover .u-span-handle:after,.cuigengji .u-time-strip:focus-within .u-span-handle:after{opacity:.5}
 .cuigengji .u-point-marker{opacity:0}.cuigengji .u-time-strip:hover .u-point-marker,.cuigengji .u-time-strip:focus-within .u-point-marker{opacity:1}
+
+.u-track-order{display:grid;gap:7px;border-top:1px solid var(--cg-line);padding-top:12px}.u-track-order strong{font-size:12px}.u-track-order>div{display:flex;gap:8px}.u-track-order small{font-size:11px;color:var(--cg-muted);line-height:1.6}
 `;
