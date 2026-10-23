@@ -9,6 +9,8 @@
 - **Windows 独立版／本机浏览器**：属于独立本地入口，不是 Codex 插件的本地模式。
 **需要手机／多端共用作品时，从[个人云端部署与跨端连接](cloud-agent-deployment.md)开始。** 其中包含账号、源码选择、安装依赖、登录、新建／更新、密钥、健康检查、OAuth、备份试导入和保存重开步骤。DSH 填 HTTPS 根地址，MCP 填根地址加 `/mcp`；工作台密钥只在隐藏输入或本人核对过的授权页填写，不发进聊天。
 
+已有[可复制部署提示词](cloud-agent-deployment.md#让当前-agent-帮忙已有部署提示词)，DSH 也可从「本地 / 云端 → 个人云端」交给当前 Agent。
+
 个人云端部署好后，运行 `npm run package:plugin -- "https://你的实例.workers.dev"` 生成自己的插件 ZIP；无须手填图标、名称、简介或 OAuth 客户端密钥。上传权限、授权与完整 GUI 验收见[插件打包指南](plugin-package.md)。
 
 ## 先试用工作台
@@ -27,7 +29,7 @@ npm run preview:workbench -- "C:\你的备份目录\作品.cuigengji.json"
 
 当前 Moji 版本与 DSH 兼容范围以 `package.json` 为准；兼容声明不等于此版本已完成真实宿主验收。旧上游 0.4.0 Release 不是当前 Moji 安装源。
 
-从当前源码运行 `npm pack` 生成 `dsh-moji-<版本>.tgz`，通过 DSH 原生插件页选择该本地包。详细步骤见 [Agent 安装指南](agent-installation.md)；没有实际发布资产时不要使用猜测的下载链接。升级前备份并核对数据根，见[更新说明](upgrade.md)。
+优先从[项目 Releases](https://github.com/CF-612/MoJi/releases)选择已核实的 `dsh-moji-<版本>.tgz`，通过 DSH 原生插件页安装；普通用户不必先编译源码。需要当前候选版新功能时，应核对候选版发布说明并选择对应包，不把较早的稳定版当作当前候选版。没有合适成品包时，再按 Agent 安装指南从源码构建。详细步骤见 [Agent 安装指南](agent-installation.md)；没有实际发布资产时不要使用猜测的下载链接。升级前备份并核对数据根，见[更新说明](upgrade.md)。
 
 ### 开发者本地安装
 
