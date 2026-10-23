@@ -30,18 +30,18 @@ export function createSessionPolicy({ store, audit, ready = async () => undefine
   function register(ctx, memory) {
     const disconnect = sessionId => {
       // Status/disposal are emit events; do not leave an unhandled rejection.
-      void memory.disconnect(sessionId).catch(error => ctx.logger?.warn?.(`cuigengji memory cleanup: ${error.message}`));
+      void memory.disconnect(sessionId).catch(error => ctx.logger?.warn?.(`Moji memory cleanup: ${error.message}`));
     };
     ctx.on('agent/pre-step', async ({ agent }, next) => {
-      const sessionId = String(agent.id);
+      const sessionId = String(agent.session?.id || agent.id);
       try {await resolveBinding(sessionId);}
-      catch (error) {if (error.code !== 'UPGRADE_REQUIRED') throw error;}
+      catch (error) {if (!['UPGRADE_REQUIRED','UNAUTHENTICATED','NOT_AUTHENTICATED','UNAUTHORIZED','NETWORK_ERROR','TIMEOUT','REFRESH_FAILED'].includes(error.code)) throw error;}
       // pre-step is admitted only while the agent is running (DSH contract).
       active.add(sessionId);
       return next();
     });
     ctx.on('agent/status', ({ agent, status }) => {
-      const sessionId = String(agent.id);
+      const sessionId = String(agent.session?.id || agent.id);
       if (status === 'running') active.add(sessionId);
       else {
         active.delete(sessionId);
@@ -49,10 +49,10 @@ export function createSessionPolicy({ store, audit, ready = async () => undefine
       }
     });
     ctx.on('agent/disposed', ({ agent }) => {
-      const sessionId = String(agent.id);
+      const sessionId = String(agent.session?.id || agent.id);
       active.delete(sessionId);
       disconnect(sessionId);
     });
   }
-  return { dispatch, resolveBinding, register };
+  return { dispatch, resolveBinding, register, isBusy: () => active.size > 0, isSessionBusy: id => active.has(id) };
 }

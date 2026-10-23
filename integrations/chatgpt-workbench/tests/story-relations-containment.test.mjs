@@ -1,0 +1,30 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {build} from 'esbuild';import {createRequire} from 'node:module';import {mkdtemp,rm} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';
+const folder=await mkdtemp(join(tmpdir(),'moji-relations-containment-')),root=new URL('../../../',import.meta.url).pathname,source=new URL('../vendor/cuigengji/src/client/features/planning/StoryTimeAxis.jsx',import.meta.url).pathname;
+await build({stdin:{contents:`export{StoryTimeAxis}from${JSON.stringify(source)};import React from'react';export{React};export{renderToStaticMarkup}from'react-dom/server';`,resolveDir:root},outfile:join(folder,'ui.cjs'),bundle:true,platform:'node',format:'cjs',loader:{'.png':'dataurl'},alias:{react:root+'node_modules/react','react-dom':root+'node_modules/react-dom'},define:{'process.env.NODE_ENV':'"production"'}});
+const require=createRequire(import.meta.url),{StoryTimeAxis,React,renderToStaticMarkup}=require(join(folder,'ui.cjs'));
+const axis={schemaVersion:1,calendar:{kind:'gregorian',name:'公历',era:'公元',visibility:{year:true,month:true,day:true}},anchor:{coordinate:739617,label:'第一章'},coordinateUnit:'day',primaryTick:{unit:'year',step:1},legacyMode:'unmapped',tracks:[{id:'t',name:'明线',color:'#778899',side:'above'}],markers:[]};
+const points=[0,1].map(i=>({id:'p'+i,order:i,location:{story:{binding:{kind:'card',offset:i}}},relationships:[{id:'r'+i,from:'a',to:'b',name:'变化'+i,reason:'记录故事变化'}]}));
+const props={state:{storyAxis:axis,cards:{c:{id:'c',title:'共享卡',status:'selected',cast:[],time:{story:{axisVersion:1,start:739617,end:739619,trackId:'t'}},points}}},sources:{chapters:[]},people:[{id:'a',type:'character_card',name:'甲'},{id:'b',type:'character_card',name:'乙'}],relations:[],evolution:true,relationClock:{setMode(){}},novelId:'synthetic-scroll',save:async()=>true};
+test('actual standalone story relations render own styles and one constrained focusable region beside a separate tray',()=>{
+ const html=renderToStaticMarkup(React.createElement(StoryTimeAxis,{...props,relationTarget:{}}));
+ assert.match(html,/class="story-axis [^"]*sa-relations-view/);
+ assert.match(html,/\.cuigengji \.unified-story&gt;\.story-axis\{[^}]*display:flex/,'root layout must outrank legacy .cuigengji .story-axis block rule');
+ assert.match(html,/\.cuigengji \.unified-story&gt;\.story-axis:before\{content:none/,'old vertical-axis decoration must not leak');
+ assert.match(html,/class="sa-relations-region" role="region" aria-label="故事关系内容" tabindex="0"/);
+ assert.equal((html.match(/>定位<\/button>/g)||[]).length,2);
+ assert.match(html,/\.u-rel-scroll\{overflow:auto;min-height:0;flex:1/,'shared relation styles must mount without UnifiedTimeline');
+ assert.match(html,/\.sa-workspace&gt;\.sa-relations-region\{display:none;min-height:0;min-width:0;overflow:auto/);
+ assert.match(html,/<details class="sa-tray"[\s\S]*?<\/details><\/section><div class="relation-sidebar-divider" role="separator"[^>]*><\/div><div class="sa-relations-region"/,'tray closes inside the axis column, followed by the resize separator and a separate relationship region');
+ assert.equal((html.match(/class="relation-sidebar-divider" role="separator"/g)||[]).length,1,'exactly one resize separator sits between the real panes');
+ const relationMarkup=html.slice(html.indexOf('<div class="sa-relations-region"'));
+ assert.doesNotMatch(relationMarkup,/<details class="sa-tray"/,'pending tray must never be nested inside the relationship scroll region');
+ assert.match(html,/\.sa-relations-view \.sa-workspace&gt;\.sa-axis-column\{display:none\}/,'narrow relation view hides the whole axis/tray column');
+});
+test('axis view retains pending tray and one persistent relationship pane with no nested scroll owner',()=>{
+ const html=renderToStaticMarkup(React.createElement(StoryTimeAxis,props));
+ assert.match(html,/<details class="sa-tray"/);
+ assert.equal((html.match(/role="region" aria-label="故事关系内容"/g)||[]).length,1,'wide layout needs exactly one persistent relation region');
+ assert.match(html,/\.sa-relations-region \.u-rel-scroll\{overflow:visible\}/,'outer region owns story relation scroll; nested content must not compete');
+ assert.match(html,/\.sa-has-relations \.sa-workspace&gt;\.sa-relations-region\{display:block\}/,'wide workspace displays the existing region rather than a duplicate');
+});
+test.after(()=>rm(folder,{recursive:true,force:true}));

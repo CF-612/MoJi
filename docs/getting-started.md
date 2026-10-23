@@ -14,9 +14,9 @@ npm run preview:workbench -- "C:\你的备份目录\作品.cuigengji.json"
 
 ## 安装到 DSH Windows 桌面版
 
-当前已验证 DSH 0.2.0-rc.2，其他版本请先核对发布说明。本仓库提供 [0.4.0 成品安装包](https://github.com/mistnest/dsh-cuigengji-plugin/releases/tag/v0.4.0)，尚未发布 npm 包。
+当前 Moji 版本与 DSH 兼容范围以 `package.json` 为准；兼容声明不等于此版本已完成真实宿主验收。旧上游 0.4.0 Release 不是当前 Moji 安装源。
 
-从 DSH 原生插件页安装发布的 `.tgz` URL 或下载后的文件路径，无需 Git。也可以把[Windows Agent 安装指南](agent-installation.md)交给 DSH 的 Agent 完成安装、重启和校验。升级会自动备份并迁移已有数据，详见[更新说明](upgrade.md)。
+从当前源码运行 `npm pack` 生成 `dsh-moji-<版本>.tgz`，通过 DSH 原生插件页选择该本地包。详细步骤见 [Agent 安装指南](agent-installation.md)；没有实际发布资产时不要使用猜测的下载链接。升级前备份并核对数据根，见[更新说明](upgrade.md)。
 
 ### 开发者本地安装
 
@@ -33,8 +33,8 @@ powershell -ExecutionPolicy Bypass -File scripts\install-desktop.ps1 -DesktopExe
 
 脚本构建并打包插件，使用 DSH 自带的 Node/pnpm 安装到 `%USERPROFILE%\.dsh\profiles\desktop`。如果自定义过 DSH Home，请额外传入 `-DshHome "你的DSH数据目录"`。打包文件存于项目内 `releases`，不包含小说工作数据。
 
-5. 首次安装时，在 `desktop` profile 的 `package.json` 中找到 `dsh.profile.bundles`，保留已有内容并加入 `"dsh-cuigengji"`。更新已启用的插件无需重复添加。
-6. 通过 DSH 自己的快捷方式重新启动，从左侧栏的“催更姬”进入。
+5. 通过 DSH 原生插件管理确认 `dsh-moji` 已启用，不手工覆盖 profile。旧 `dsh-cuigengji` 安装需先备份作品与 profile，再通过宿主管理停用／移除旧插件本身，保留数据目录，然后安装新包。脚本发现旧依赖、bundle 或 patch 时会停止，不自动迁移插件身份。
+6. 通过 DSH 自己的快捷方式重新启动，从左侧栏的“Moji”进入。
 
 若找不到可执行文件，可查看桌面快捷方式的属性。不要用 CLI 创建或替换名为 `desktop` 的 profile；桌面 profile 由 DSH 桌面应用管理。
 
@@ -52,14 +52,16 @@ powershell -ExecutionPolicy Bypass -File scripts\install-desktop.ps1 -DesktopExe
 
 ## 作品保存在哪里
 
-“工作数据 · 导入/导出”会显示实际保存位置。默认目录：
+“工作数据 · 导入/导出”会显示实际保存位置。DSH 优先沿用已存在的旧默认 `cuigengji` 目录，不因品牌改名移动作品；没有旧目录时，新安装默认使用：
 
-- Windows：`%LOCALAPPDATA%\cuigengji`
-- Linux/macOS：`$XDG_DATA_HOME/cuigengji`；没有设置时使用 `~/.local/share/cuigengji`
+- Windows：`%LOCALAPPDATA%\moji`
+- Linux/macOS：`$XDG_DATA_HOME/moji`；没有设置时使用 `~/.local/share/moji`
+
+旧目录分别为同一父目录下的 `cuigengji`，仍兼容读取。升级前后应核对实际路径，不能仅按新名称推断作品已搬迁。
 
 Windows 桌面版是当前主要验证环境；其他系统的默认目录已实现，但本次没有完成宿主适配验收。
 
-如需修改位置，可在 desktop profile 的插件配置中设置 `dataRoot`，或使用 `CUIGENGJI_DATA_ROOT` 环境变量。优先级为插件配置、环境变量、默认目录。配置不会自动搬运已有作品，请先导出备份，切换位置后在工作台导入。
+如需修改位置，可在 desktop profile 的插件配置中设置 `dataRoot`，或使用 `MOJI_DATA_ROOT` 环境变量（旧 `CUIGENGJI_DATA_ROOT` 仍兼容）。优先级为插件配置、`MOJI_DATA_ROOT`、`CUIGENGJI_DATA_ROOT`、默认目录。配置不会自动搬运已有作品，请先导出备份，切换位置后在工作台导入。
 
 不要把源码或插件安装目录作为小说目录。代码升级、Git 提交和 npm 打包都不应携带你的作品。
 
@@ -74,7 +76,7 @@ Windows 桌面版是当前主要验证环境；其他系统的默认目录已实
 
 ## 常见问题
 
-**安装后没有入口**：检查 desktop profile 的 bundles 是否包含 `dsh-cuigengji`，并完全退出、重启 DSH。脚本安装成功不代表正在运行的应用已经加载新插件。
+**安装后没有入口**：检查 desktop profile 的 bundles 是否包含 `dsh-moji`，并完全退出、重启 DSH。脚本安装成功不代表正在运行的应用已经加载新插件。
 
 **提示版本冲突**：保留草稿，读取最新内容后比较。不要修改版本号强行覆盖另一会话或 AI 的修改。
 

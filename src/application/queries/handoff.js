@@ -33,7 +33,7 @@ export function createHandoff(novel, sessionBinding, { chapterLimit = 20 } = {})
     })),
     available: {
       preset: Boolean(novel.preset?.enabled),
-      planning: novel.planning ? live(novel.planning.nodes).length : novel.plan ? 1 : 0,
+      planning: novel.story?Object.keys(novel.story.state.cards).length:novel.planning ? live(novel.planning.nodes).length : novel.plan ? 1 : 0,
       memory: live(novel.nodes).length,
     },
   };

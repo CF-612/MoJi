@@ -1,3 +1,4 @@
+import manifest from '../package.json' with {type:'json'};
 import {App} from '@modelcontextprotocol/ext-apps';
 
 const $ = id => document.getElementById(id);
@@ -85,7 +86,7 @@ $('discuss').onclick=async()=>{
   else{try{await navigator.clipboard.writeText(text);status('讨论引用已复制，可粘贴到旁边的聊天');}catch{status('无法访问剪贴板，请手动复制正文',true);}}
 };
 async function start() { try {
-  if(embedded){app=new App({name:'cuigengji-sidebar',version:'0.1.0'});app.ontoolresult=result=>{if(!saving)accept(result.structuredContent?.result);};await app.connect();}
+  if(embedded){app=new App({name:'Moji',version:manifest.version});app.ontoolresult=result=>{if(!saving)accept(result.structuredContent?.result);};await app.connect();}
   ready=true;accept(await call('chapter_read'),true);setInterval(()=>refresh(),2000);
 }catch(error){status(`工作台连接失败：${error.message}`,true);} }
 start();

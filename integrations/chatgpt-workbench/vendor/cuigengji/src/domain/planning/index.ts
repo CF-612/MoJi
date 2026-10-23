@@ -91,7 +91,7 @@ export function planningAction(novel:PlanningNovel,action:string,args:PlanningAr
         }else update('groups',id,Object.fromEntries((['name','summary'] as const).filter(k=>op.value?.[k]!==undefined).map(k=>[k,op.value![k]])));
       }else if(op.op==='node.create'){
         const id=randomUUID();if(op.ref){if(own(mapping,op.ref))fail('INVALID_INPUT','临时引用重复');Object.defineProperty(mapping,op.ref,{value:id,enumerable:true});}
-        update('nodes',id,{title:'新规划',summary:'',content:'',scope:'unspecified',status:'idea',threads:[],chapterRefs:[],memoryRefs:[],...pickNode(op.value),pageId:resolve(op.value?.pageId)||null,groupId:resolve(op.value?.groupId)||null,parentId:resolve(op.value?.parentId)||null,deleted:false});
+        update('nodes',id,{title:'新规划',summary:'',content:'',scope:'unspecified',status:'idea',threads:[],chapterRefs:[],memoryRefs:[],foreshadowRefs:[],...pickNode(op.value),pageId:resolve(op.value?.pageId)||null,groupId:resolve(op.value?.groupId)||null,parentId:resolve(op.value?.parentId)||null,deleted:false});
       }else if(op.op==='node.update'){
         const id=resolve(op.id),node=entity(draft.nodes,id);check(node,op.expectedRevision);if(node.deleted)fail('DELETED','规划已删除');const value=pickNode(op.value);if(value.parentId)value.parentId=resolve(value.parentId);if(value.groupId)value.groupId=resolve(value.groupId);if(value.pageId)value.pageId=resolve(value.pageId);update('nodes',id,value);
       }else if(op.op==='node.delete'){
@@ -117,5 +117,5 @@ export function planningAction(novel:PlanningNovel,action:string,args:PlanningAr
   draft.sequence=transaction.sequence;draft.transactions.push(transaction);novel.planning=draft;
   return {transactionId:transaction.id,sequence:draft.sequence,mapping,changed:transaction.changes.map(c=>({id:c.id,collection:c.collection,revision:c.after.revision}))};
 }
-function pickNode(value:Partial<PlanningNode>={}):Partial<PlanningNode> {return Object.fromEntries((['title','summary','content','scope','status','parentId','groupId','pageId','position','threads','chapterRefs','memoryRefs'] as const).filter(k=>value[k]!==undefined).map(k=>[k,value[k]]));}
+function pickNode(value:Partial<PlanningNode>={}):Partial<PlanningNode> {return Object.fromEntries((['title','summary','content','scope','status','parentId','groupId','pageId','position','threads','chapterRefs','memoryRefs','cast','foreshadowRefs'] as const).filter(k=>value[k]!==undefined).map(k=>[k,value[k]]));}
 function pickDecoration(value:Partial<Decoration>={}):Partial<Decoration>{return Object.fromEntries((['pageId','kind','title','content','position','width','height','color','fontSize','fontFamily','moveContents'] as const).filter(k=>value[k]!==undefined).map(k=>[k,value[k]]));}

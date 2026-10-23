@@ -1,6 +1,10 @@
 import OAuthProvider from '@cloudflare/workers-oauth-provider';
 import {DurableObject} from 'cloudflare:workers';
 import legacy from './worker.mjs';
+import {healthResponse,personalConfigurationReady,serviceReadiness} from './readiness.mjs';
+import {handleNativeDsh} from './native-dsh.mjs';
+import {oauthFailure} from './oauth-failure.mjs';
+import {oauthReturnPage} from './oauth-return.mjs';
 
 export const oauthLifetimes={accessTokenTTL:3600,refreshTokenTTL:365*86400,refreshTokenIdleTTL:365*86400,clientRegistrationTTL:undefined};
 const scopes=['novel:read','novel:write','offline_access'];
@@ -35,7 +39,11 @@ async function validKey(request,env,value){
 const defaultHandler={async fetch(request,env){
   const url=new URL(request.url),oauth=env.OAUTH_PROVIDER;
   if(url.pathname==='/health')return legacy.fetch(request,env);
-  if(url.pathname==='/')return page('<h1>墨叽 · 小说工作台</h1><p>你的个人云端工作台已就绪。</p><p>在聊天客户端添加此 MCP 地址：</p><p><code>'+escape(url.origin+'/mcp')+'</code></p><hr><p>连接时输入部署时设置的工作台密钥，批准后由客户端自动续期。</p><small>此实例只属于你，不开放用户注册。请妥善保存密钥。</small>');
+  if(url.pathname==='/'){
+    const state=await serviceReadiness(env);
+    if(!state.ready)return page('<h1>服务尚未就绪</h1><p>请检查部署配置与数据库迁移，再重新检查服务。客户端接入尚待验收。</p><small>阶段：'+state.stage+'</small>',503);
+    return page('<h1>墨叽 · 小说工作台</h1><p>服务配置与数据库已就绪；客户端连接、授权、保存与重开尚待验收。</p><p>此网址是连接说明页，不是浏览器编辑器。</p><p>在聊天客户端添加此 MCP 地址：</p><p><code>'+escape(url.origin+'/mcp')+'</code></p><hr><p>连接时输入部署时设置的工作台密钥，批准后由客户端自动续期。</p><small>此实例只属于你，不开放用户注册。请妥善保存密钥。</small>');
+  }
   if(url.pathname!=='/authorize')return page('<h1>页面不存在</h1>',404);
   try{
     if(request.method==='GET'){
@@ -48,19 +56,21 @@ const defaultHandler={async fetch(request,env){
     const body=await request.text();if(body.length>8192)return page('请求过大',413);
     const form=new URLSearchParams(body),handle=form.get('handle')||'';
     if(form.get('decision')!=='approve'){
-      const denied=await oauth.denyConsent(request,handle);return new Response(null,{status:302,headers:denied.headers});
+      const denied=await oauth.denyConsent(request,handle);return oauthReturnPage(denied.headers.get('Location'),denied.headers,page,false);
     }
     if(!await validKey(request,env,form.get('key')||''))return page('<h1>密钥不正确或尝试过于频繁</h1><p>请稍后从客户端重新发起连接。</p>',403);
     const approved=await oauth.approveConsent(request,handle,{scope:scopes});
     const {redirectTo}=await oauth.completeAuthorization({request:approved.request,userId:owner(env),metadata:{},scope:scopes,props:{owner:owner(env)}});
-    approved.headers.set('Location',redirectTo);return new Response(null,{status:302,headers:approved.headers});
+    return oauthReturnPage(redirectTo,approved.headers,page);
   }catch(error){
-    return page('<h1>本次授权未完成</h1><p>授权页面可能已过期，请从客户端重新连接。</p>',error.name==='AuthorizationError'?400:503);
+    const failure=oauthFailure(error);
+    return page(`<h1>本次授权未完成</h1><p>${failure.message}</p><small>诊断码：${failure.code}</small>`,failure.status);
   }
 }};
 export function personalProvider(origin,overrides={}){
-  return new OAuthProvider({apiRoute:'/mcp',apiHandler:{fetch(request,env,ctx){
+  return new OAuthProvider({apiRoute:['/mcp','/mcp/dsh/dispatch'],apiHandler:{fetch(request,env,ctx){
     if(ctx.props?.owner!==owner(env)||ctx.auth?.userId!==owner(env))return new Response('此工作台仅允许作者本人访问',{status:403});
+    if(new URL(request.url).pathname==='/mcp/dsh/dispatch')return handleNativeDsh(request,env,{owner:owner(env),clientId:ctx.auth.clientId,scopes:new Set(ctx.auth.scope)});
     return legacy.fetch(request,env,{mojiAuth:{owner:owner(env),scopes:new Set(ctx.auth.scope)}});
   }},defaultHandler,authorizeEndpoint:'/authorize',tokenEndpoint:'/oauth/token',clientRegistrationEndpoint:'/oauth/register',
   scopesSupported:scopes,requiredScopes:['novel:read','novel:write'],resourceMetadata:{resource:origin+'/mcp',resource_name:'墨叽 · 小说工作台'},
@@ -68,10 +78,11 @@ export function personalProvider(origin,overrides={}){
 }
 export default {async fetch(request,env,ctx){
   if(env.MOJI_AUTH!=='builtin')return legacy.fetch(request,env,ctx);
+  if(new URL(request.url).pathname==='/health')return healthResponse(env);
   // Existing clients may still hold the former issuer's signed access token.
   // Verify it through the original owner-pinned verifier while they reconnect;
   // new discovery and all newly issued credentials use the built-in provider.
   if(env.AUTH0_ISSUER&&new URL(request.url).pathname==='/mcp'&&/^Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(request.headers.get('Authorization')||''))return legacy.fetch(request,env,ctx);
-  if(!env.MOJI_OWNER_KEY||env.MOJI_OWNER_KEY.length<24||env.MOJI_OWNER_KEY==='replace-with-your-own-secret-key'||!env.OAUTH_KV||!env.LOGIN_GUARD)return page('<h1>还差一步</h1><p>请在部署配置中设置至少 24 个字符的工作台密钥（MOJI_OWNER_KEY），并启用授权存储绑定。设置完成前作品访问保持关闭。</p>',503);
+  if(!personalConfigurationReady(env))return page('<h1>还差一步</h1><p>请在部署配置中设置至少 24 个字符的工作台密钥（MOJI_OWNER_KEY），并启用授权存储绑定。设置完成前作品访问保持关闭。</p>',503);
   return personalProvider(new URL(request.url).origin).fetch(request,env,ctx);
 }};

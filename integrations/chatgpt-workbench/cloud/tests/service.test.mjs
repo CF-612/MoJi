@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {readFile,mkdir,mkdtemp} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {Miniflare,convertV4MiniflareOptions} from 'miniflare';
+import {relationSnapshot} from '../../../../src/domain/story-relations.mjs';
 import {createCloudService} from '../service.mjs';
 test('真实本地 D1：双端保存、冲突、人物、规划、预设、历史和完整备份',async()=>{
   const base=fileURLToPath(new URL('../../.data/cloud-tests/',import.meta.url));await mkdir(base,{recursive:true});const persist=await mkdtemp(base+'test-');
@@ -40,18 +41,23 @@ test('真实本地 D1：双端保存、冲突、人物、规划、预设、历�
     assert.equal((await rpc('writing.foreshadow.list'))[0].due,true);
     await assert.rejects(rpc('writing.foreshadow.update',{id:foreshadow.id,expectedRevision:foreshadow.revision,value:{status:'recovered'},confirmed:true}),{code:'INVALID_WRITING'});
     assert.equal((await rpc('writing_context.get',{chapterId})).cards[0].id,person.id);
-    const page=await rpc('planning.page.create',{name:'手机规划',requestId:crypto.randomUUID()});
-    const tx=await rpc('planning.apply',{requestId:crypto.randomUUID(),operations:[{op:'node.create',ref:'a',value:{title:'收到来信',pageId:page.id}}]},'agent');
-    assert.equal((await rpc('planning.get',{nodeId:tx.mapping.a})).node.title,'收到来信');
+    let story=await rpc('story.get');
+    const applyStory=async(operation,kind='agent')=>(story=await rpc('story.apply',{requestId:crypto.randomUUID(),expectedRevision:story.state.revision,operation},kind));
+    await applyStory({type:'page.create',name:'手机规划'});const page=story.state.pages.at(-1);
+    await applyStory({type:'card.create',pageId:page.id,value:{title:'收到来信',scope:[chapterId],cast:[{nodeId:person.id,kind:'participant'}],evidence:[{chapterId,revision:writingChapter.revision,evidence:'手机保存。'}]}});
+    const card=Object.values(story.state.cards)[0];assert.equal((await rpc('story.get')).state.cards[card.id].title,'收到来信');
     const companion=await rpc('graph.create',{name:'同伴',type:'character_card'});
     const edge=await rpc('edge.create',{from:person.id,to:companion.id,name:'陌生人'});
-    const event=await rpc('writing.event.create',{confirmed:true,value:{title:'收到来信',storyTime:'雨夜',order:10,narrativeKind:'linear',memoryRefs:[person.id],planningRefs:[tx.mapping.a],foreshadowRefs:[foreshadow.id],chapterRefs:[{chapterId,revision:writingChapter.revision,evidence:'手机保存。'}]}});
-    await rpc('writing.relationshipChange.create',{confirmed:true,value:{edgeId:edge.id,eventId:event.id,value:{name:'伙伴',category:'partner'}}},'agent');
-    assert.equal((await rpc('writing.relationship.list',{phase:'event',eventId:event.id}))[0].name,'伙伴');
+    const relation={type:'relation.save',cardId:card.id,expectedRevision:card.revision,location:{narration:{chapterId,offset:0}},value:{from:person.id,to:companion.id,name:'伙伴',evidence:{chapterId,revision:writingChapter.revision,evidence:'手机保存。'}},confirmed:true};
+    await assert.rejects(applyStory(relation),{code:'HUMAN_REQUIRED'});
+    assert.equal((await rpc('story.get')).state.cards[card.id].points.length,0,'AI cannot confirm relationship facts');
+    await applyStory(relation,'human');
+    assert.equal(relationSnapshot(story.state.cards,[edge],story.sources.chapters,'narration',1,false).relations[0].name,'伙伴');
     assert.equal((await rpc('edge.get',{edgeId:edge.id})).name,'陌生人');
-    assert.equal((await rpc('writing_context.get',{eventId:event.id})).relationships[0].stageEventId,event.id);
+    assert.equal(story.state.cards[card.id].points[0].relationships[0].evidence.chapterId,chapterId);
+    await assert.rejects(rpc('writing.event.create',{}),{code:'NOT_ALLOWED'});
     const place=await rpc('writing.card.create',{name:'云端邮局',type:'world_entry',values:{'world:category':'地点'}});
-    const board=await rpc('writing.board.get');assert.equal(board.nodes.find(n=>n.id===place.id).category,'地点');assert.equal(board.chapters.find(c=>c.id===chapterId).events[0],event.id);assert.equal(board.stats.goal.versions,undefined);
+    const board=await rpc('writing.board.get');assert.equal(board.nodes.find(n=>n.id===place.id).category,'地点');assert.equal(board.chapters.find(c=>c.id===chapterId).events[0],card.id);assert.equal(board.stats.goal.versions,undefined);
     const preset=await rpc('preset.set',{expectedRevision:0,preset:{name:'要求',enabled:true,blocks:[{identifier:'voice',name:'文风',content:'保留段落。',enabled:true}]}});
     assert.match((await rpc('preset.read',{},'agent')).content,/保留段落/);
     await assert.rejects(rpc('preset.set',{expectedRevision:0,preset},'agent'),{code:'CONFLICT'});
@@ -64,6 +70,8 @@ test('真实本地 D1：双端保存、冲突、人物、规划、预设、历�
     await rpc('writing.review.apply',{id:review.id,expectedRevision:review.revision,itemIds:['mention'],confirmed:true,requestId:'cloud-review-apply'});assert.equal((await rpc('writing.card.get',{nodeId:companion.id})).firstAppearance,null);assert.equal((await rpc('writing.card.get',{nodeId:companion.id})).firstMention.chapterId,chapterId);
     const backup=await rpc('workspace.export');assert.equal(backup.payload.state.novels[novelId].chapters[chapterId].content,(await rpc('chapter.get',{chapterId})).content);
     assert.ok(backup.payload.history.length>=5);
+    assert.deepEqual(backup.payload.state.novels[novelId].story.state,(await rpc('story.get')).state);
+    assert.deepEqual((await reopened.rpc('story.get',{novelId},'desktop','human')).state,story.state);
     // Force two services to read the same database revision before either commits.
     let count=0,release;const gate=new Promise(r=>release=r);
     const racing={prepare(sql){const stmt=db.prepare(sql);return {bind(...v){const bound=stmt.bind(...v);return {async first(){const row=await bound.first();if(sql.startsWith('SELECT *')){if(++count===2)release();await gate;}return row;},run:()=>bound.run(),all:()=>bound.all()};}};}};

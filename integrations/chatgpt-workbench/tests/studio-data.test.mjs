@@ -6,18 +6,29 @@ import {createService} from '../server/service.mjs';
 import {chapterChanges,mergeChapter} from '../vendor/cuigengji/src/client/features/chapters/sync.ts';
 const base=resolve(import.meta.dirname,'../.data/tests');await mkdir(base,{recursive:true});
 const image='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j2ioAAAAASUVORK5CYII=';
-test('创建空白章节可原子保存梗概、已有及新人物、占位事件，失败不残留章节或人物',async()=>{
+test('创建空白章节原子保存梗概、人物出场计划和统一剧情卡，不伪造正式出场，失败不残留',async()=>{
  const s=await createService(await mkdtemp(join(base,'chapter-quick-'))),call=(action,args={})=>s.rpc(action,{novelId:s.novelId,...args},'studio','human');
  const person=await call('graph.create',{type:'character_card',name:'已有角色'});
  const c=await call('chapter.create',{title:'占位章',content:'',summary:'梗概',characters:[{nodeId:person.id,name:person.name},{name:'新角色'}],events:[{title:'',storyTime:'清晨',content:''}]});
  assert.equal((await call('chapter.get',{chapterId:c.id})).summary,'梗概');
- const links=await call('writing.link.list',{chapterId:c.id});assert.equal(links.length,2);assert.ok(links.every(l=>l.manual&&l.kind==='appearance'&&!l.review));
- const events=await call('writing.event.list',{chapterId:c.id});assert.equal(events.length,1);assert.equal(events[0].title,'未命名事件');assert.equal(events[0].planned,true);assert.equal(events[0].chapterRefs[0].chapterId,c.id);
+ const links=await call('writing.link.list',{chapterId:c.id});assert.deepEqual(links,[],'a creation plan is not confirmed prose appearance');
+ const people=(await call('graph.list')).filter(n=>['已有角色','新角色'].includes(n.name));assert.equal(people.length,2);
+ for(const p of people){const actual=await call('graph.get',{nodeId:p.id});assert.deepEqual(actual.appearancePlan,{chapterId:c.id,offset:0,story:null,dateText:''});}
+ const workspace=await call('story.get'),cards=Object.values(workspace.state.cards).filter(card=>card.scope.includes(c.id));assert.equal(cards.length,1);assert.equal(cards[0].title,'未命名剧情');assert.equal(cards[0].storyDateText,'清晨');assert.equal(cards[0].time.narration.startChapterId,c.id);assert.equal(cards[0].time.narration.endChapterId,c.id);assert.deepEqual(cards[0].evidence,[],'planned card supplies no manuscript evidence');
  const before=await call('chapter.list'),nodes=await call('graph.list');
  await assert.rejects(call('chapter.create',{title:'失败章',characters:[{name:'不应残留'}],events:[{title:123}]}));
  assert.equal((await call('chapter.list')).length,before.length);assert.equal((await call('graph.list')).length,nodes.length);
  await assert.rejects(s.rpc('writing.link.create',{novelId:s.novelId,chapterId:c.id,nodeId:person.id,kind:'appearance',expectedChapterRevision:c.revision,manual:true,confirmed:true,evidence:''},'agent','agent'),{code:'HUMAN_REQUIRED'});
+ assert.deepEqual((await call('story.get')).state,workspace.state,'failed chapter creation leaves unified cards unchanged');
  const backup=await call('novel.export');const dest=await createService(await mkdtemp(join(base,'quick-import-')));assert.equal((await dest.rpc('novel.import',{backup},'studio','human')).imported,true);
+ const restored=await dest.rpc('novel.export',{novelId:s.novelId},'studio','human');
+ for(const p of people)assert.deepEqual(restored.novel.nodes[p.id].appearancePlan,{chapterId:c.id,offset:0,story:null,dateText:''});
+ assert.deepEqual((await dest.rpc('story.get',{novelId:s.novelId},'studio','human')).state,workspace.state);
+ assert.deepEqual(await dest.rpc('writing.link.list',{novelId:s.novelId,chapterId:c.id},'studio','human'),[]);
+ // Explicit author confirmation, not the planning step, creates a formal appearance.
+ await assert.rejects(call('writing.link.create',{chapterId:c.id,nodeId:person.id,kind:'appearance',expectedChapterRevision:c.revision,manual:true}),{code:'CONFIRM_REQUIRED'});
+ await call('writing.link.create',{chapterId:c.id,nodeId:person.id,kind:'appearance',expectedChapterRevision:c.revision,manual:true,confirmed:true});
+ const confirmed=await call('writing.link.list',{chapterId:c.id});assert.equal(confirmed.length,1);assert.equal(confirmed[0].nodeId,person.id);assert.equal(confirmed[0].kind,'appearance');assert.equal(confirmed[0].manual,true);
 });
 test('封面、像素显示与头像完整跨重启／导出保存，拒绝非图片输入',async()=>{
  const folder=await mkdtemp(join(base,'studio-images-')),s=await createService(folder),call=(action,args={})=>s.rpc(action,{novelId:s.novelId,...args},'studio','human');

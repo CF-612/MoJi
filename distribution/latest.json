@@ -1,6 +1,6 @@
 {
   "product": "moji",
-  "version": "0.10.2",
-  "downloadUrl": "https://github.com/CF-612/MoJi/releases/tag/moji-v0.10.2",
-  "notes": "修复个人云端浏览器授权表单；保留手机正文撤销重做、免安装版、一键部署和内置自动续期。"
+  "version": "0.10.1",
+  "downloadUrl": "https://github.com/CF-612/MoJi/releases/tag/moji-v0.10.1",
+  "notes": "正式更新渠道当前指向已公开的 0.10.1。0.11.0-v31.3 是候选测试版，不进入正式版更新提醒；请在 GitHub Releases 中查看候选版及其验证范围。"
 }

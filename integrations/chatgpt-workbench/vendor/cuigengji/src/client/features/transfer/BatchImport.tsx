@@ -1,6 +1,8 @@
-import React,{useEffect,useRef,useState} from 'react';
+import React,{useContext,useEffect,useRef,useState} from 'react';
 import {FilePicker,type Call,type Run} from '../../shared/management-page.tsx';
 import type {Catalog,TransferFile,TransferPreview,ImportResult} from '../../../contracts/transfer.ts';
+import {SessionScope} from '../../shared/state.js';
+import {prepareTransferDrafts} from '../chapters/chapterSessions.ts';
 import {readTransferFile} from './file.ts';
 
 type Entry={file:TransferFile;kind:string};
@@ -15,6 +17,7 @@ async function draft(key:string,value?:unknown){
   });
 }
 export function BatchImport({call,run,busy,library,novelId,onOpen,onDone}:{call:Call;run:Run;busy:boolean;library:Catalog;novelId?:string;onOpen?:(id:string)=>unknown;onDone:()=>Promise<unknown>}){
+  const scope=useContext(SessionScope);
   const [entries,setEntries]=useState<Entry[]>([]),[targetId,setTargetId]=useState(novelId||''),[title,setTitle]=useState('导入作品');
   const [preview,setPreview]=useState<Preview|null>(null),[result,setResult]=useState<ImportResult|null>(null),[error,setError]=useState(''),[notice,setNotice]=useState('');
   const request=useRef(crypto.randomUUID()),version=useRef(0),loaded=useRef(false),storageKey='batch:'+ (novelId||'new');
@@ -24,14 +27,14 @@ export function BatchImport({call,run,busy,library,novelId,onOpen,onDone}:{call:
   const choose=(chosen:File[])=>{reset();void run(async()=>{
     if(entries.length+chosen.length>100)throw new Error('每批最多 100 个文件');
     if(chosen.reduce((n,f)=>n+f.size,0)>64*1024*1024)throw new Error('每批最多 64 MB，请拆分');
-    const next=[];for(const file of chosen)next.push({file:await readTransferFile(file),kind:'auto'});
+    const next:Entry[]=[];for(const file of chosen)next.push({file:await readTransferFile(file),kind:'auto'});
     setEntries(old=>[...old,...next]);
   });};
   const file=()=>({name:'批量导入.json',json:{format:'cuigengji-batch',version:1,files:entries}});
   const options=()=>({mode:'copy',targetId:targetId||null,title});
   const inspect=()=>{setError('');setPreview(null);const current=++version.current;void run(async()=>{try{const p=await call<Preview>('transfer.preview',{file:file(),options:options()});if(current===version.current)setPreview(p);}catch(e){if(current===version.current)setError(message(e));}});};
   const confirm=()=>{if(!preview?.valid)return;void run(async()=>{
-    try{const done=await call<ImportResult>('transfer.import',{file:file(),options:options(),proof:preview.proof,requestId:request.current});setResult(done);void draft(storageKey,null).catch(()=>{});await onDone();}
+    try{const protection=await prepareTransferDrafts({scope,novelIds:library.books.map(book=>book.id),call});const checked=await call<Preview>('transfer.preview',{file:file(),options:options()});if(!checked.valid||checked.proof!==preview.proof){setPreview(checked);throw new Error('草稿已检查保存，批量预览已更新，请核对后再次确认。');}protection.assertClean();const done=await call<ImportResult>('transfer.import',{file:file(),options:options(),proof:preview.proof,requestId:request.current});setResult(done);await protection.refresh();void draft(storageKey,null).catch(()=>{});await onDone();}
     catch(e){setError(message(e));}
   });};
   const move=(index:number,delta:number)=>{reset();setEntries(old=>{const next=[...old];[next[index],next[index+delta]]=[next[index+delta],next[index]];return next;});};

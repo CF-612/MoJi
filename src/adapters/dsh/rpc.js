@@ -19,16 +19,25 @@ function failure(error) {
   };
 }
 
-export function registerRpcRoute(ctx, { dispatch, dataRoot, workData, transfer, maintenance }) {
+export function registerRpcRoute(ctx, { dispatch, dataRoot, workData, transfer, maintenance, runtime }) {
   const ensureReady = () => maintenance?.ensureReady();
   const dispatchRpc = async (payload, signal) => {
     try {
       signal.throwIfAborted();
-      if (!record(payload) || !HUMAN_ACTIONS.includes(payload.action)) throw invalid('无效的墨叽操作');
+      if (!record(payload) || !(HUMAN_ACTIONS.includes(payload.action)||runtime&&['connection.status','connection.configure','connection.login','connection.logout','transfer.snapshots','transfer.snapshot.get'].includes(payload.action))) throw invalid('无效的墨叽操作');
       const { action, args = {}, sessionId } = payload;
       if (!record(args)) throw invalid('args 必须是对象');
       if (sessionId !== undefined && (typeof sessionId !== 'string' || !sessionId.trim() || sessionId.length > 512)) {
         throw invalid('sessionId 必须是有效的会话标识');
+      }
+      if(runtime){
+        if(!action.startsWith('connection.')&&!action.startsWith('transfer.')&&!['novel.list','novel.create','novel.import','legacy.preview','settings.get','maintenance.status','maintenance.verify','workspace.status','workspace.export','workspace.preview','workspace.import'].includes(action)&&!sessionId)throw Object.assign(new Error('请选择一个 DSH 会话'),{code:'SESSION_REQUIRED'});
+        if(action==='maintenance.status'||action==='maintenance.verify')return {ok:true,value:await runtime.maintenance(action.slice(12),args)};
+        if(action==='binding.set'&&runtime.mode()==='cloud'){
+          // Reuse the native running-session guard before calling the cloud.
+          if(runtime.isSessionBusy?.(sessionId))throw invalid('会话正在运行，请停止后切换小说或章节');
+        }
+        return {ok:true,value:await runtime.rpc(action,args,sessionId)};
       }
       if (!action.startsWith('transfer.') && !['novel.list', 'novel.create', 'novel.import', 'legacy.preview', 'settings.get', 'maintenance.status', 'maintenance.verify', 'workspace.status', 'workspace.export', 'workspace.preview', 'workspace.import'].includes(action) && !sessionId) {
         throw Object.assign(new Error('请选择一个 DSH 会话'), { code: 'SESSION_REQUIRED' });

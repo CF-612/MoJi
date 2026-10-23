@@ -40,6 +40,15 @@ export function validatePlanning(board:Board,novel:PlanningNovel):void {
     if(typeof n.deleted!=='boolean'||(n.parentId!==null&&typeof n.parentId!=='string')||id!==n.id||!Number.isSafeInteger(n.revision)||n.revision<1||typeof n.title!=='string'||!n.title.trim()||typeof n.content!=='string'||typeof n.summary!=='string'||(n.groupId!==null&&n.groupId!==undefined&&!Object.hasOwn(board.groups,n.groupId)))fail('INVALID_PLANNING','规划标题、内容或版本无效');
     if(!['long','phase','near','unspecified'].includes(n.scope)||!['idea','selected','written','dropped'].includes(n.status))fail('INVALID_PLANNING','规划范围或状态无效');
     if(!Array.isArray(n.threads)||n.threads.some(t=>typeof t!=='string')||!Array.isArray(n.chapterRefs)||!Array.isArray(n.memoryRefs))fail('INVALID_PLANNING','关联字段无效');
+    if(n.cast!==undefined){
+      // 出场人物只做形态校验：人物卡被删除或归档时，旧剧情卡仍要能读出并提示，不因此让整部作品无法保存。
+      if(!Array.isArray(n.cast)||n.cast.some(c=>!record(c)||typeof c.nodeId!=='string'||!c.nodeId.trim()||!['appearance','mention'].includes(c.kind as string)))fail('INVALID_PLANNING','出场人物关联无效');
+      if(new Set(n.cast.map(c=>c.nodeId)).size!==n.cast.length)fail('INVALID_PLANNING','同一人物不能重复加入出场名单');
+    }
+    if(n.foreshadowRefs!==undefined){
+      // 伏笔可能已被删除，旧剧情卡仍要能读出：只校验形态，不校验 id 是否存在。
+      if(!Array.isArray(n.foreshadowRefs)||n.foreshadowRefs.some(id=>typeof id!=='string'||!id.trim()))fail('INVALID_PLANNING','伏笔关联无效');
+    }
     if(!n.deleted&&n.parentId&&(!own(board.nodes,n.parentId)||board.nodes[n.parentId].deleted))fail('INVALID_PLANNING','父规划不存在');
     if(!n.deleted&&n.parentId&&(n.pageId??null)!==(board.nodes[n.parentId].pageId??null))fail('INVALID_PLANNING','父子规划须在同一页面');
     for(const ref of n.chapterRefs)if(!record(ref)||!own(novel.chapters,ref.chapterId)||!novel.chapters[ref.chapterId]?.versions.some(v=>v.revision===ref.revision))fail('INVALID_PLANNING','关联的正文版本不存在');

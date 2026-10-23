@@ -113,7 +113,7 @@ export class MemoryBridge {
       env,
       stderr: 'pipe',
     });
-    const client = new Client({ name: 'cuigengji-host', version: '0.1.0' });
+    const client = new Client({ name: 'moji-host', version: '0.1.0' });
     // Keep child diagnostics out of model output; drain to avoid pipe backpressure.
     transport.stderr?.on('data', () => {});
     client.onclose = () => {

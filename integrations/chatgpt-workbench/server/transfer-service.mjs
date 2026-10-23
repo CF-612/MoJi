@@ -58,7 +58,7 @@ export function createTransfer(store,{workData=new WorkData(store),snapshot,capa
     const content=file.text.replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n');
     if(kind==='character'||kind==='world')store.execute(state,'graph.create',{novelId:id,name:title,type:kind==='character'?'character_card':'world_entry',content},{kind:'human'});
     if(kind==='preset')store.execute(state,'preset.set',{novelId:id,expectedRevision:0,preset:{name:title,enabled:false,blocks:[{identifier:'import-'+id,name:title,content,enabled:true}]}},{kind:'human'});
-    if(kind==='planning')store.execute(state,'planning.apply',{novelId:id,requestId:randomUUID(),operations:[{op:'node.create',ref:'entry',value:{title,content}}]},{kind:'human'});
+    if(kind==='planning'){const current=store.execute(state,'story.get',{novelId:id},{kind:'human'});store.execute(state,'story.apply',{novelId:id,expectedRevision:current.state.revision,operation:{type:'card.create',value:{title,content},pageId:current.state.pages[0].id}},{kind:'human'});}
     return {name:file.name,json:dataPackage({projects:[novel],dependencies:[],warnings:[]},kind==='character'||kind==='world'?'memory':kind)};
   }
   async function batchPlan(state,file,options,actor){
@@ -95,8 +95,9 @@ export function createTransfer(store,{workData=new WorkData(store),snapshot,capa
     const bump=(item,old)=>{item.revision=Math.max(item.revision,old?.revision||0)+1;item.updatedAt=now;};
     for(const section of ['volumes','chapters','nodes','edges','memoryGroups'])for(const [id,item]of Object.entries(next[section]||{})){
       bump(item,current?.[section]?.[id]);
-      if(section==='chapters')item.versions.push({revision:item.revision,content:item.content,contentHash:item.contentHash,title:item.title,volumeId:item.volumeId,order:item.order,deleted:!!item.deleted,timestamp:now,actor:{kind:actor.kind==='agent'?'agent':'human',sessionId:actor.sessionId||null},reason:actor.kind==='agent'?'AI 按作者授权从备份恢复':'作者从备份恢复'});
+      if(section==='chapters')item.versions.push({revision:item.revision,content:item.content,summary:item.summary||'',contentHash:item.contentHash,title:item.title,volumeId:item.volumeId,order:item.order,deleted:!!item.deleted,timestamp:now,actor:{kind:actor.kind==='agent'?'agent':'human',sessionId:actor.sessionId||null},reason:actor.kind==='agent'?'AI 按作者授权从备份恢复':'作者从备份恢复'});
     }
+    if(next.story){next.story.state.revision=Math.max(next.story.state.revision,current?.story?.state?.revision||0)+1;for(const [id,card]of Object.entries(next.story.state.cards))bump(card,current?.story?.state?.cards?.[id]);for(const page of next.story.state.pages)for(const [ref,item]of Object.entries(page.instances))bump(item,current?.story?.state?.pages?.find(p=>p.id===page.id)?.instances?.[ref]);next.story.redo=[];}
     if(next.preset)bump(next.preset,current?.preset);
     if(next.plan)bump(next.plan,current?.plan);
     if(next.planning){

@@ -19,6 +19,7 @@ const launcherStyle=`
 .cg-launcher-button:hover {background:var(--dsw-alias-interactive-bg-hover,#4d6bfe10);}
 .cg-launcher-button:focus-visible {outline:2px solid var(--dsw-focus-ring-color,#4d6bfe);outline-offset:-2px;}
 .cg-launcher-button svg {flex:none;color:var(--dsw-alias-label-secondary,#6c7769);}
+.cg-launcher-avatar {display:block;width:24px;height:24px;object-fit:contain;flex:none;}
 .cg-launcher-button[data-compact=true] {width:36px;min-height:36px;justify-content:center;padding:8px;}
 .cg-launcher-hint {position:absolute;bottom:100%;left:0;z-index:100;width:220px;box-sizing:border-box;padding:12px;border:1px solid var(--dsw-alias-border-l1,#dde0e6);border-radius:10px;background:var(--dsw-alias-bg-base,#ffffff);color:var(--dsw-alias-label-primary,#252936);box-shadow:0 8px 24px #0002;font:13px/1.6 system-ui;}
 .cuigengji.cg-launcher-dialog {height:fit-content;min-height:0;padding:24px;width:min(400px,calc(100vw - 32px));max-height:80dvh;border:1px solid var(--cg-line);border-radius:16px;background:var(--cg-paper);box-shadow:0 16px 60px #0003;}
@@ -67,7 +68,7 @@ export function Launcher({wide,useNovelSession,useNovelWorkspaces,useSessions,op
     finally {setBusy(false);}
   };
   return <div className="cg-launcher"><style>{launcherStyle}</style>
-    <button ref={trigger} className="cg-launcher-button" data-compact={!wide} type="button" title="墨叽 · 写作工作台" aria-label="打开墨叽" onClick={open}><BookIcon/>{wide&&<span>墨叽</span>}</button>
+    <button ref={trigger} className="cg-launcher-button" data-compact={!wide} type="button" title="墨叽 · 写作工作台" aria-label="打开墨叽" onClick={open}><img className="cg-launcher-avatar" src={avatar} alt="烟灰蛸" width={24} height={24}/>{wide&&<span>墨叽</span>}</button>
     {error&&!choosing&&<div className="cg-launcher-hint" role="alert">{error}</div>}
     {choosing&&<dialog ref={dialog} className="cuigengji cg-launcher-dialog" aria-label="打开写作工作台" onCancel={e=>{e.preventDefault();if(!busy)close();}}><style>{styles}</style>
       <div className="launcher-intro"><img src={avatar} width={76} height={76} alt="墨叽头像"/><div><span>墨叽 · 写作助手</span><h2>故事，从这里开始。</h2></div></div><p className="muted">选择一个 DSH 工作区即可开始，无需先发消息。</p>

@@ -1,6 +1,6 @@
 import React,{useContext,useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {SessionScope,readLocal} from './state.js';
-import {CARD_WIDTH,CARD_HEIGHT,PORT_Y,contains,intersects,fitCamera,toWorld,zoomAt,curve} from './graph-geometry.ts';
+import {CARD_WIDTH,CARD_HEIGHT,PORT_Y,contains,intersects,fitCamera,minimumZoom,validCamera,zoomLabel,toWorld,zoomAt,curve} from './graph-geometry.ts';
 import type {Camera,Rect} from './graph-geometry.ts';
 import type {Point} from '../../contracts/planning.ts';
 export {CARD_WIDTH,CARD_HEIGHT,PORT_Y,curve};
@@ -41,7 +41,7 @@ export function GraphStatus({graph,busy}:{graph:ReturnType<typeof useGraph>;busy
   return null;
 }
 export function GraphControls({graph,busy}:{graph:ReturnType<typeof useGraph>;busy:boolean}){
-  return <><div className="graph-view-controls"><button aria-label="适应视图" onClick={()=>graph.fit()}>适应</button><button aria-label="恢复百分之百缩放" onClick={()=>graph.zoomTo(1)}>{Math.round(graph.zoom*100)}%</button><span className="graph-control-divider" aria-hidden="true"/><button aria-label="撤销布局" title="撤销布局 · Ctrl+Z" disabled={busy||graph.saving||graph.failed||!graph.canUndo} onClick={()=>graph.undo()}>↶</button><button aria-label="重做布局" title="重做布局 · Ctrl+Y" disabled={busy||graph.saving||graph.failed||!graph.canRedo} onClick={()=>graph.redo()}>↷</button><button aria-label="整理布局" disabled={busy||graph.saving||graph.failed} onClick={()=>graph.arrange(graph.fallback)}>整理</button></div><details className="graph-help"><summary>操作</summary><div><p>右键拖动平移 · 滚轮缩放</p><p>单击选择 · 双击打开内容</p><p>拖动空白框选 · Shift 追加选择</p><p>拖动圆点连线 · 右键查看操作</p><p>C 创建讨论框 · Esc 取消</p><p>Home 适应 · Ctrl+Z / Ctrl+Y 撤销、重做布局</p></div></details><div className="graph-status"><GraphStatus graph={graph} busy={busy}/></div></>;
+  return <><div className="graph-view-controls"><button aria-label="适应视图" onClick={()=>graph.fit()}>适应</button><button aria-label="恢复百分之百缩放" onClick={()=>graph.zoomTo(1)}>{zoomLabel(graph.zoom)}%</button><span className="graph-control-divider" aria-hidden="true"/><button aria-label="撤销布局" title="撤销布局 · Ctrl+Z" disabled={busy||graph.saving||graph.failed||!graph.canUndo} onClick={()=>graph.undo()}>↶</button><button aria-label="重做布局" title="重做布局 · Ctrl+Y" disabled={busy||graph.saving||graph.failed||!graph.canRedo} onClick={()=>graph.redo()}>↷</button><button aria-label="整理布局" disabled={busy||graph.saving||graph.failed} onClick={()=>graph.arrange(graph.fallback)}>整理</button></div><details className="graph-help"><summary>操作</summary><div><p>右键拖动平移 · 滚轮缩放</p><p>单击选择 · 双击打开内容</p><p>拖动空白框选 · Shift 追加选择</p><p>拖动圆点连线 · 右键查看操作</p><p>C 创建讨论框 · Esc 取消</p><p>Home 适应 · Ctrl+Z / Ctrl+Y 撤销、重做布局</p></div></details><div className="graph-status"><GraphStatus graph={graph} busy={busy}/></div></>;
 }
 
 /** One world coordinate system. Viewport changes are local preferences, never novel edits. */
@@ -49,7 +49,7 @@ export function useGraph(options:Options){
   const opts=useRef(options);opts.current=options;
   const scope=useContext(SessionScope),storageKey=`cuigengji:camera:${scope}:${options.scopeKey}`;
   const saved=useRef(readLocal(storageKey,null));
-  const validSaved=saved.current&&[saved.current.x,saved.current.y,saved.current.zoom].every(Number.isFinite)&&saved.current.zoom>=.35&&saved.current.zoom<=1.8;
+  const validSaved=validCamera(saved.current);
   const [camera,setCamera]=useState<Camera>(validSaved?saved.current:{x:0,y:0,zoom:1});
   const cameraRef=useRef(camera);cameraRef.current=camera;
   const scroll=useRef<HTMLDivElement>(null),surface=useRef<HTMLDivElement>(null);
@@ -87,7 +87,8 @@ export function useGraph(options:Options){
   const context=(x:number,y:number,hit:GraphHit)=>{if(opts.current.busy||locked.current)return;if((hit.kind==='node'||hit.kind==='decoration')&&!selection.current.includes(hit.id!))select([hit.id!]);if(hit.kind==='edge')chooseEdge(hit.id!);opts.current.onContext?.({x,y,point:clientPoint(x,y),hit,selected:selection.current});};
   const cancel=()=>{const g=gesture.current;if(g?.kind==='card'&&g.moved){const next={...localRef.current};for(const id of g.ids)next[id]=g.before[id];setLocal(next);suppress.current=true;}if(g?.kind==='pan')updateCamera(g.before);gesture.current=null;updateWire(null);setDragging(false);setLasso(null);};
   const fit=(persist=true)=>{const el=scroll.current;if(!el)return;const ids=visible().filter(id=>pointsRef.current[id]),chosen=ids.filter(id=>selection.current.includes(id));const next=fitCamera((chosen.length?chosen:ids).map(bounds),el.clientWidth,el.clientHeight);if(next)updateCamera(next,persist);};
-  const zoomTo=(next:number,anchor?:Point)=>{const el=scroll.current;if(!el||gesture.current)return;updateCamera(zoomAt(cameraRef.current,next,anchor||{x:el.clientWidth/2,y:el.clientHeight/2}),true);};
+  const zoomFloor=()=>minimumZoom(visible().filter(id=>pointsRef.current[id]).map(bounds),scroll.current?.clientWidth||0,scroll.current?.clientHeight||0);
+  const zoomTo=(next:number,anchor?:Point)=>{const el=scroll.current;if(!el||gesture.current)return;updateCamera(zoomAt(cameraRef.current,next,anchor||{x:el.clientWidth/2,y:el.clientHeight/2},Math.min(cameraRef.current.zoom,zoomFloor())),true);};
   const fitted=useRef(Boolean(validSaved));
   const ensureVisible=(point:Point,width:number,height:number)=>{
     const el=scroll.current;if(!el)return;fitted.current=true;

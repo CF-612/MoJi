@@ -151,7 +151,7 @@ export class TransferService {
       const slice = selectProjects(Object.values(state.novels), selection);
       const name = (slice.projects.length === 1 ? slice.projects[0].title : `${slice.projects.length}部作品`).replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-').slice(0, 100);
       const label = {works: '作品', chapters: '正文', memory: '设定', planning: '规划', preset: '写作预设'}[selection.kind as 'works'];
-      if (format === 'package') return {filename: `${name}-${label}.cuigengji.json`, mime: 'application/json', content: JSON.stringify(dataPackage(slice, selection.kind as 'works'), null, 2)};
+      if (format === 'package') return {filename: `${name}-${label}.moji.json`, mime: 'application/json', content: JSON.stringify(dataPackage(slice, selection.kind as 'works'), null, 2)};
       const n = slice.projects[0], entries = catalog([n]).books[0].chapters;
       const sections = entries.map((entry, i) => {const ch = n.chapters[entry.id], title = ch.title.replace(/[\r\n]/g, ' ');
         return `${format === 'md' ? '## ' + title : /^第[零〇一二三四五六七八九十百千万两\d]+[章节回]/.test(title) ? title : `第${i + 1}章 ${title}`}\n\n${ch.content}`;});

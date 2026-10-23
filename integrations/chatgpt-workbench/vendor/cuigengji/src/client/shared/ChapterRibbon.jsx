@@ -1,12 +1,13 @@
+import {storyTimeLabel} from './story-time-label.mjs';
 import {useModules} from '../modules/context.tsx';
 import React from 'react';
-import {useBoard} from '../features/structure/useBoard.js';
+import {useStoryLinks,chapterShadows} from './useStoryLinks.js';
 import {Icon} from './icons.tsx';
-const names={plant:'埋设',progress:'推进',recover:'回收',target:'计划回收'};
-export function ChapterRibbon({call,novelId,tick,chapterId,onMemory,onEvent,onForeshadow}){
- const modules=useModules(),resource=useBoard(call,novelId,tick),board=resource.value,ch=board?.chapters.find(c=>c.id===chapterId);
- if(!ch)return null;
- const people=[...new Set((ch.characters||[]).map(p=>p.id))].filter(id=>board.chapters.find(c=>(c.characters||[]).some(p=>p.id===id))?.id===chapterId),events=modules.timeline?ch.events:[],shadows=modules.foreshadow?ch.foreshadows:[];
- if(!people.length&&!events.length&&!shadows.length)return resource.error?<p className="notice">联动资料未更新，正文草稿仍保留。</p>:null;
- return <aside className="chapter-ribbon" aria-label="本章故事联动">{people.length>0&&<section><h3>首次出场人物</h3><div className="chapter-reference-cards">{people.map(id=>{const node=board.nodes.find(n=>n.id===id);return <button className="chapter-reference" key={id} onClick={()=>onMemory(id)}><span className="reference-avatar">{node?.avatarImage?<img src={node.avatarImage} alt=""/>:node?.name.slice(0,1)||'人'}</span><span><strong>{node?.name}</strong><small>首次出场</small></span><Icon name="arrow"/></button>;})}</div></section>}{events.length>0&&<section><h3>本章事件</h3><div className="chapter-reference-cards">{events.map(id=><button className="chapter-reference" key={id} onClick={()=>onEvent(id)}><Icon name="route"/><span><strong>{board.events.find(e=>e.id===id)?.title}</strong><small>关联事件</small></span><Icon name="arrow"/></button>)}</div></section>}{shadows.length>0&&<section><h3>伏笔</h3><div className="chapter-reference-cards">{shadows.map((r,i)=><button className="chapter-reference" key={i} onClick={()=>onForeshadow(r.id)}><Icon name="bookmark"/><span><strong>{board.foreshadows.find(f=>f.id===r.id)?.title}</strong><small>{names[r.kind]}</small></span><Icon name="arrow"/></button>)}</div></section>}</aside>;
+export function ChapterRibbon({call,novelId,tick,chapterId,onMemory,onStoryCard,onForeshadow}){
+ const modules=useModules(),resource=useStoryLinks(call,novelId,tick),data=resource.value;
+ if(!data)return resource.error?<p className="notice">联动资料读取失败，正文草稿仍保留。</p>:null;
+ const people=data.nodes.filter(n=>data.links.some(l=>l.nodeId===n.id&&l.chapterId===chapterId&&l.kind==='appearance'&&!l.excluded&&!l.review));
+ const cards=data.cards.filter(c=>c.chapterIds.includes(chapterId)),shadows=modules.foreshadow?chapterShadows(data,chapterId):[];
+ if(!people.length&&!cards.length&&!shadows.length)return null;
+ return <aside className="chapter-ribbon" aria-label="本章故事联动">{people.length>0&&<section><h3>正文确认出场</h3><div className="chapter-reference-cards">{people.map(n=><button className="chapter-reference" key={n.id} onClick={()=>onMemory(n.id)}><span className="reference-avatar">{n.avatarImage?<img src={n.avatarImage} alt=""/>:n.name.slice(0,1)}</span><strong>{n.name}</strong></button>)}</div></section>}{cards.length>0&&<section><h3>本章剧情卡</h3><div className="chapter-reference-cards">{cards.map(c=><button className="chapter-reference" key={c.id} onClick={()=>onStoryCard?.(c.id)}><Icon name="route"/><span><strong>{c.title}</strong><small>{storyTimeLabel(c,data.state.storyAxis)} · {(c.evidence||[]).some(e=>e.chapterId===chapterId)?'有正文依据':'计划'}</small></span></button>)}</div></section>}{shadows.length>0&&<section><h3>本章伏笔</h3><div className="chapter-reference-cards">{shadows.map(f=><button className="chapter-reference" key={f.id} onClick={()=>onForeshadow(f.id)}><Icon name="bookmark"/><span><strong>{f.title}</strong><small>{f.review?'依据待复核':{planned:'计划',planted:'埋设',developing:'推进',partial:'部分回收',recovered:'已回收',abandoned:'已放弃'}[f.status]}</small></span></button>)}</div></section>}</aside>;
 }

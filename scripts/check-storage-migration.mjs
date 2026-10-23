@@ -10,7 +10,7 @@ const source = resolve(process.argv[2] || ''), reportDirectory = process.argv[3]
 if (!process.argv[2]) throw new Error('Usage: node scripts/check-storage-migration.mjs <legacy-store.json> [report-directory]');
 const raw = await readFile(source, 'utf8'), expected = JSON.parse(raw);
 // Rehearsal never opens the user's live directory through the new Store.
-const isolated = await mkdtemp(join(tmpdir(), 'cuigengji-migration-rehearsal-'));
+const isolated = await mkdtemp(join(tmpdir(), 'moji-migration-rehearsal-'));
 await writeFile(join(isolated, 'store.json'), raw);
 const migrated = new Store(isolated);
 await migrated.dispatch('novel.list');

@@ -1,3 +1,6 @@
+import {checkedForeshadow} from './writing.js';
+import {checkedEvent} from './story-evolution.js';
+import {legacyForeshadow} from './foreshadow-nodes.js';
 import {createHash,randomUUID} from 'node:crypto';
 // Suggestions are a separate inbox, never a second store of story facts.
 const clone=structuredClone,object=v=>v&&typeof v==='object'&&!Array.isArray(v);
@@ -28,10 +31,26 @@ function dependencies(n,chapterId,item){
  }
  return [...refs.values()];
 }
-function executeItem(n,chapterId,chapterRevision,item,execute,reason){
+function executeItem(n,chapterId,chapterRevision,item,execute,reason,preview=false){
  if(item.kind==='link')return execute(n,'writing.link.create',{chapterId,expectedChapterRevision:chapterRevision,nodeId:item.nodeId,kind:item.linkKind,evidence:item.evidence,confirmed:true,reason});
- if(item.kind==='event')return execute(n,'writing.event.create',{value:{...item.value,chapterRefs:[{chapterId,revision:chapterRevision,evidence:item.evidence}]},confirmed:true,reason});
- return execute(n,item.targetId?'writing.foreshadow.update':'writing.foreshadow.create',{id:item.targetId,expectedRevision:item.expectedRevision??0,value:item.value,confirmed:true,reason});
+ // Preview and apply use the same story-card mapping on their respective drafts.
+ const createCard=(title,content,evidence,cast=[])=>{const workspace=execute(n,'story.get',{}),before=new Set(Object.keys(workspace.state.cards));const result=execute(n,'story.apply',{expectedRevision:workspace.state.revision,operation:{type:'card.create',value:{title,content,status:'selected',storyDateText:item.value.storyDate||item.value.storyTime||'',scope:[chapterId],cast,evidence:evidence||[],foreshadowRefs:item.value.foreshadowRefs||[]}}});return Object.values(result.state.cards).find(c=>!before.has(c.id));};
+ if(item.kind==='event'){
+  // Keep validating the compatibility candidate payload, but never write a legacy event.
+  const value=checkedEvent(n,n.writing||{foreshadows:{}},{...item.value,chapterRefs:[{chapterId,revision:chapterRevision,evidence:item.evidence}]});
+  for(const id of [...value.memoryRefs,...value.enteringRefs])if(n.nodes[id].deleted)fail('不能新关联已删除资料','INVALID_WRITING');
+  const entering=new Set(value.enteringRefs),cast=[...new Set([...value.memoryRefs,...value.enteringRefs])].map(nodeId=>({nodeId,kind:entering.has(nodeId)?'appearance':'mention'}));
+  // Cast is a plan, not a formal prose appearance link; repeated appearances are valid.
+  const card=createCard(value.title,value.content,value.chapterRefs,cast);return {...value,id:card.id};
+ }
+ const old=item.targetId?legacyForeshadow(n.writing?.foreshadows[item.targetId]):null,nodes=clone(old?.plotNodes||[]);
+ const value={...old,...item.value};
+ for(const e of value.evidence||[]){if(nodes.some(p=>p.kind===e.kind&&p.evidence?.chapterId===e.chapterId&&p.evidence?.revision===e.revision&&p.evidence?.evidence===e.evidence))continue;const card=createCard(value.title,value.content,[e],(value.memoryRefs||[]).map(nodeId=>({nodeId,kind:'mention'})));nodes.push({id:randomUUID(),cardId:card.id,kind:e.kind,note:'',evidence:{chapterId:e.chapterId,revision:e.revision,evidence:e.evidence}});}
+ // Completion is an explicit author-approved decision, never inferred from a recovery node.
+ const resolution=item.value.resolution||(item.value.status==='recovered'?'complete':item.value.status==='abandoned'?'abandoned':old?.resolution||(old?.status==='recovered'?'complete':old?.status==='abandoned'?'abandoned':'active'));
+ const mapped={...value,evidence:[],plotNodes:nodes,resolution};
+ const result=preview?checkedForeshadow(n,mapped):execute(n,item.targetId?'writing.foreshadow.update':'writing.foreshadow.create',{id:item.targetId,expectedRevision:item.expectedRevision??0,value:mapped,confirmed:true,reason});
+ return {...result,evidence:nodes.filter(p=>p.evidence).map(p=>({...p.evidence,kind:p.kind}))};
 }
 function prepare(n,a,execute){
  const ch=get(n.chapters,a.chapterId);if(ch.deleted||ch.revision!==a.expectedChapterRevision)fail('正文版本已变化，请重新读取并整理','CONFLICT');
@@ -58,8 +77,8 @@ function prepare(n,a,execute){
     if(!Array.isArray(value.evidence)||!value.evidence.some(e=>e.chapterId===ch.id&&e.revision===ch.revision))fail('伏笔建议需要本章已保存正文依据');
    }
   }
-  const checked=executeItem(clone(n),ch.id,ch.revision,item,execute,'仅校验候选，不保存');
-  if(item.kind!=='link'){const keys=item.kind==='event'?['title','storyTime','storyDate','plannedChapter','narrationOrder','planned','enteringRefs','order','narrativeKind','content','memoryRefs','planningRefs','foreshadowRefs']:['title','status','content','memoryRefs','targetChapterId','evidence','abandonReason'];item.value=Object.fromEntries(keys.map(key=>[key,checked[key]]));}
+  const checked=executeItem(clone(n),ch.id,ch.revision,item,execute,'仅校验候选，不保存',true);
+  if(item.kind!=='link'){const keys=item.kind==='event'?['title','storyTime','storyDate','plannedChapter','narrationOrder','planned','enteringRefs','order','narrativeKind','content','memoryRefs','planningRefs','foreshadowRefs']:['title','status','resolution','content','memoryRefs','targetChapterId','evidence','abandonReason'];item.value=Object.fromEntries(keys.map(key=>[key,checked[key]]));}
   item.dependencies=dependencies(n,ch.id,item);
   return item;
  });
@@ -116,7 +135,7 @@ export function copyReviews(source,target,maps,shadowIds,eventIds,linkIds){
   for(const i of copy.items){i.dependencies=i.dependencies.map(d=>({...d,id:mapId(d.collection,d.id),revision:d.collection==='eventOrder'?(d.revision===stateOf(source,'eventOrder','events')?stateOf(target,'eventOrder','events'):'stale:'+d.revision):d.revision}));
    if(i.kind==='link')i.nodeId=maps.nodes.get(i.nodeId);
    else {for(const field of ['memoryRefs','enteringRefs'])if(i.value[field])i.value[field]=i.value[field].map(id=>maps.nodes.get(id));if(i.value.planningRefs)i.value.planningRefs=i.value.planningRefs.map(id=>maps.planning.get(id));if(i.value.foreshadowRefs)i.value.foreshadowRefs=i.value.foreshadowRefs.map(id=>shadowIds.get(id));if(i.targetId)i.targetId=shadowIds.get(i.targetId);if(i.value.targetChapterId)i.value.targetChapterId=maps.chapters.get(i.value.targetChapterId);if(i.value.evidence)i.value.evidence=i.value.evidence.map(e=>({...e,chapterId:maps.chapters.get(e.chapterId)}));}
-   if(i.result)i.result.id=(i.kind==='link'?linkIds:i.kind==='event'?eventIds:shadowIds).get(i.result.id)||null;
+   if(i.result)i.result.id=(i.kind==='link'?linkIds:i.kind==='event'?(maps.story?.has(i.result.id)?maps.story:eventIds):shadowIds).get(i.result.id)||null;
   }
   target.writing.reviews[copy.id]=copy;
  }

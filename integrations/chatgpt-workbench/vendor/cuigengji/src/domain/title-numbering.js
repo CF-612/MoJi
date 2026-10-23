@@ -4,3 +4,9 @@ function number(value){if(/^\d+$/.test(value))return Number(value);let total=0,c
 export function nextNumberedTitle(records,kind){const values=Array.isArray(records)?records:Object.values(records||{}),pattern=new RegExp(`^\\s*第([\\d零〇一二两三四五六七八九十百千]+)${kind}`),highest=Math.max(values.length,...values.map(r=>number(pattern.exec(r.title||r.name||'')?.[1]||'')));return `第${chineseNumber(highest+1)}${kind}`;}
 export function nextChapterTitle(chapters,volumeId=null){return nextNumberedTitle((Array.isArray(chapters)?chapters:Object.values(chapters||{})).filter(c=>(c.volumeId||null)===(volumeId||null)),'章');}
 export function numberedTitle(title,prefix,autoNumber=false){if(title===undefined||title==='')return prefix;if(typeof title!=='string')return title;if(!autoNumber||/^\s*第[\d零〇一二两三四五六七八九十百千]+[卷章]/.test(title))return title;return `${prefix} ${title}`;}
+
+// Display preference: custom text and persisted titles are not rewritten.
+export function displayNumberedTitle(title,style='chinese'){
+ if(typeof title!=='string')return title;
+ return title.replace(/(^|·)(\s*第)([\d零〇一二两三四五六七八九十百千]+)([卷章])/g,(_,separator,prefix,value,kind)=>`${separator}${prefix}${style==='arabic'?number(value):chineseNumber(number(value))}${kind}`);
+}

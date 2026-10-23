@@ -1,5 +1,7 @@
 import { build } from 'esbuild';
-import { mkdir, readFile, readdir } from 'node:fs/promises';
+import { mkdir, readFile, readdir, copyFile } from 'node:fs/promises';
+
+import { dirname, join } from 'node:path';
 
 const manifest = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 if (typeof manifest.name !== 'string' || !manifest.name) throw new Error('package.json must define a non-empty name');
@@ -15,12 +17,21 @@ await build({
   }));}}],
 });
 
+// Preserve ESM model imports, including their .mjs extension.
+for (const file of (await readdir('src', {recursive:true})).filter(file => !file.startsWith('client') && file.endsWith('.mjs'))) {
+  const target = join('runtime', file);
+  await mkdir(dirname(target), {recursive:true});
+  await copyFile(join('src', file), target);
+}
+
 await mkdir('lib', { recursive: true });
 await build({
-  entryPoints: ['src/client/index.tsx'], outfile: 'lib/client.js', bundle: true,
+  entryPoints: ['src/client/dsh-entry.tsx'], outfile: 'lib/client.js', bundle: true,
   platform: 'browser', format: 'cjs', target: 'es2022', jsx: 'automatic',
-  loader: {'.png': 'dataurl'},
+  loader: {'.png': 'dataurl','.jpg':'dataurl','.svg':'dataurl'},
   external: ['react', 'react/jsx-runtime', 'react-dom', '@deepseek-ai/*'],
   banner: { js: `window.__ModuleLoader__.load({id:${loaderId},factory:(require)=>{var module={exports:{}};var exports=module.exports;` },
   footer: { js: 'return module.exports;}});' },
 });
+
+await build({entryPoints:['src/adapters/dsh/transfer-service.js'],outfile:'runtime/adapters/dsh/transfer-service.js',bundle:true,platform:'node',format:'esm',target:'node24'});

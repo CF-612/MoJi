@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {resolve} from 'node:path';
-import {mkdir,mkdtemp} from 'node:fs/promises';
+import {mkdir,mkdtemp,readFile} from 'node:fs/promises';
 import {Script} from 'node:vm';
 import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {StdioClientTransport} from '@modelcontextprotocol/sdk/client/stdio.js';
@@ -17,9 +17,18 @@ test('真实 MCP 连接包含 thread 入口、内嵌资源、读写和版本恢�
   const client=new Client({name:'sidebar-acceptance',version:'0.1.0'});
   try{
     await client.connect(transport);
+    const manifest=JSON.parse(await readFile(resolve(root,'package.json'),'utf8'));
+    assert.deepEqual(client.getServerVersion(),{name:'Moji',version:manifest.version});
+    const resources=await client.listResources();
+    assert.deepEqual(resources.resources.map(resource=>resource.uri),['ui://moji/workbench-v020']);
+    const oldWorkbench=await client.readResource({uri:'ui://cuigengji/workbench-v020'});
+    assert.equal(oldWorkbench.contents[0].uri,'ui://cuigengji/workbench-v020');
     const tools=await client.listTools();
     assert.ok(tools.tools.some(x=>x.name==='workbench_import_preview'));
     assert.ok(tools.tools.some(x=>x.name==='workbench_import'));
+    const editDescription=tools.tools.find(x=>x.name==='workbench_edit').description;
+    assert.match(editDescription,/story\.apply 使用工作区 expectedRevision/);
+    assert.doesNotMatch(editDescription,/planning\.apply/);
     const importFile={name:'第1章.txt',text:'　　“原文不改写。”——他说。'},importOptions={mode:'copy',title:'本地 AI 导入验收'};
     const preview=await client.callTool({name:'workbench_import_preview',arguments:{file:importFile,options:importOptions}});assert.equal(preview.isError,undefined);
     const imported=await client.callTool({name:'workbench_import',arguments:{file:importFile,options:importOptions,proof:preview.structuredContent.result.proof,requestId:crypto.randomUUID()}});assert.equal(imported.isError,undefined);

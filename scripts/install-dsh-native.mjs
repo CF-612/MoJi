@@ -1,0 +1,34 @@
+// 仅更新已安装的桌面 profile；保留旧包及配置备份，不重启宿主。
+import {readFile,writeFile,copyFile,mkdir} from 'node:fs/promises';
+import {existsSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import {spawn} from 'node:child_process';
+import {join,resolve} from 'node:path';
+import assert from 'node:assert/strict';
+const expected=JSON.parse(await readFile(new URL('../package.json',import.meta.url),'utf8'));
+assert.equal(expected.name,'dsh-moji','Expected the Moji package');
+if(process.platform!=='win32')throw new Error('This installer requires Windows and a stopped DSH desktop.');
+if(!process.argv[2])throw new Error('Pass the current dsh-moji .tgz package path.');
+const home=join(process.env.USERPROFILE,'.dsh'),profile=join(home,'profiles/desktop');
+const exe=join(process.env.LOCALAPPDATA,'Programs/DeepSeek Harness/DeepSeek Harness.exe');
+const cli=join(process.env.LOCALAPPDATA,'Programs/DeepSeek Harness/resources/app.asar/dsh/node_modules/@deepseek-ai/dsh-desktop-host/lib/cli.js');
+const candidate=resolve(process.argv[2]),bytes=await readFile(candidate),digest=createHash('sha256').update(bytes).digest('hex');
+const before=JSON.parse(await readFile(join(profile,'package.json'),'utf8'));
+const patch=await readFile(join(profile,'cordis.patch.yml'),'utf8');
+// Never activate two writers against the same legacy-compatible data root.
+assert.ok(!before.dependencies?.['dsh-cuigengji']&&!before.dsh?.profile?.bundles?.includes('dsh-cuigengji')&&!/\bcuigengji\b/.test(patch),'检测到旧插件：请先备份作品及 profile，通过 DSH 插件管理停用并移除 dsh-cuigengji，保留数据目录；处理旧插件配置后再安装 Moji。尚未修改 profile。');
+assert.ok(before.dependencies?.[expected.name],'此脚本只更新已安装的 Moji；首次安装请使用 DSH 插件管理。');
+const backup=resolve('.data/dsh-candidate/profile-backup-'+Date.now());await mkdir(backup,{recursive:true});
+for(const file of ['package.json','pnpm-lock.yaml','cordis.patch.yml'])if(existsSync(join(profile,file)))await copyFile(join(profile,file),join(backup,file));
+const installed=join(home,'plugin-packages',`${expected.name}-${expected.version}-native-${digest.slice(0,10)}.tgz`);
+await mkdir(join(home,'plugin-packages'),{recursive:true});
+if(existsSync(installed))assert.equal(createHash('sha256').update(await readFile(installed)).digest('hex'),digest);else await copyFile(candidate,installed);
+const result=await new Promise((done,reject)=>{let output='';const child=spawn(exe,['--expose-internals',cli,'plugin','--profile','desktop','add',installed],{env:{...process.env,ELECTRON_RUN_AS_NODE:'1',DSH_DESKTOP_NODE_EXECUTABLE:exe},windowsHide:true,stdio:['ignore','pipe','pipe']});child.stdout.on('data',data=>output+=data);child.stderr.on('data',data=>output+=data);child.on('error',reject);child.on('close',code=>done({code,output}));});
+await writeFile(join(backup,'install.log'),result.output);assert.equal(result.code,0,'DSH 原生更新失败，详见 '+join(backup,'install.log'));
+const after=JSON.parse(await readFile(join(profile,'package.json'),'utf8'));
+for(const [name,value] of Object.entries(before.dependencies))if(name!==expected.name)assert.equal(after.dependencies[name],value,'其他插件依赖应保留');
+assert.deepEqual(after.dsh,before.dsh,'原有插件启用配置应保留');assert.equal(await readFile(join(profile,'cordis.patch.yml'),'utf8'),patch);
+const manifest=JSON.parse(await readFile(join(profile,'node_modules',expected.name,'package.json'),'utf8'));assert.equal(manifest.version,expected.version);
+assert.deepEqual(await readFile(join(profile,'node_modules',expected.name,'lib/client.js')),await readFile('lib/client.js'));
+const report={ok:true,installedVersion:manifest.version,profile:'desktop',packageSha256:digest,otherPluginsPreserved:true,patchPreserved:true,backup,hostRestarted:false};
+await writeFile('.data/dsh-candidate/user-install-report.json',JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));

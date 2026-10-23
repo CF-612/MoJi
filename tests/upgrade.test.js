@@ -1,3 +1,4 @@
+import {testCredentials} from './helpers/credentials.js';
 import manifest from '../package.json' with {type:'json'};
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -149,7 +150,7 @@ test('missing split-workspace index never becomes a usable empty library',async 
 
 async function host(t,root) {
   const registered = new Map(), hooks = new Map(), effects = [], routes = [];
-  const ctx = {tools:{register:tool => registered.set(tool.name,tool)},skills:{register(){}},connection:{fetch:{register:route => routes.push(route)}},
+  const ctx = {credentials:testCredentials(),tools:{register:tool => registered.set(tool.name,tool)},skills:{register(){}},connection:{fetch:{register:route => routes.push(route)}},
     on:(name,fn) => hooks.set(name,fn),effect:fn => effects.push(fn()),provide:(key,value) => {ctx[key] = value;}};
   t.after(async () => {for (const dispose of effects) await dispose();});
   await apply(ctx,{dataRoot:root});
@@ -162,11 +163,11 @@ async function host(t,root) {
 test('actual host maintenance tool and RPC work unbound after failure while project, import/export and prompt gates stay safe',async t => {
   const root = await temporary(t); await writeFile(join(root,'store.json'),'{invalid');
   const {ctx,hooks,execute,rpc} = await host(t,root);
-  const status = JSON.parse(await execute('cuigengji_maintenance','status')); assert.equal(status.status,'failed');
-  assert.equal(JSON.parse(await execute('cuigengji_maintenance','verify')).verified,false);
+  const status = JSON.parse(await execute('moji_maintenance','status')); assert.equal(status.status,'failed');
+  assert.equal(JSON.parse(await execute('moji_maintenance','verify')).verified,false);
   assert.equal((await rpc('maintenance.status')).value.status,'failed'); assert.equal((await rpc('maintenance.verify')).ok,true);
   for (const action of ['novel.list','workspace.status','workspace.export','transfer.catalog']) assert.equal((await rpc(action)).error.code,'UPGRADE_REQUIRED');
-  await assert.rejects(execute('cuigengji_project','novel.get'),{code:'UPGRADE_REQUIRED'});
+  await assert.rejects(execute('moji_project','novel.get'),{code:'UPGRADE_REQUIRED'});
   let admitted = false; await hooks.get('agent/pre-step')({agent:{id:'unbound'}},() => {admitted = true;}); assert.equal(admitted,true);
   const result = await hooks.get('system-prompt/assemble')({}, {agent:{id:'unbound'}}, () => ({sections:[],contexts:[]})); assert.deepEqual(result,{sections:[],contexts:[]});
   assert.equal(ctx.cuigengji.maintenance.pluginVersion,manifest.version);

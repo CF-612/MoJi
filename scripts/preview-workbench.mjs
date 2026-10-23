@@ -11,7 +11,7 @@ import {convertLegacyExport} from '../src/infrastructure/migrations/legacy.js';
 import {seedCanvasDemo} from './canvas-demo.mjs';
 
 const root=resolve(import.meta.dirname,'..');
-const directory=await mkdtemp(join(tmpdir(),'cuigengji-preview-'));
+const directory=await mkdtemp(join(tmpdir(),'moji-preview-'));
 const store=new Store(directory),workData=new WorkData(store);
 const transfer=new TransferService(store,workData);
 const actor={kind:'human',sessionId:'production-preview'};

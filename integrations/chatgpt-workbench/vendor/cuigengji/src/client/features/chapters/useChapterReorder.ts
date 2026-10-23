@@ -115,6 +115,13 @@ export function useChapterReorder(options: Options) {
       savingRef.current = false; setSaving(false); latest.current.onMoved(destination.volumeId);
     }
   };
+  const nudge=(chapter:ChapterItem,direction:'up'|'down')=>{
+      const {visibleChapters, volumes} = latest.current;
+      const peers = visibleChapters.filter(item => !item.deleted && (item.volumeId || null) === (chapter.volumeId || null)).sort((a, b) => a.order - b.order);
+      const index = peers.findIndex(item => item.id === chapter.id), up = direction === 'up';
+      if (up ? index <= 0 : index >= peers.length - 1) return;
+      void persist({source: chapter, chapters: visibleChapters, volumes, snapshot: directorySnapshot(visibleChapters, volumes)}, {volumeId: chapter.volumeId || null, beforeChapterId: up ? peers[index - 1].id : peers[index + 2]?.id || null});
+  };
   const rowProps = (chapter: ChapterItem) => ({
     'data-chapter-id': chapter.id,
     onPointerDown: (event: PointerEvent<HTMLElement>) => {
@@ -146,14 +153,10 @@ export function useChapterReorder(options: Options) {
     onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
       if (!event.altKey || !['ArrowUp', 'ArrowDown'].includes(event.key) || chapter.deleted) return;
       event.preventDefault();
-      const {visibleChapters, volumes} = latest.current;
-      const peers = visibleChapters.filter(item => !item.deleted && (item.volumeId || null) === (chapter.volumeId || null)).sort((a, b) => a.order - b.order);
-      const index = peers.findIndex(item => item.id === chapter.id), up = event.key === 'ArrowUp';
-      if (up ? index <= 0 : index >= peers.length - 1) return;
-      void persist({source: chapter, chapters: visibleChapters, volumes, snapshot: directorySnapshot(visibleChapters, volumes)}, {volumeId: chapter.volumeId || null, beforeChapterId: up ? peers[index - 1].id : peers[index + 2]?.id || null});
+      nudge(chapter,event.key==='ArrowUp'?'up':'down');
     },
   });
   const onClickCapture = (event: React.MouseEvent) => {if (suppressClick.current) {suppressClick.current = false; event.preventDefault(); event.stopPropagation();}};
   const onPointerDownCapture = () => {suppressClick.current = false;};
-  return {chapters, directoryRef, drag, saving, error, rowProps, onClickCapture, onPointerDownCapture};
+  return {nudge,chapters, directoryRef, drag, saving, error, rowProps, onClickCapture, onPointerDownCapture};
 }

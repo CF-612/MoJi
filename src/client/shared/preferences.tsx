@@ -75,7 +75,7 @@ export function AboutDialog({close}: {close: () => void}) {
     </section>
     <UpdatePanel/><div className="about-contacts" aria-label="项目源码">
       <a className="about-contact" href="https://github.com/mistnest/dsh-cuigengji-plugin" target="_blank" rel="noopener noreferrer"><span className="about-contact-label">GitHub · 原版</span><strong>催更姬 / mistnest</strong><span className="about-contact-mark" aria-hidden="true">↗</span></a>
-      <a className="about-contact" href="https://github.com/CF-612/MoJi" target="_blank" rel="noopener noreferrer"><span className="about-contact-label">GitHub · 现版</span><strong>墨叽 / MoJi</strong><span className="about-contact-mark" aria-hidden="true">↗</span></a>
+      <a className="about-contact" href="https://github.com/CF-612/MoJi" target="_blank" rel="noopener noreferrer"><span className="about-contact-label">GitHub · 现版</span><strong>墨叽 / Moji</strong><span className="about-contact-mark" aria-hidden="true">↗</span></a>
     </div>
     <footer className="about-welcome"><p>墨叽 · 小说工作台</p><p>基于 mistnest 的开源催更姬开发，遵循 MIT 许可。</p></footer>
   </Modal>;

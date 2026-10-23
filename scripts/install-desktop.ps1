@@ -19,6 +19,13 @@ foreach ($path in @($DesktopExe, $nodeShim, $pnpm, (Join-Path $profile 'package.
 if (Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $DesktopExe }) {
   throw 'Exit DeepSeek Harness (including its tray process) before installing the plugin.'
 }
+# A package rename must never leave two active plugins writing the same books.
+$existing = Get-Content -LiteralPath (Join-Path $profile 'package.json') -Raw | ConvertFrom-Json
+$patchPath = Join-Path $profile 'cordis.patch.yml'
+$patch = if (Test-Path -LiteralPath $patchPath) { Get-Content -LiteralPath $patchPath -Raw } else { '' }
+if ($existing.dependencies.'dsh-cuigengji' -or ($existing.dsh.profile.bundles -contains 'dsh-cuigengji') -or $patch -match '\bcuigengji\b') {
+  throw '检测到旧插件。请先备份作品及 profile，通过 DSH 插件管理停用并移除 dsh-cuigengji，仅移除插件、保留数据目录；处理旧插件配置后再安装 Moji。尚未修改 profile。'
+}
 $ReleaseDirectory = [IO.Path]::GetFullPath($ReleaseDirectory)
 $null = New-Item -ItemType Directory -Path $ReleaseDirectory -Force
 $previousNode = $env:DSH_DESKTOP_NODE_EXECUTABLE
@@ -27,11 +34,11 @@ try {
   & npm.cmd pack --silent --pack-destination $ReleaseDirectory
   if ($LASTEXITCODE -ne 0) { throw 'Plugin build or pack failed.' }
   $manifest = Get-Content -LiteralPath 'package.json' -Encoding UTF8 -Raw | ConvertFrom-Json
-  $archive = Join-Path $ReleaseDirectory "dsh-cuigengji-$($manifest.version).tgz"
+  $archive = Join-Path $ReleaseDirectory "$($manifest.name)-$($manifest.version).tgz"
   # pnpm can keep an older local tgz when only its contents change.
   # Give every distinct build a stable, content-addressed installation path.
   $digest = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.Substring(0, 16).ToLowerInvariant()
-  $installArchive = Join-Path $ReleaseDirectory "dsh-cuigengji-$($manifest.version)-$digest.tgz"
+  $installArchive = Join-Path $ReleaseDirectory "$($manifest.name)-$($manifest.version)-$digest.tgz"
   if (-not (Test-Path -LiteralPath $installArchive)) {
     Copy-Item -LiteralPath $archive -Destination $installArchive
   }
@@ -39,7 +46,7 @@ try {
   Set-Location -LiteralPath $profile
   & $nodeShim $pnpm add $installArchive
   if ($LASTEXITCODE -ne 0) { throw 'Desktop profile installation failed.' }
-  $installedRoot = Join-Path $profile 'node_modules\dsh-cuigengji'
+  $installedRoot = Join-Path $profile 'node_modules\dsh-moji'
   $installed = Get-Content -LiteralPath (Join-Path $installedRoot 'package.json') -Encoding UTF8 -Raw | ConvertFrom-Json
   if ($installed.version -ne $manifest.version) { throw 'Installed plugin version differs.' }
   foreach ($relative in @('runtime\adapters\mcp\client.js', 'lib\client.js', 'README.md', 'package.json')) {
@@ -47,7 +54,7 @@ try {
     $installedHash = (Get-FileHash -LiteralPath (Join-Path $installedRoot $relative)).Hash
     if ($sourceHash -ne $installedHash) { throw "Installed file differs: $relative. Bump the plugin version and retry." }
   }
-  Write-Output "Installed cuigengji $($installed.version) into $profile. Restart DeepSeek Harness."
+  Write-Output "Installed Moji $($installed.version) into $profile. Restart DeepSeek Harness."
 } finally {
   $env:DSH_DESKTOP_NODE_EXECUTABLE = $previousNode
   Pop-Location

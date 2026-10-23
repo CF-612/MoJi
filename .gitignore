@@ -19,3 +19,6 @@ runtime/
 /releases/
 *.cuigengji.json
 .cuigengji-upgrade-backups/
+
+# Personal cloud account/resource manifest and frozen Wrangler configuration.
+/.moji-cloud/

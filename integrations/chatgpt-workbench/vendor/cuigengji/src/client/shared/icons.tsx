@@ -1,7 +1,18 @@
 import React from 'react';
 
-export type IconName = 'home' | 'refresh' | 'settings' | 'filter' | 'edit' | 'about' | 'person' | 'world' | 'search' | 'book' | 'arrow' | 'chevron' | 'plus' | 'flag' | 'bookmark' | 'route' | 'folder' | 'format';
+export type IconName = 'type' | 'history' | 'download' | 'trash' | 'undo' | 'message' | 'more-horizontal' | 'locate' | 'more' | 'list' | 'canvas' | 'home' | 'refresh' | 'settings' | 'filter' | 'edit' | 'about' | 'person' | 'world' | 'search' | 'book' | 'arrow' | 'chevron' | 'plus' | 'flag' | 'bookmark' | 'route' | 'folder' | 'format';
 const paths: Record<IconName, React.ReactNode> = {
+  type:<><path d="M3 5h12M9 5v15M5 20h8M14 11h7M17.5 11v9"/></>,
+  history:<><path d="M3 5v5h5M3.5 10a9 9 0 1 1 .5 6M12 7v5l3 2"/></>,
+  download:<><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></>,
+  trash:<><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></>,
+  undo:<><path d="m8 4-5 5 5 5M3 9h11a6 6 0 0 1 0 12h-3"/></>,
+  message:<path d="M4 4h16v12H9l-5 4V4Z"/>,
+  'more-horizontal':<><circle cx="5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="19" cy="12" r="1" fill="currentColor"/></>,
+  locate:<><circle cx="12" cy="12" r="6"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></>,
+  more:<><circle cx="12" cy="5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="19" r="1" fill="currentColor"/></>,
+  list:<><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></>,
+  canvas:<><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="15" width="6" height="6" rx="1"/><path d="M9 6h7a2 2 0 0 1 2 2v7"/></>,
   format:<><path d="M4 5h16M8 10h12M4 15h16M4 20h12M3 9l3 2-3 2"/></>,
   book:<><path d="M4 3h14v18H4zM7 3v18M10 7h5"/></>,
   arrow:<path d="M4 12h15m-6-6 6 6-6 6"/>,

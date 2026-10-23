@@ -20,7 +20,7 @@ if (!cookie) {
 }
 
 const endpoint = process.env.DSH_RPC_ENDPOINT || 'cuigengji/dispatch';
-const rpcId = `cuigengji-rpc-smoke-${Date.now()}`;
+const rpcId = `moji-rpc-smoke-${Date.now()}`;
 const response = await fetch(new URL(`/api/${endpoint}`, base), {
   method: 'POST',
   headers: {

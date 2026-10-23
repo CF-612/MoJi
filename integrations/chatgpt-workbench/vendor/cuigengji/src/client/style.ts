@@ -1,3 +1,6 @@
+import {scrollbarStyles} from './shared/scrollbar-style.ts';
+import {previewPolish} from './preview-polish.mjs';
+﻿import {mobileEditorStyles} from './mobile-editor-style.ts';
 import {studioStyles} from './studio-style.ts';
 import {disclosureStyles} from './shared/disclosure-style.ts';
 import {searchStyles} from './shared/WorkSearch.jsx';
@@ -7,6 +10,8 @@ import {markdownStyles} from './shared/markdown-style.ts';
 import {structureStyles} from './structure-style.ts';
 import {placementStyles} from './features/structure/EditableEventBar.jsx';
 import {trackStyles} from './features/structure/TimelineTracks.jsx';
+import {trackHorizontalStyles} from './features/structure/track-horizontal-style.ts';
+import {timelineBoardStyles} from './features/structure/timeline-board-style.ts';
 import {storyStageStyles} from './features/structure/story-stage-style.ts';
 import {cardStyles} from './card-style.ts';
 import {mobileStyles} from './shared/mobile-style.ts';
@@ -18,6 +23,11 @@ import {transferStyles} from './features/transfer/style.ts';
 import {welcomeStyles} from './features/welcome/style.ts';
 import {batchStyles} from './shared/batch-style.ts';
 import {navigationStyles} from './shared/navigation-style.ts';
+import {castStyles} from './shared/cast-style.ts';
+import {outlineStyles} from './features/planning/outline-style.ts';
+import {planningToolbarStyles} from './features/planning/planning-toolbar-style.ts';
+import {chromeStyles} from './shared/chrome-style.ts';
+import {storyCardStyles} from './shared/story-card-style.ts';
 export const styles = `
 .cuigengji { color:var(--dsw-alias-label-primary,#252936); font-family:var(--dsw-font-family,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif); font-size:13px; padding:14px; height:100%; overflow:auto; box-sizing:border-box; }
 .cuigengji * { box-sizing:border-box; }
@@ -287,4 +297,4 @@ export const styles = `
  .cuigengji .chapter-main .manuscript {padding-left:8px;padding-right:8px;}
  .cuigengji .chapter-toolbar {gap:8px;}
 }
-` + visualStyles + selectStyles + graphStyles + managementStyles + transferStyles + welcomeStyles + batchStyles + navigationStyles + mobileStyles + cardStyles + structureStyles + storyStageStyles + trackStyles + placementStyles + markdownStyles + diffStyles + reviewStyles + searchStyles + disclosureStyles + studioStyles;
+` + visualStyles + selectStyles + graphStyles + managementStyles + transferStyles + welcomeStyles + batchStyles + navigationStyles + castStyles + outlineStyles + planningToolbarStyles + mobileStyles + cardStyles + structureStyles + storyStageStyles + trackStyles + trackHorizontalStyles + timelineBoardStyles + placementStyles + markdownStyles + diffStyles + reviewStyles + searchStyles + disclosureStyles + studioStyles + mobileEditorStyles + chromeStyles + storyCardStyles + previewPolish + scrollbarStyles;

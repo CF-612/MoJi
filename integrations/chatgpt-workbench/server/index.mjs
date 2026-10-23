@@ -1,3 +1,4 @@
+import manifest from '../package.json' with {type:'json'};
 import {createServer} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
@@ -7,7 +8,7 @@ import {createService} from './service.mjs';
 import {createMcp} from './mcp.mjs';
 
 const root = resolve(import.meta.dirname, '..');
-const dataRoot = resolve(process.env.CUIGENGJI_DATA_ROOT || `${root}/.data/demo`);
+const dataRoot = resolve(process.env.MOJI_DATA_ROOT || process.env.CUIGENGJI_DATA_ROOT || `${root}/.data/demo`);
 const service = await createService(dataRoot);
 if (process.argv.includes('--stdio')) {
   await createMcp(service).connect(new StdioServerTransport());
@@ -20,7 +21,7 @@ if (process.argv.includes('--stdio')) {
       if (req.headers.host !== `127.0.0.1:${port}`) {res.writeHead(403).end();return;}
       if (req.headers.origin && req.headers.origin !== origin) {res.writeHead(403).end();return;}
       if (req.url === '/health' && req.method === 'GET') {
-        res.setHeader('Content-Type', 'application/json');res.end(JSON.stringify({product:'moji',version:'0.10.2'}));return;
+        res.setHeader('Content-Type', 'application/json');res.end(JSON.stringify({product:'moji',version:manifest.version}));return;
       }
       if (req.url === '/mcp') {
         if (req.method !== 'POST') {res.writeHead(405).end();return;}

@@ -8,8 +8,23 @@ import {pathToFileURL} from 'node:url';
 import {build} from 'esbuild';
 import {createService} from '../server/service.mjs';
 const root=resolve(import.meta.dirname,'../.data/tests');await mkdir(root,{recursive:true});const folder=await mkdtemp(join(root,'tracks-'));
-const file=join(folder,'tracks.mjs');await build({entryPoints:[resolve(import.meta.dirname,'../vendor/cuigengji/src/client/features/structure/TimelineTracks.jsx')],outfile:file,bundle:true,platform:'node',format:'esm',packages:'external'});const {TimelineTracks}=await import(pathToFileURL(file));
-test('实际投影渲染跨章长条、每章规划与快捷入口，没有同章次数计数和空事件卡',async()=>{
- const s=await createService(join(folder,'ranges')),call=(action,args={})=>s.rpc(action,{novelId:s.novelId,...args},'ranges','human'),a=await call('chapter.get',{chapterId:s.chapterId}),b=await call('chapter.create',{title:'第二章'}),c=await call('chapter.create',{title:'第三章'}),e=await call('writing.event.create',{confirmed:true,value:{title:'跨章寻信',order:10,narrativeKind:'linear',chapterRefs:[{chapterId:a.id,revision:a.revision,evidence:''},{chapterId:c.id,revision:c.revision,evidence:''}]}});
- await call('writing.chapterPlan.create',{chapterId:b.id,expectedChapterRevision:b.revision,confirmed:true,requestId:crypto.randomUUID(),value:{title:'独立章节规划',status:'selected'}});const board=await call('writing.board.get'),html=renderToStaticMarkup(React.createElement(TimelineTracks,{board,novelId:s.novelId,mode:'narration',current:{key:e.id,eventId:e.id},choose(){},onPlan(){},onEvent(){},onMemory(){},onShadow(){}}));assert.equal((html.match(new RegExp(`data-track-id="event:${e.id}"`,'g'))||[]).length,1);assert.match(html,/data-range-start="0" data-range-end="2"/);assert.match(html,/独立章节规划/);assert.match(html,/添加规划 第二章/);assert.match(html,/添加事件 第三章/);assert.match(html,/时间线内容筛选/);assert.match(html,/class="track-event-settings" aria-label="编辑事件 跨章寻信"/);assert.doesNotMatch(html,/尚无事件|2 规划|伏笔台账/);
+const file=join(folder,'tracks.mjs');await build({stdin:{contents:"export {UnifiedTimeline} from './features/planning/UnifiedTimeline.jsx';",resolveDir:resolve(import.meta.dirname,'../vendor/cuigengji/src/client'),loader:'tsx'},outfile:file,bundle:true,platform:'node',format:'esm',packages:'external',loader:{'.png':'dataurl'},plugins:[{name:'static-dialog',setup(b){b.onLoad({filter:/dialog\.tsx$/},()=>({contents:'export const useDialog=()=>({ask:async()=>null,confirm:async()=>false});',loader:'js'}));}}]});const {UnifiedTimeline}=await import(pathToFileURL(file));
+// Current application mounts UnifiedTimeline; the retired TimelineTracks renderer
+// is not a public authoring path. Preserve span/one-card/tray behavior here.
+test('当前时间线渲染跨章长条一次、独立章节卡与待安排，不伪造同章次数或空事件',async()=>{
+ const s=await createService(join(folder,'ranges')),call=(action,args={})=>s.rpc(action,{novelId:s.novelId,...args},'ranges','human'),a=await call('chapter.get',{chapterId:s.chapterId}),b=await call('chapter.create',{title:'第二章'}),c=await call('chapter.create',{title:'第三章'});
+ let story=await call('story.get');const apply=async operation=>(story=await call('story.apply',{requestId:crypto.randomUUID(),expectedRevision:story.state.revision,operation}));
+ const create=async value=>{const before=new Set(Object.keys(story.state.cards));await apply({type:'card.create',value});return Object.keys(story.state.cards).find(id=>!before.has(id));};
+ const span=await create({title:'跨章寻信',scope:[a.id,c.id],time:{narration:{trackId:'main',startChapterId:a.id,startOffset:0,endChapterId:c.id,endOffset:1}}});
+ const single=await create({title:'独立章节规划',status:'selected',scope:[b.id],time:{narration:{trackId:'main',startChapterId:b.id,startOffset:0,endChapterId:b.id,endOffset:1,row:1}}});
+ await create({title:'尚未安排的灵感'});
+ const html=renderToStaticMarkup(React.createElement(UnifiedTimeline,{state:story.state,sources:story.sources,people:[],novelId:s.novelId,call,evolution:false,save(){},open(){},onMemory(){}}));
+ assert.equal((html.match(new RegExp(`data-time-item="${span}"`,'g'))||[]).length,1);
+ assert.match(html,/跨章寻信[^"]*，0\.0 至 3\.0/);assert.match(html,/width:960px/);
+ assert.equal((html.match(new RegExp(`data-time-item="${single}"`,'g'))||[]).length,1);
+ assert.match(html,/独立章节规划/);assert.match(html,/尚未安排的灵感/);assert.match(html,/待安排/);
+ assert.doesNotMatch(html,/添加规划 第二章|添加事件 第三章|尚无事件|2 规划|伏笔台账/);
+ assert.deepEqual(story.state.cards[span].scope,[a.id,c.id],'visual span does not fabricate evidence in middle chapter');
+ assert.deepEqual(story.state.cards[span].evidence,[]);
+ const before=structuredClone(story.state);await assert.rejects(call('writing.event.create',{confirmed:true,value:{title:'旧事件'}}),{code:'NOT_ALLOWED'});await assert.rejects(call('writing.chapterPlan.create',{}),{code:'NOT_ALLOWED'});assert.deepEqual((await call('story.get')).state,before);
 });
