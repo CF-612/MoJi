@@ -33,6 +33,7 @@ export function validateStoryAxis(a){
  if(!a||a.schemaVersion!==1||a.coordinateUnit!=='day'||a.legacyMode!=='unmapped')fail('请先设置独立故事时间坐标系。');
  validateStoryCalendar(a.calendar);
  if(!a.anchor||!String(a.anchor.label||'').trim()||dateToCoordinate(a.anchor.date,a.calendar)!==a.anchor.coordinate)fail('请明确第一章读者所在的日期锚点。');
+ if(a.anchor.cardId!==undefined&&!safeId(a.anchor.cardId))fail('故事起点关联的剧情卡标识无效。');
  if(!['year','month','day'].includes(a.primaryTick?.unit)||!Number.isSafeInteger(a.primaryTick.step)||a.primaryTick.step<1||a.primaryTick.step>100000000000)fail('请设置有效的主刻度单位与尺度。');
  if(!Array.isArray(a.tracks)||!a.tracks.length||!Array.isArray(a.markers))fail('故事轨道与标记列表无效。');
  a.tracks.forEach(validateTrack);a.markers.forEach(validateMarker);
@@ -44,6 +45,7 @@ export function validateStoryPlacement(t,axis,sharedTracks=[]){
 export function editStoryAxis(state,op,newId){
  if(op.type==='storyAxis.configure'){
   const next=structuredClone(op.value);validateStoryAxis(next);
+  if(next.anchor.cardId&&!state.cards[next.anchor.cardId])fail('起点剧情卡已不存在，请重新选择或改为自定义起点。');
   if(state.storyAxis){const signature=a=>JSON.stringify([a.schemaVersion,a.calendar.kind,a.calendar.kind==='custom'?a.calendar.monthLengths:null,a.coordinateUnit,a.anchor.coordinate]);if(signature(next)!==signature(state.storyAxis)&&(state.storyAxis.markers.length>0||Object.values(state.cards).some(c=>c.time?.story?.axisVersion===1)))fail('已有故事日期，不能直接更换时间域；请先明确迁移日期。');}
   for(const c of Object.values(state.cards))if(c.time?.story?.axisVersion===1)validateStoryPlacement(c.time.story,next,state.tracks);
   state.storyAxis=next;return;

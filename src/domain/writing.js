@@ -1,3 +1,4 @@
+import {relationshipTypes,changeRelationshipType,validateRelationshipTypes} from './relationship-types.js';
 import {selectionProof,normalizeProse} from './selection-proof.js';
 import {randomUUID} from 'node:crypto';
 import {checkForeshadowNodes,nodeProgress,legacyForeshadow} from './foreshadow-nodes.js';
@@ -79,6 +80,7 @@ export function checkedForeshadow(n,v){
 export function writingAction(n,action,a,actor){
  if(n.writing&&![1,2].includes(n.writing.version))fail('此作品结构版本较新，请更新工作台后再操作','WRITING_VERSION');
  const w=data(n);
+ if(action==='writing.relationshipType.list')return relationshipTypes(n);
  if(action==='writing.search')return workSearch(n,a,{character:writingFields(n,'character'),world:writingFields(n,'world')},{includeInactive:actor.kind==='human'&&a.includeInactiveRequirements===true});
  if(action==='writing.board.get')return writingBoard(n,w,stats(n),active(w.foreshadows).map(f=>foreshadowView(n,f,a.chapterId)),a);
  if(action==='writing.stage.get'){
@@ -163,7 +165,7 @@ export function writingAction(n,action,a,actor){
  }
  // Mutations initialize the optional extension only after all input validation succeeds.
  const draft=clone(w),reason=text(a.reason||'结构资料修改','修改理由',true),source={kind:actor.kind==='human'?'human':'agent',sessionId:actor.sessionId||null};let result;
- const changed=changeEvolution(n,draft,action,a,source,reason,save,cas,randomUUID);
+ const changed=changeRelationshipType(n,draft,action,a,source,reason,save,cas,randomUUID)||changeEvolution(n,draft,action,a,source,reason,save,cas,randomUUID);
  if(changed){result=changed.value;
  }else if(action==='writing.field.create'||action==='writing.field.update'){
   const old=action.endsWith('update')?draft.fields[a.id]:null,id=old?.id||a.id||randomUUID(),type=a.kind||old?.kind;
@@ -207,6 +209,7 @@ export function writingAction(n,action,a,actor){
  n.revision++;n.updatedAt=new Date().toISOString();return clone(action==='writing.restore'&&a.collection==='foreshadows'?legacyForeshadow(result):result);
 }
 export function validateWriting(n){
+ validateRelationshipTypes(n);
  if(!n.writing)return;const w=n.writing;if(!obj(w)||![1,2].includes(w.version)||!['fields','cards','links','foreshadows'].every(k=>obj(w[k])))fail('结构资料格式无效','INVALID_BACKUP');
  for(const key of ['fields','cards','links','foreshadows'])for(const [id,r]of Object.entries(w[key]))if(!safe(id)||!obj(r)||r.id!==id||!Number.isSafeInteger(r.revision)||r.revision<1||!Array.isArray(r.versions))fail('结构记录 ID、版本或历史无效','INVALID_BACKUP');
  for(const f of Object.values(w.fields))if(!['character','world'].includes(f.kind)||!['short','long','number','tags','reference'].includes(f.type)||typeof f.archived!=='boolean'||!f.label?.trim())fail('字段定义无效','INVALID_BACKUP');
@@ -221,6 +224,9 @@ export function validateWriting(n){
 
 export function copyWriting(source,target,maps){
  if(!source.writing)return;const w=clone(source.writing);validateWriting(source);target.writing??=fresh();const to=target.writing,fieldIds=new Map(Object.keys(w.fields).map(id=>[id,randomUUID()]));
+ const typeIds=new Map(Object.keys(w.relationshipTypes||{}).map(id=>[id,randomUUID()]));maps.relationshipTypes=typeIds;to.relationshipTypes??={};
+ for(const type of Object.values(w.relationshipTypes||{})){const id=typeIds.get(type.id),name=(()=>{let name=type.name,i=2;while(Object.values(to.relationshipTypes).some(t=>!t.deleted&&t.name===name)){const suffix=` · 导入 ${i++}`;name=type.name.slice(0,80-suffix.length)+suffix;};return name;})();to.relationshipTypes[id]={...clone(type),id,name,versions:type.versions.map(v=>({...v,value:{...clone(v.value),id}}))};}
+ for(const id of maps.edges.values())if(target.edges[id]?.typeId)target.edges[id].typeId=typeIds.get(target.edges[id].typeId);
  const remapValues=values=>Object.fromEntries(Object.entries(values).map(([id,value])=>{const field=[...writingFields(source,'character'),...writingFields(source,'world')].find(f=>f.id===id);return [fieldIds.get(id)||id,field?.type==='reference'?value.map(id=>maps.nodes.get(id)):value];}));
  const mapRecord=(record,convert)=>{const current=convert(clone(record));current.versions=(record.versions||[]).map(v=>({...v,value:convert(clone(v.value))}));return current;};
  const foreshadowIds=new Map(Object.keys(w.foreshadows).map(id=>[id,randomUUID()]));maps.foreshadows=foreshadowIds;

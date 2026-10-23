@@ -19,7 +19,7 @@ class RouteHeap{
  push(item){const a=this.items;a.push(item);let i=a.length-1;while(i){const p=(i-1)>>1;if(a[p].cost<=item.cost)break;a[i]=a[p];i=p;}a[i]=item;}
  pop(){const a=this.items,first=a[0],last=a.pop();if(a.length){let i=0;while(i*2+1<a.length){let c=i*2+1;if(c+1<a.length&&a[c+1].cost<a[c].cost)c++;if(a[c].cost>=last.cost)break;a[i]=a[c];i=c;}a[i]=last;}return first;}
 }
-function findRoute(start,end,rects,axis){
+function findRoute(start,end,rects,axis,sourceVector,targetVector){
  const xs=[...new Set([start.x,end.x,...rects.flatMap(r=>[r.left,r.right])])].sort((a,b)=>a-b),ys=[...new Set([start.y,end.y,...rects.flatMap(r=>[r.top,r.bottom])])].sort((a,b)=>a-b),nx=xs.length;
  const index=p=>ys.indexOf(p.y)*nx+xs.indexOf(p.x),point=i=>({x:xs[i%nx],y:ys[Math.floor(i/nx)]}),begin=index(start),finish=index(end),initial=axis==='vertical'?1:0;
  if(rects.some(r=>inside(start,r)||inside(end,r)))return null;
@@ -30,8 +30,8 @@ function findRoute(start,end,rects,axis){
   for(const [j,nextDirection]of [[x>0?i-1:-1,0],[x+1<nx?i+1:-1,0],[y>0?i-nx:-1,1],[y+1<ys.length?i+nx:-1,1]]){
    if(j<0)continue;const b=point(j);if(!valid.has(j))valid.set(j,!rects.some(r=>inside(b,r)));if(!valid.get(j))continue;
    // Never reverse into the source or arrive at the target from its card side.
-   if(i===begin&&((axis==='vertical'&&b.y<a.y)||(axis!=='vertical'&&b.x<a.x)))continue;
-   if(j===finish&&((axis==='vertical'&&b.y<a.y)||(axis!=='vertical'&&b.x<a.x)))continue;
+   if(i===begin&&((b.x-a.x)*sourceVector.x+(b.y-a.y)*sourceVector.y<0))continue;
+   if(j===finish&&((b.x-a.x)*targetVector.x+(b.y-a.y)*targetVector.y>0))continue;
    const segment=`${Math.min(i,j)}:${Math.max(i,j)}`;if(!clear.has(segment))clear.set(segment,!blocked(a,b,rects));if(!clear.get(segment))continue;
    const nextKey=j*2+nextDirection,g=current.g+Math.abs(b.x-a.x)+Math.abs(b.y-a.y)+(direction===nextDirection?0:28)+(j===finish&&nextDirection!==initial?28:0);
    if(g>=(dist.get(nextKey)??Infinity))continue;dist.set(nextKey,g);previous.set(nextKey,current.key);heap.push({key:nextKey,g,cost:g+Math.abs(b.x-end.x)+Math.abs(b.y-end.y)});
@@ -39,21 +39,49 @@ function findRoute(start,end,rects,axis){
  }
  if(goal===undefined)return null;const route=[];for(let k=goal;k!==undefined;k=previous.get(k))route.push(point(Math.floor(k/2)));return route.reverse();
 }
-export function planningRoute(from,to,rectangles,axis='horizontal',sourceId,targetId){
+// Natural curves are the ordinary route. The visibility grid is only an escape
+// hatch for a real card collision or a folded/cusped curve, not a global bus style.
+const cubicAt=(a,b,c,d,t)=>{const u=1-t;return {x:u*u*u*a.x+3*u*u*t*b.x+3*u*t*t*c.x+t*t*t*d.x,y:u*u*u*a.y+3*u*u*t*b.y+3*u*t*t*c.y+t*t*t*d.y};};
+const midpoint=(a,b)=>({x:(a.x+b.x)/2,y:(a.y+b.y)/2});
+function cubicHitsRect(a,b,c,d,r,depth=0){
+ const xs=[a.x,b.x,c.x,d.x],ys=[a.y,b.y,c.y,d.y];
+ if(Math.max(...xs)<=r.left||Math.min(...xs)>=r.right||Math.max(...ys)<=r.top||Math.min(...ys)>=r.bottom)return false;
+ if(depth===12)return true; // conservative subdivision; never tunnels through a thin obstacle
+ const ab=midpoint(a,b),bc=midpoint(b,c),cd=midpoint(c,d),abc=midpoint(ab,bc),bcd=midpoint(bc,cd),m=midpoint(abc,bcd);
+ return cubicHitsRect(a,ab,abc,m,r,depth+1)||cubicHitsRect(m,bcd,cd,d,r,depth+1);
+}
+function naturalRoute(from,to,rectangles,sourceId,targetId,source,target){
+ const distance=Math.hypot(to.x-from.x,to.y-from.y);if(distance<8)return null;
+ // The axis gap controls the handles, so wide sibling fans stay open instead of looping.
+ const sourceGap=Math.abs((to.x-from.x)*source.x+(to.y-from.y)*source.y),targetGap=Math.abs((from.x-to.x)*target.x+(from.y-to.y)*target.y);
+ const handle=gap=>Math.min(240,Math.max(28,Math.min(distance*.42,gap*.5||distance*.28)));
+ const h1=handle(sourceGap),h2=handle(targetGap),a={x:from.x+source.x*h1,y:from.y+source.y*h1},b={x:to.x+target.x*h2,y:to.y+target.y*h2};
+ let last;
+ for(let i=0;i<=80;i++){const t=i/80,u=1-t,dx=3*u*u*(a.x-from.x)+6*u*t*(b.x-a.x)+3*t*t*(to.x-b.x),dy=3*u*u*(a.y-from.y)+6*u*t*(b.y-a.y)+3*t*t*(to.y-b.y),speed=Math.hypot(dx,dy);
+  if(speed<Math.max(.5,distance*.008))return null;
+  const direction={x:dx/speed,y:dy/speed};if(last&&last.x*direction.x+last.y*direction.y<.5)return null;last=direction;
+ }
+ for(const r of rectangles){const own=r.id===sourceId||r.id===targetId,pad=own?-.05:6;if(cubicHitsRect(from,a,b,to,{left:r.x-pad,right:r.x+r.width+pad,top:r.y-pad,bottom:r.y+r.height+pad}))return null;}
+ const samples=Array.from({length:81},(_,i)=>cubicAt(from,a,b,to,i/80));
+ return {from,to,waypoints:[from,a,b,to],samples,kind:'bezier',radius:0,obstructed:false,path:`M${from.x} ${from.y} C${a.x} ${a.y} ${b.x} ${b.y} ${to.x} ${to.y}`};
+}
+export function planningRoute(from,to,rectangles,axis='horizontal',sourceId,targetId,ports){
+ const sourceVector=ports?.source||(axis==='vertical'?{x:0,y:1}:{x:1,y:0}),targetVector=ports?.target||(axis==='vertical'?{x:0,y:-1}:{x:-1,y:0});
+ const natural=naturalRoute(from,to,rectangles,sourceId,targetId,sourceVector,targetVector);if(natural)return natural;
  for(const clearance of [20,8,2]){
   const rects=rectangles.map(r=>({id:r.id,left:r.x-clearance,right:r.x+r.width+clearance,top:r.y-clearance,bottom:r.y+r.height+clearance}));
-  const start=axis==='vertical'?{x:from.x,y:from.y+clearance}:{x:from.x+clearance,y:from.y},end=axis==='vertical'?{x:to.x,y:to.y-clearance}:{x:to.x-clearance,y:to.y};
+  const start={x:from.x+sourceVector.x*clearance,y:from.y+sourceVector.y*clearance},end={x:to.x+targetVector.x*clearance,y:to.y+targetVector.y*clearance};
   // Only the attachment's own rectangle may be crossed by its short outward stub.
   if(blocked(from,start,rects.filter(r=>r.id!==sourceId))||blocked(end,to,rects.filter(r=>r.id!==targetId)))continue;
-  const middle=findRoute(start,end,rects,axis);if(!middle)continue;
+  const middle=findRoute(start,end,rects,axis,sourceVector,targetVector);if(!middle)continue;
   const waypoints=simplify([from,...middle,to]),radius=Math.min(14,clearance*.7);
-  return {from,to,waypoints,radius,obstructed:false,path:roundedPath(waypoints,radius)};
+  return {from,to,waypoints,radius,kind:'detour',obstructed:false,path:roundedPath(waypoints,radius)};
  }
  // Overlapping cards/ports can make a non-intersecting path mathematically impossible.
  // Keep deterministic orthogonal geometry and the semantic port directions; do not move cards.
  const gap=24,right=Math.max(from.x,to.x,...rectangles.map(r=>r.x+r.width))+gap,left=Math.min(from.x,to.x,...rectangles.map(r=>r.x))-gap,top=Math.min(from.y,to.y,...rectangles.map(r=>r.y))-gap,bottom=Math.max(from.y,to.y,...rectangles.map(r=>r.y+r.height))+gap;
  const waypoints=simplify(axis==='vertical'?[from,{x:from.x,y:bottom},{x:right,y:bottom},{x:right,y:top},{x:to.x,y:top},to]:[from,{x:right,y:from.y},{x:right,y:bottom},{x:left,y:bottom},{x:left,y:to.y},to]);
- return {from,to,waypoints,radius:10,obstructed:true,path:roundedPath(waypoints,10)};
+ return {from,to,waypoints,radius:10,kind:'detour',obstructed:true,path:roundedPath(waypoints,10)};
 }
 export function planningConnection(edge,points,nodes=[]){
  const a=points[edge.from],b=points[edge.to];if(!a||!b)return null;

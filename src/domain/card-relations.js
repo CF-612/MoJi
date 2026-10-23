@@ -1,3 +1,4 @@
+import {relationshipTypes,relationView} from './relationship-types.js';
 import {storyEvents,changeView} from './story-evolution.js';
 const fail=(code,message)=>{throw Object.assign(new Error(message),{code});};
 const active=map=>Object.values(map||{}).filter(x=>!x.deleted);
@@ -8,7 +9,7 @@ const affiliations=(n,id)=>active(n.edges).filter(e=>e.from===id&&e.category==='
 export const organizations=n=>active(n.nodes).filter(v=>isOrganization(n,v.id)).map(v=>({id:v.id,name:v.name,revision:v.revision}));
 export function cardRelations(n,id){
  const current=node(n,id),w=n.writing||{},edges=active(n.edges).filter(e=>[e.from,e.to].includes(id)&&!n.nodes[e.from]?.deleted&&!n.nodes[e.to]?.deleted);
- return {nodeRevision:current.revision,organizations:organizations(n),characters:active(n.nodes).filter(v=>v.type==='character_card'&&v.id!==id).map(v=>({id:v.id,name:v.name,revision:v.revision})),affiliations:affiliations(n,id),edges,changes:active(w.relationshipChanges).filter(c=>edges.some(e=>e.id===c.edgeId)).map(c=>changeView(n,w,c)),events:storyEvents(n,w),nodes:active(n.nodes).map(({id,name,type})=>({id,name,type}))};
+ return {nodeRevision:current.revision,organizations:organizations(n),characters:active(n.nodes).filter(v=>v.type==='character_card'&&v.id!==id).map(v=>({id:v.id,name:v.name,revision:v.revision})),affiliations:affiliations(n,id),relationshipTypes:relationshipTypes(n),edges:edges.map(e=>relationView(n,e)),changes:active(w.relationshipChanges).filter(c=>edges.some(e=>e.id===c.edgeId)).map(c=>changeView(n,w,c)),events:storyEvents(n,w),nodes:active(n.nodes).map(({id,name,type})=>({id,name,type}))};
 }
 // The graph edges are the only organization membership records. Card selectors
 // read and edit them, rather than maintaining a second, drifting list of IDs.
@@ -32,7 +33,7 @@ export function createCardRelationship(n,a,execute){
  if(!['base','event','undated'].includes(a.timing))fail('INVALID_INPUT','请选择基础、具体事件或时间未定');
  if(typeof a.name!=='string'||!a.name.trim()||a.name.length>20000)fail('INVALID_INPUT','请填写关系名称');
  if(a.timing==='event'){const event=n.writing?.events?.[a.eventId];if(!event||event.deleted)fail('NOT_FOUND','请选择有效事件');cas(event,a.expectedEventRevision);}
- const edge=execute('edge.create',{from:from.id,to:to.id,name:a.name,content:a.content||'',category:a.category||'other',style:a.style||'solid',baseActive:a.timing==='base',timing:a.timing});
- const change=a.timing==='event'?execute('writing.relationshipChange.create',{confirmed:true,value:{edgeId:edge.id,eventId:a.eventId,value:{name:edge.name,content:edge.content,category:edge.category,style:edge.style,active:true}},reason:a.reason||'从角色卡记录关系起点'}):null;
+ const edge=execute('edge.create',{from:from.id,to:to.id,name:a.name,content:a.content||'',typeId:a.typeId,category:a.category||'other',style:a.style||'solid',baseActive:a.timing==='base',timing:a.timing});
+ const change=a.timing==='event'?execute('writing.relationshipChange.create',{confirmed:true,value:{edgeId:edge.id,eventId:a.eventId,value:{name:edge.name,content:edge.content,typeId:edge.typeId,category:edge.category,style:edge.style,active:true}},reason:a.reason||'从角色卡记录关系起点'}):null;
  return {edge,change};
 }

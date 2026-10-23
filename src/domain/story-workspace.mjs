@@ -13,6 +13,7 @@ export function sourceIndex(sources){return Object.fromEntries([...sources.volum
 export function objectIndex(state,sources){return {...sourceIndex(sources),...Object.fromEntries(Object.values(state.cards).map(c=>[refOf('card',c.id),{...c,kind:'card'}]))};}
 export function reconcile(state,sources){
  const valid=objectIndex(state,sources),old=clone(state.placements);let changed=false;
+ if(state.storyAxis?.anchor?.cardId&&!state.cards[state.storyAxis.anchor.cardId]){delete state.storyAxis.anchor.cardId;changed=true;}
  const defaultParent=(ref)=>valid[ref]?.kind==='chapter'&&valid[ref].volumeId&&valid[refOf('volume',valid[ref].volumeId)]?refOf('volume',valid[ref].volumeId):ROOT;
  for(const ref of Object.keys(state.placements))if(!valid[ref]){delete state.placements[ref];changed=true;}
  const rescue=(parent,seen=new Set())=>{if(parent===ROOT||valid[parent])return parent;if(seen.has(parent))return ROOT;seen.add(parent);return rescue(old[parent]?.parent||ROOT,seen);};
@@ -200,6 +201,7 @@ export function applyStory(input,sources,operation,newId){
    const ref=refOf('card',op.id);if(!state.cards[op.id])fail('剧情卡不存在。');const parent=state.placements[ref].parent;
    for(const child of Object.keys(state.placements))if(state.placements[child].parent===ref)move(state,child,parent,objects);
    delete state.cards[op.id];delete state.placements[ref];
+   if(state.storyAxis?.anchor?.cardId===op.id)delete state.storyAxis.anchor.cardId;
    for(const page of state.pages){delete page.instances[ref];if(page.outline)page.outline.refs=page.outline.refs.filter(id=>id!==ref);}state.precedence=state.precedence.filter(e=>e.from!==ref&&e.to!==ref);break;
   }
   case 'precedence':{

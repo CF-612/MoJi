@@ -1,8 +1,8 @@
 import React,{useEffect,useLayoutEffect,useRef} from 'react';
 import {chapterToolsStyle} from '../chapters/chapter-tools-style.mjs';
 /** Same grouped-icon language and host-safe sheet as chapter tools, without duplicated actions. */
-export function PlanningToolsDialog({page,busy,close,back,children}){
- const ref=useRef(null),outsidePress=useRef(false),title=page==='create'?'新建与添加':page==='backup'?'规划备份与历史':'规划选项';
+export function PlanningToolsDialog({page,busy,close,back,children,title:customTitle}){
+ const ref=useRef(null),outsidePress=useRef(false),title=customTitle||(page==='create'?'新建与添加':page==='backup'?'规划备份与历史':'规划选项');
  useLayoutEffect(()=>{const previous=document.activeElement,dialog=ref.current;dialog.showModal();return()=>{dialog.close();if(previous?.isConnected)previous.focus({preventScroll:true});};},[]);
  useEffect(()=>{ref.current.querySelector('.chapter-tool-content').scrollTop=0;ref.current.querySelector(page==='backup'?'.chapter-tool-back':'.chapter-tool-close')?.focus({preventScroll:true});},[page]);
  const outside=e=>{if(e.target!==e.currentTarget)return false;const r=e.currentTarget.getBoundingClientRect();return e.clientX<r.left||e.clientX>=r.right||e.clientY<r.top||e.clientY>=r.bottom;};

@@ -1,12 +1,13 @@
+import {checkedTypeId,relationshipTypes} from './relationship-types.js';
 import {randomUUID} from 'node:crypto';
 import {emptyWorkspace,reconcile,applyStory,validateRestore,clone} from './story-workspace.mjs';
 import {selectionProof,normalizeProse,applySelection} from './selection-proof.js';
 const fail=(message,code='STORY_INVALID')=>{throw Object.assign(new Error(message),{code});};
-export function storySources(n){const volumes=Object.values(n.volumes).filter(v=>!v.deleted).sort((a,b)=>a.order-b.order||a.id.localeCompare(b.id)),rank=id=>id?volumes.findIndex(v=>v.id===id):volumes.length;const chapters=Object.values(n.chapters).filter(c=>!c.deleted).sort((a,b)=>rank(a.volumeId)-rank(b.volumeId)||a.order-b.order||a.id.localeCompare(b.id)).map(({content,versions,...c})=>c);return {volumes,chapters};}
+export function storySources(n){const volumes=Object.values(n.volumes).filter(v=>!v.deleted).sort((a,b)=>a.order-b.order||a.id.localeCompare(b.id)),rank=id=>id?volumes.findIndex(v=>v.id===id):volumes.length;const chapters=Object.values(n.chapters).filter(c=>!c.deleted).sort((a,b)=>rank(a.volumeId)-rank(b.volumeId)||a.order-b.order||a.id.localeCompare(b.id)).map(({content,versions,...c})=>c);return {volumes,chapters,relationshipTypes:relationshipTypes(n)};}
 const changes=s=>Object.values(s.cards).flatMap(c=>(c.points||[]).flatMap(p=>(p.relationships||[]).map((r,i)=>({point:p,change:r,id:r.id||p.id+':'+i}))));
 function proof(n,e,historical){const c=n.chapters[e?.chapterId],v=c?.versions?.find(v=>v.revision===e.revision);if(!c||!v||!e.evidence?.trim()||!normalizeProse(v.content).includes(normalizeProse(e.evidence)))fail('正文依据不在指定已保存版本中');if(!historical&&(c.deleted||c.revision!==e.revision))fail('依据正文已变化，请重新确认','CONFLICT');if(e.coordinate==='lf-utf16')return selectionProof(c,e,{historical});return {...e,contentHash:v.contentHash};}
 function validateProofs(n,before,next,{restore=false,human=false,confirmed=false}={}){
- const old=changes(before);for(const row of changes(next)){const r=row.change,prior=old.find(p=>p.id===row.id&&JSON.stringify(p.change)===JSON.stringify(r));if(prior&&!restore)continue;
+ const old=changes(before);for(const row of changes(next)){const r=row.change; if(r.typeId!==undefined)checkedTypeId(n,r.typeId);const prior=old.find(p=>p.id===row.id&&JSON.stringify(p.change)===JSON.stringify(r));if(prior&&!restore)continue;
  if(!restore&&[r.from,r.to].some(id=>!n.nodes[id]||n.nodes[id].deleted||n.nodes[id].type!=='character_card'))fail('请选择仍存在的两名人物');
  if(r.evidence){if(!restore&&(!human||!confirmed))fail('正式关系变化须由作者确认正文依据','HUMAN_REQUIRED');r.evidence=proof(n,r.evidence,restore);}}
  for(const card of Object.values(next.cards)){if(!Array.isArray(card.evidence))fail('剧情卡依据必须是列表');for(let i=0;i<card.evidence.length;i++){const e=card.evidence[i];if(!restore&&before.cards[card.id]?.evidence?.some(old=>JSON.stringify(old)===JSON.stringify(e)))continue;card.evidence[i]=proof(n,e,restore);}}

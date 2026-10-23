@@ -82,3 +82,12 @@ test('Marker-only axes protect exact dates against incompatible domain reconfigu
  const shifted=structuredClone(s.storyAxis);shifted.anchor={...shifted.anchor,date:{year:0,month:1,day:2},coordinate:1};assert.throws(()=>apply(s,{type:'storyAxis.configure',value:shifted}));
  const display=structuredClone(s.storyAxis);display.calendar.visibility.day=false;display.primaryTick.step=10;s=apply(s,{type:'storyAxis.configure',value:display});assert.deepEqual(s.storyAxis.markers,before.storyAxis.markers);
 });
+test('Plot-card anchor is a stable snapshot; deletion/missing source detach only the optional link',()=>{
+ let {s,cardId}=fixture();const a=axis();a.anchor.cardId=cardId;s=apply(s,{type:'storyAxis.configure',value:a});const anchor=structuredClone(s.storyAxis.anchor);
+ assert.deepEqual(validateRestore(JSON.parse(JSON.stringify(s)),sources).storyAxis.anchor,anchor);
+ s=apply(s,{type:'card.update',id:cardId,expectedRevision:s.cards[cardId].revision,value:{title:'改名'}});assert.deepEqual(s.storyAxis.anchor,anchor);
+ s=apply(s,{type:'storyAxis.place',id:cardId,start:a.anchor.coordinate+10,end:a.anchor.coordinate+11,trackId:'story-main'});assert.deepEqual(s.storyAxis.anchor,anchor);
+ s=apply(s,{type:'card.delete',id:cardId});const detached={...anchor};delete detached.cardId;assert.deepEqual(s.storyAxis.anchor,detached);
+ const missing=structuredClone(s);missing.storyAxis.anchor.cardId='missing';reconcile(missing,sources);assert.deepEqual(missing.storyAxis.anchor,detached);
+ const invalid=structuredClone(a);invalid.anchor.cardId='another-book';assert.throws(()=>apply(s,{type:'storyAxis.configure',value:invalid}),/起点剧情卡/);
+});

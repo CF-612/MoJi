@@ -33,4 +33,34 @@ export const timelineRelationsStyle=`
 .u-network-legend{font-size:9px;display:flex;align-items:center;flex-wrap:wrap;gap:9px;padding:6px 8px;border-top:1px solid var(--cg-line);color:var(--cg-muted)}.cuigengji .u-network-legend button{font-size:9px;min-height:20px;padding:2px 4px;background:none;border:0;color:var(--cg-accent)}.u-network-empty{position:absolute;top:40%;left:10%;right:10%;text-align:center;font-size:11px;color:var(--cg-muted);line-height:1.8;pointer-events:none}
 .u-network-modal{width:min(900px,95vw)!important;max-width:900px!important}.u-network-modal .u-form{gap:10px}.u-network-modal .u-rel-time-navigation{padding:0}.u-network-modal .u-relation-network>svg{max-height:54vh}.u-rel-back{margin-bottom:10px}.u-rel-pairs{margin-top:9px}.u-rel-change.future{opacity:.65}
 @media(max-height:560px) and (min-width:600px){.u-network-modal .u-form{display:grid;grid-template-columns:160px minmax(0,1fr);gap:8px;align-items:start}.u-network-modal .u-form>strong,.u-network-modal .u-rel-time-navigation,.u-network-modal .u-network-visibility{grid-column:1}.u-network-modal .u-relation-network{grid-column:2;grid-row:1/5}.u-network-modal .u-relation-network>svg{height:185px;min-height:0;max-height:none}.u-network-modal .u-form>small{grid-column:1/-1}.u-network-modal .u-rel-time-caption small{display:none}}
+
+/* Only the graph gesture surface suppresses selection, not search/edit fields. */
+.u-relation-network>svg,.u-relation-network>svg *{-webkit-user-select:none;user-select:none}
+.u-relation-network>svg:focus-visible{outline:2px solid var(--cg-accent);outline-offset:-3px}
+.cuigengji .relation-sidebar-toggle,.relation-sidebar-divider{display:none}
+.relation-sidebar-divider{touch-action:none;user-select:none;cursor:col-resize;position:relative;min-width:8px;border-radius:6px}
+.relation-sidebar-divider:before{content:'';position:absolute;top:12px;bottom:12px;left:3px;width:2px;background:var(--cg-line);border-radius:2px}
+.relation-sidebar-divider:hover:before,.relation-sidebar-divider:focus-visible:before{background:var(--cg-accent)}
+@container story-workspace (min-width:900px){
+ .cuigengji .story-axis .relation-sidebar-toggle{display:inline-flex;align-items:center;gap:8px}
+ .cuigengji .story-axis.sa-has-relations .sa-workspace:not(.sa-editing){grid-template-columns:minmax(0,1fr) 8px var(--relation-sidebar-width,33.333%);gap:6px}
+ .cuigengji .story-axis .sa-workspace:not(.sa-editing)>.relation-sidebar-divider{display:block}
+ .cuigengji .story-axis.relations-collapsed .sa-workspace:not(.sa-editing){grid-template-columns:minmax(0,1fr)}
+ .cuigengji .story-axis.relations-collapsed .sa-workspace:not(.sa-editing)>.sa-relations-region,.cuigengji .story-axis.relations-collapsed .sa-workspace>.relation-sidebar-divider{display:none}
+}
+@container narrative-workspace (min-width:900px){
+ .cuigengji .u-timeline .relation-sidebar-toggle{display:inline-flex;align-items:center;gap:8px}
+ .cuigengji .u-timeline .u-timeline-grid.has-relations:not(.is-editing){grid-template-columns:minmax(0,1fr) 8px var(--relation-sidebar-width,33.333%);gap:6px}
+ .cuigengji .u-timeline .u-timeline-grid:not(.is-editing)>.relation-sidebar-divider{display:block}
+ .cuigengji .u-timeline.relations-collapsed .u-timeline-grid:not(.is-editing){grid-template-columns:minmax(0,1fr)}
+ .cuigengji .u-timeline.relations-collapsed .u-timeline-grid:not(.is-editing)>.u-timeline-relations,.cuigengji .u-timeline.relations-collapsed .u-timeline-grid>.relation-sidebar-divider{display:none}
+}
+.cuigengji .u-network-modal{box-sizing:border-box;width:min(1320px,96vw)!important;max-width:1320px!important;height:92dvh;max-height:92dvh;display:flex;flex-direction:column}
+.u-network-modal>.utility-head{flex:none}.u-network-modal>.utility-content{flex:1;min-height:0;display:flex;flex-direction:column;overflow:auto}
+.cuigengji .u-network-modal .u-form{display:flex;flex-direction:column;flex:1;min-height:0;gap:8px}
+.u-network-modal .u-form>strong,.u-network-modal .u-rel-time-navigation,.u-network-modal .u-network-visibility,.u-network-modal .u-form>small{flex:none}
+.u-network-modal .u-relation-network{flex:1;min-height:160px;display:flex;flex-direction:column}
+.u-network-modal .u-network-tools,.u-network-modal .u-network-legend{flex:none}
+.cuigengji .u-network-modal .u-relation-network>svg{height:100%;flex:1;min-height:100px;max-height:none}
+@media(max-width:600px){.cuigengji .u-network-modal{width:98vw!important;height:94dvh;max-height:94dvh}.u-network-modal>.utility-content{padding:10px}}
 `;

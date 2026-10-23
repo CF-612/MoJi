@@ -6,7 +6,7 @@
 
 本项目以 **Codex 工作台体验为主**，兼容 **DeepSeek Harness（DSH）**，也可通过 **MCP** 让 Gemini 等客户端访问作品。源码基于 [mistnest 的催更姬](https://github.com/mistnest/dsh-cuigengji-plugin) 继续开发，现以独立名称维护。
 
-> 当前开发分支是 [`codex/main`](https://github.com/CF-612/MoJi/tree/codex/main)，源码版本为 `0.11.0-v31.1`。这是持续打磨中的版本，不代表所有新功能已通过真实宿主验收。仓库默认分支 `moji-release` 与开发分支进度不同；请按下面的命令选择分支，不要混用旧版说明或安装包。
+> 当前开发分支是 [`codex/main`](https://github.com/CF-612/MoJi/tree/codex/main)，源码版本为 `0.11.0-v31.2`。这是持续打磨中的版本，不代表所有新功能已通过真实宿主验收。仓库默认分支 `moji-release` 与开发分支进度不同；请按下面的命令选择分支，不要混用旧版说明或安装包。
 
 ## 可以做什么
 

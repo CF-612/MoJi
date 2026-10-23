@@ -1,3 +1,4 @@
+import {checkedTypeId,relationView} from '../domain/relationship-types.js';
 import {storyAction,validateStory} from '../domain/story-v31.js';
 import {proseFind,replaceProse} from '../domain/prose-find.js';
 import {applySelection} from '../domain/selection-proof.js';
@@ -86,6 +87,12 @@ function nodePosition(args) {
 function memoryFields(args, novel, creating = false, optionalName = false) {
   const result = {};
   if(optionalName){
+    if(args.typeId!==undefined)result.typeId=checkedTypeId(novel,args.typeId);
+    // Canvas attachment geometry only; never changes relationship direction/history.
+    for(const field of ['fromPort','toPort'])if(args[field]!==undefined){
+      if(!['in','out','top','bottom','left','right'].includes(args[field]))fail('INVALID_INPUT',`${field}无效`);
+      result[field]=args[field];
+    }
     for(const [field,allowed,fallback] of [['category',['other','family','partner','enemy','mentor','affiliation'],'other'],['style',['solid','dashed','dotted'],'solid'],['timing',['base','event','undated'],'base']]){
       if(args[field]!==undefined&&!allowed.includes(args[field]))fail('INVALID_INPUT',`${field}无效`);
       if(creating||args[field]!==undefined)result[field]=args[field]??fallback;
@@ -436,8 +443,8 @@ export class Store extends ProjectStore {
       for (const item of a.edges) { const edge=get(n.edges,item.id,'关系');cas(edge,item);if(edge.deleted)fail('DELETED','关系已删除'); }
       return a.edges.map(item=>this.execute(state,'edge.delete',{novelId:n.id,edgeId:item.id,expectedRevision:item.expectedRevision,confirm:true},actor));
     }
-    if (action === 'edge.get') return get(n.edges, a.edgeId, '关系');
-    if (action === 'edge.list') return Object.values(n.edges).filter(e => (a.includeDeleted || !e.deleted) && (!a.nodeId || e.from === a.nodeId || e.to === a.nodeId));
+    if (action === 'edge.get') return relationView(n,get(n.edges, a.edgeId, '关系'));
+    if (action === 'edge.list') return Object.values(n.edges).filter(e => (a.includeDeleted || !e.deleted) && (!a.nodeId || e.from === a.nodeId || e.to === a.nodeId)).map(e=>relationView(n,e));
     if (action === 'edge.create' || action === 'edge.update' || action === 'edge.delete') {
       let e;
       if (action === 'edge.create') {
@@ -456,7 +463,7 @@ export class Store extends ProjectStore {
         touch(e);
       }
       this.checkMemorySources(n, e);
-      touch(n); return e;
+      touch(n); return relationView(n,e);
     }
     if (action === 'preset.get') return n.preset || null;
     if (action === 'preset.read') return {

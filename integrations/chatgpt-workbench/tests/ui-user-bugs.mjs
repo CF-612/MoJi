@@ -76,11 +76,9 @@ try{
   await page.getByRole('button',{name:'保存',exact:true}).click();
   await page.getByRole('dialog',{name:'添加伏笔节点',exact:true}).waitFor({state:'hidden'});
   await page.getByRole('button',{name:'打开设置',exact:true}).click();
-  const layout=await page.locator('.settings-modal').evaluate(el=>{const rect=s=>el.querySelector(s).getBoundingClientRect();return {searchBottom:rect('.settings-search').bottom,layoutTop:rect('.settings-layout').top,mainWidth:rect('.settings-main').width,inputHeight:rect('.settings-search input').height};});
-  assert.ok(layout.searchBottom<=layout.layoutTop+1);assert.ok(layout.mainWidth>width*.55||width>=900);assert.ok(layout.inputHeight<=44);
-  await page.getByRole('searchbox',{name:'搜索设置',exact:true}).fill('字号');
-  await page.locator('[aria-label="设置搜索结果"]').getByRole('button').click();
-  await page.getByLabel('默认正文字号',{exact:true}).selectOption('20');
+  assert.equal(await page.getByRole('searchbox',{name:'搜索设置',exact:true}).count(),0);
+  await page.getByRole('button',{name:'正文与目录',exact:true}).click();
+  await page.getByLabel('章节编号格式',{exact:true}).selectOption('arabic');
   await page.screenshot({path:join(out,`settings-${width}-${theme}.png`)});
   await page.keyboard.press('Escape');assert.equal(await page.evaluate(()=>document.activeElement?.textContent),'打开设置');
   await page.getByRole('button',{name:'正文页',exact:true}).click();

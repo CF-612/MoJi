@@ -47,3 +47,29 @@ export function storyDragDrop(projection,rect,scrollLeft,x,y,layout,gesture){
  const lane=layout.lanes.find(l=>l.side===placement.side&&l.trackKey===storyTrackKey(gesture.card.time.story))||layout.lanes.find(l=>l.side===placement.side);
  return {...placement,row:Math.min(30,Math.max(0,Math.floor((y-rect.top-lane.y-26)/storyCardRowHeight))),start:delta===0?start:projection.xToTime(projection.timeToX(start)+delta)};
 }
+
+// Ensure a symmetric date window can fill the viewport before any events exist.
+// Keep the shared 64px world inset so drag/playhead inverse mappings stay identical.
+export function axisViewportOptions(axis,zoom,width=0){
+ const options=axisProjectionOptions(axis,zoom);
+ return {...options,pixelsPerDay:Math.max(options.pixelsPerDay,Math.min(2400,Math.max(0,width-128))/(2*options.windowDays))};
+}
+export function centerStoryLayout(layout,height=0){
+ const offset=Math.max(0,height/2-layout.line);
+ return {...layout,line:layout.line+offset,height:Math.max(height,layout.height+offset),lanes:layout.lanes.map(l=>({...l,y:l.y+offset}))};
+}
+export function withStoryAnchorTick(axis,projection,ticks){
+ const coordinate=axis.anchor.coordinate,x=projection.timeToX(coordinate),clearance=Math.max(90,formatStoryDate(coordinate,axis.calendar).length*7+14),origin=coordinateToDate(coordinate,axis.calendar),nearby=[];
+ for(const direction of [-1,1]){
+  try{
+   let n;if(axis.primaryTick.unit==='day')n=coordinate+direction*axis.primaryTick.step;
+   else{let date={...origin};if(axis.primaryTick.unit==='year')date.year+=direction*axis.primaryTick.step;else{const months=axis.calendar.kind==='custom'?axis.calendar.monthLengths.length:12,m=date.month-1+direction*axis.primaryTick.step;date.year+=Math.floor(m/months);date.month=((m%months)+months)%months+1;}
+    // A leap-day origin uses the final valid day in the neighboring year/month.
+    if(axis.calendar.kind==='custom')date.day=Math.min(date.day,axis.calendar.monthLengths[date.month-1]);
+    while(date.day>0){try{n=dateToCoordinate(date,axis.calendar);break;}catch{date.day--;}}}
+   if(Number.isSafeInteger(n)&&n>=projection.segments[0].start&&n<=projection.segments.at(-1).end){const px=projection.timeToX(n);if(Math.abs(px-x)>=clearance)nearby.push({coordinate:n,x:px});}
+  }catch{/* Extreme calendar endpoints may have no neighbor. */}
+ }
+ const chosen=[...nearby,{coordinate,x,anchor:true}];
+ return [...ticks.filter(t=>chosen.every(c=>Math.abs(t.x-c.x)>=clearance)),...chosen].sort((a,b)=>a.x-b.x);
+}

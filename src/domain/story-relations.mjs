@@ -1,3 +1,4 @@
+import {relationView} from './relationship-types.js';
 import {changeKey,proofReview} from './story-relation-edit.mjs';
 export function relationPoint(point,mode,chapters,card,options={}){
  const location=point.location?.[mode];
@@ -23,7 +24,8 @@ export function relationSnapshot(cards,edges,chapters,mode,cursor,includePlans=t
  })).sort((a,b)=>(a.position??Infinity)-(b.position??Infinity)||a.order-b.order||a.pointId.localeCompare(b.pointId)||a.changeOrder-b.changeOrder||a.id.localeCompare(b.id));
  const changes=all.filter(c=>c.position!==null&&(includePlans||!c.planned)),undated=all.filter(c=>c.position===null&&(includePlans||!c.planned));
  for(const change of changes)if(change.position<=cursor&&!change.review)current.set(pair(change.from,change.to),change);
- return {relations:[...current.values()],changes,undated,current:changes.filter(c=>c.position<=cursor&&!c.review).at(-1)||null,next:changes.find(c=>c.position>cursor&&!c.review)||null};
+ const book={writing:{relationshipTypes:Object.fromEntries((options.relationshipTypes||[]).map(t=>[t.id,t]))}},project=e=>e.typeId&&options.relationshipTypes?relationView(book,e):e;
+ return {relations:[...current.values()].map(project),changes:changes.map(project),undated:undated.map(project),current:changes.filter(c=>c.position<=cursor&&!c.review).at(-1)||null,next:changes.find(c=>c.position>cursor&&!c.review)||null};
 }
 
 // Appearance and changes are planning projections, never evidence of confirmed prose.

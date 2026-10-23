@@ -14,7 +14,10 @@ test('actual standalone story relations render own styles and one constrained fo
  assert.equal((html.match(/>定位<\/button>/g)||[]).length,2);
  assert.match(html,/\.u-rel-scroll\{overflow:auto;min-height:0;flex:1/,'shared relation styles must mount without UnifiedTimeline');
  assert.match(html,/\.sa-workspace&gt;\.sa-relations-region\{display:none;min-height:0;min-width:0;overflow:auto/);
- assert.match(html,/<details class="sa-tray"[\s\S]*?<\/details><\/section><div class="sa-relations-region"/,'tray remains in its own axis column, never inside relationship scroll region');
+ assert.match(html,/<details class="sa-tray"[\s\S]*?<\/details><\/section><div class="relation-sidebar-divider" role="separator"[^>]*><\/div><div class="sa-relations-region"/,'tray closes inside the axis column, followed by the resize separator and a separate relationship region');
+ assert.equal((html.match(/class="relation-sidebar-divider" role="separator"/g)||[]).length,1,'exactly one resize separator sits between the real panes');
+ const relationMarkup=html.slice(html.indexOf('<div class="sa-relations-region"'));
+ assert.doesNotMatch(relationMarkup,/<details class="sa-tray"/,'pending tray must never be nested inside the relationship scroll region');
  assert.match(html,/\.sa-relations-view \.sa-workspace&gt;\.sa-axis-column\{display:none\}/,'narrow relation view hides the whole axis/tray column');
 });
 test('axis view retains pending tray and one persistent relationship pane with no nested scroll owner',()=>{

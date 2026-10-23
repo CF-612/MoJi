@@ -1,3 +1,4 @@
+import {checkedTypeId,relationView} from './relationship-types.js';
 import {calendarDate,narrationCompare} from './story-workspace.js';
 // Canonical story records. Graph projections never modify the underlying edges.
 const clone=structuredClone;
@@ -36,7 +37,7 @@ export function storyEvents(n,w,args={}){
 }
 function checkedChange(n,w,v){
  get(n.edges,v.edgeId,'基础关系');get(w.events,v.eventId,'阶段事件');if(!object(v.value))fail('关系阶段状态无效');
- const value={name:text(v.value.name||'','关系名称'),content:text(v.value.content||'','关系说明'),category:v.value.category||'other',style:v.value.style||'solid',active:v.value.active!==false};
+ const value={name:text(v.value.name||'','关系名称'),content:text(v.value.content||'','关系说明'),category:v.value.category||'other',style:v.value.style||'solid',active:v.value.active!==false,...(v.value.typeId!==undefined?{typeId:checkedTypeId(n,v.value.typeId)}:{})};
  if(!Object.hasOwn(relationCategories,value.category)||!['solid','dashed','dotted'].includes(value.style))fail('关系类别或线型无效');
  return {edgeId:v.edgeId,eventId:v.eventId,value,deleted:!!v.deleted};
 }
@@ -47,10 +48,10 @@ export function stageRelations(n,w,args={}){
  const changes=active(w.relationshipChanges).filter(c=>rank.has(c.eventId)&&(w.events[args.eventId]?.planned||!w.events[c.eventId].planned)).sort((a,b)=>rank.get(a.eventId)-rank.get(b.eventId)||a.id.localeCompare(b.id));
  return active(n.edges).filter(e=>!n.nodes[e.from]?.deleted&&!n.nodes[e.to]?.deleted&&(!args.nodeId||[e.from,e.to].includes(args.nodeId))).map(e=>{
   const applied=phase==='base'?[]:changes.filter(c=>c.edgeId===e.id&&(phase==='latest'||rank.get(c.eventId)<=rank.get(args.eventId)));
-  const last=applied.at(-1);return {...clone(e),category:e.category||'other',style:e.style||'solid',active:e.baseActive!==false,...last?.value,stageEventId:last?.eventId||null,stageChangeId:last?.id||null,baseRevision:e.revision};
+  const last=applied.at(-1);return relationView(n,{...clone(e),category:e.category||'other',style:e.style||'solid',active:e.baseActive!==false,...last?.value,...(last?{typeId:last.value.typeId??null}:{}),stageEventId:last?.eventId||null,stageChangeId:last?.id||null,baseRevision:e.revision});
  });
 }
-export function changeView(n,w,c){const edge=n.edges[c.edgeId],event=w.events?.[c.eventId],{versions,...current}=c;return {...clone(current),eventTitle:event?.title||'缺失事件',storyTime:event?.storyTime||'',order:event?.order,from:edge?.from,to:edge?.to,excluded:!!edge?.deleted||!!event?.deleted||!!n.nodes[edge?.from]?.deleted||!!n.nodes[edge?.to]?.deleted};}
+export function changeView(n,w,c){const edge=n.edges[c.edgeId],event=w.events?.[c.eventId],{versions,...current}=c;return {...clone(current),value:relationView(n,current.value),eventTitle:event?.title||'缺失事件',storyTime:event?.storyTime||'',order:event?.order,from:edge?.from,to:edge?.to,excluded:!!edge?.deleted||!!event?.deleted||!!n.nodes[edge?.from]?.deleted||!!n.nodes[edge?.to]?.deleted};}
 export function readEvolution(n,w,action,a){
  if(action==='writing.event.list')return {value:storyEvents(n,w,a)};
  if(action==='writing.event.get')return {value:eventView(n,get(w.events,a.id,'事件'))};
@@ -96,7 +97,7 @@ export function copyEvolution(w,to,maps,uuid,foreshadowIds){
  const eventIds=new Map(Object.keys(w.events||{}).map(id=>[id,uuid()]));to.events??={};to.relationshipChanges??={};
  const record=(r,convert)=>({...convert(clone(r)),versions:r.versions.map(v=>({...v,value:convert(clone(v.value))}))});
  for(const e of Object.values(w.events||{})){const id=eventIds.get(e.id);to.events[id]=record(e,v=>({...v,id,chapterOrders:Object.fromEntries(Object.entries(v.chapterOrders||{}).map(([id,order])=>[maps.chapters.get(id),order])),enteringRefs:(v.enteringRefs||[]).map(id=>maps.nodes.get(id)),memoryRefs:v.memoryRefs.map(id=>maps.nodes.get(id)),chapterRefs:v.chapterRefs.map(r=>({...r,chapterId:maps.chapters.get(r.chapterId)})),planningRefs:v.planningRefs.map(id=>maps.planning.get(id)),foreshadowRefs:v.foreshadowRefs.map(id=>foreshadowIds.get(id))}));}
- for(const c of Object.values(w.relationshipChanges||{})){const id=uuid();to.relationshipChanges[id]=record(c,v=>({...v,id,eventId:eventIds.get(v.eventId),edgeId:maps.edges.get(v.edgeId)}));}
+ for(const c of Object.values(w.relationshipChanges||{})){const id=uuid();to.relationshipChanges[id]=record(c,v=>({...v,id,eventId:eventIds.get(v.eventId),edgeId:maps.edges.get(v.edgeId),value:{...v.value,...(v.value.typeId?{typeId:maps.relationshipTypes.get(v.value.typeId)}:{})}}));}
  return eventIds;
 }
 export function sliceEvolution(w,target){

@@ -18,7 +18,7 @@ export function editRelation(state,op,newId){
  }
  const target=state.cards[op.cardId];cas(target,op.expectedRevision);if(target.status==='dropped')fail('请先采用这张剧情卡，再安排关系变化。');
  let destination=op.pointId?target.points.find(p=>p.id===op.pointId):null;if(op.pointId&&!destination)fail('目标发生点已不存在。');
- const value={id:source?(point.relationships[index].id||`${point.id}:${index}`):newId(),from:op.value?.from,to:op.value?.to,name:String(op.value?.name||'').trim(),reason:String(op.value?.reason||'').trim(),evidence:op.value?.evidence?structuredClone(op.value.evidence):null};
+ const value={id:source?(point.relationships[index].id||`${point.id}:${index}`):newId(),from:op.value?.from,to:op.value?.to,name:String(op.value?.name||'').trim(),reason:String(op.value?.reason||'').trim(),...(op.value?.typeId!==undefined?{typeId:op.value.typeId}:source&&point.relationships[index].typeId?{typeId:point.relationships[index].typeId}:{}),evidence:op.value?.evidence?structuredClone(op.value.evidence):null};
  if(!destination){
   const location=structuredClone(op.location||{});
   // Only newly created points on a configured axis default to card binding.

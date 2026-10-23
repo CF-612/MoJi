@@ -1,3 +1,4 @@
+import {relationshipTypes,relationView} from './relationship-types.js';
 import {narrationChapters} from './story-timeline.mjs';
 import {storyEvents,changeView} from './story-evolution.js';
 const active=map=>Object.values(map||{}).filter(v=>!v.deleted);
@@ -13,7 +14,7 @@ export function writingBoard(n,w,stats,foreshadows,args={}){
  const chapters=stats.rows.map(row=>({...row,revision:n.chapters[row.id].revision,events:events.filter(e=>!e.deleted&&e.chapterRefs.some(r=>r.chapterId===row.id&&!r.excluded)).map(e=>e.id),characters:active(w.links).filter(l=>l.chapterId===row.id&&l.kind==='appearance'&&n.nodes[l.nodeId]?.type==='character_card'&&!n.nodes[l.nodeId]?.deleted).map(l=>({id:l.nodeId,kind:l.kind,review:!l.manual&&n.chapters[row.id].contentHash!==n.chapters[row.id].versions.find(v=>v.revision===l.chapterRevision)?.contentHash})),foreshadows:shadows.flatMap(f=>[...f.evidence.filter(e=>e.chapterId===row.id).map(e=>({id:f.id,kind:e.kind,revision:e.revision})),...(f.targetChapterId===row.id&&!['recovered','abandoned'].includes(f.status)?[{id:f.id,kind:'target'}]:[])]).filter((v,i,all)=>all.findIndex(x=>x.id===v.id&&x.kind===v.kind)===i),planning:planning.filter(p=>p.chapterRefs.some(r=>r.chapterId===row.id)).map(p=>p.id)}));
  // Confirmed prose references remain distinct from event participation.
  for(const chapter of chapters)chapter.references=active(w.links).filter(l=>l.chapterId===chapter.id&&!n.nodes[l.nodeId]?.deleted).map(l=>({id:l.id,nodeId:l.nodeId,kind:l.kind,chapterRevision:l.chapterRevision,review:!l.manual&&n.chapters[chapter.id].contentHash!==n.chapters[chapter.id].versions.find(v=>v.revision===l.chapterRevision)?.contentHash}));
- const edges=active(n.edges).filter(e=>!n.nodes[e.from]?.deleted&&!n.nodes[e.to]?.deleted).map(({id,revision,from,to,name,content,category,style,baseActive,timing})=>({id,revision,from,to,name,content,category,style,baseActive,timing}));
+ const edges=active(n.edges).filter(e=>!n.nodes[e.from]?.deleted&&!n.nodes[e.to]?.deleted).map(({id,revision,from,to,name,content,category,style,baseActive,timing,fromPort,toPort,typeId})=>relationView(n,{id,revision,from,to,name,content,category,style,baseActive,timing,fromPort,toPort,typeId}));
  const relationshipChanges=(n.story?[]:args.includeDeleted?Object.values(w.relationshipChanges||{}):active(w.relationshipChanges)).map(c=>changeView(n,w,c));
- return {novelId:n.id,revision:n.revision,stats:{...stats,goal:{revision:stats.goal.revision,target:stats.goal.target}},chapters,nodes,events,planning,edges,relationshipChanges,foreshadows:shadows,policy:'人物出场使用已确认的章节记录；事件参与不自动证明出场。图表按明确顺序排列，不推断日期间隔。'};
+ return {novelId:n.id,revision:n.revision,stats:{...stats,goal:{revision:stats.goal.revision,target:stats.goal.target}},chapters,nodes,events,planning,edges,relationshipTypes:relationshipTypes(n),relationshipChanges,foreshadows:shadows,policy:'人物出场使用已确认的章节记录；事件参与不自动证明出场。图表按明确顺序排列，不推断日期间隔。'};
 }

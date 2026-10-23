@@ -112,3 +112,9 @@ test('Partial exports and copies detach excluded anchor chapter but preserve con
  const target=project(emptyWorkspace());copyStory(original,target,maps());assert.deepEqual(target.story.state.storyAxis.anchor,expected);
  const mappedTarget=project(emptyWorkspace()),mapping=maps();mapping.chapters.set('omitted','new-chapter');copyStory(original,mappedTarget,mapping);assert.equal(mappedTarget.story.state.storyAxis.anchor.chapterId,'new-chapter');
 });
+test('Plot-card anchor copy remaps identity; partial export detaches excluded card without changing date or label',async()=>{
+ const {selectStoryPackage}=await import('../src/domain/story-package.js');const state=emptyWorkspace();state.storyAxis=axis();state.storyAxis.anchor.cardId='c';state.cards.c=card('c',7,point('p',1));state.cards.c.time.story.trackId='st';
+ const original={...project(state),nodes:{},edges:{},memoryGroups:{}};const target=project(emptyWorkspace());copyStory(original,target,maps());assert.equal(target.story.state.storyAxis.anchor.cardId,'new-c');assert.deepEqual(target.story.state.storyAxis.anchor.date,state.storyAxis.anchor.date);assert.equal(target.story.state.storyAxis.anchor.label,state.storyAxis.anchor.label);
+ const excluded=selectStoryPackage(original,{pageIds:['main'],includeDependencies:false}).projects[0];assert.equal(excluded.story.state.storyAxis.anchor.cardId,undefined);assert.deepEqual(excluded.story.state.storyAxis.anchor.date,state.storyAxis.anchor.date);
+ const whole=selectStoryPackage(original,{includeDependencies:false}).projects[0];assert.equal(whole.story.state.storyAxis.anchor.cardId,'c');assert.equal(original.story.state.storyAxis.anchor.cardId,'c');
+});

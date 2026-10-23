@@ -85,3 +85,10 @@ test('窄屏初次打开恢复视野外的旧相机；后续主动平移不被�
 test('画布缩窄导致原本可见的全部内容离屏时恢复视图，保留已保存坐标',()=>{
  const nodes=[{id:'a',revision:1,position:{x:590,y:60},width:248,height:208}],h=mount({nodes,recoverOffscreen:true},true,{x:-500,y:0,zoom:1});h.render();h.resize(1200,550);let graph=h.render();assert.equal(graph.outOfView,false);h.resize(200,550);graph=h.render();assert.equal(graph.outOfView,false);assert.equal(graph.points.a.x,590);h.unmount();
 });
+
+test('material ports connect across axes and same sides without imposing plot direction, duplicate or cycle constraints',async()=>{
+ for(const sourceSide of ['top','bottom','left','right'])for(const targetSide of ['top','bottom','left','right']){
+  const calls=[],nodes=[{id:'character',revision:1,position:{x:0,y:0}},{id:'world',revision:1,position:{x:400,y:300}}],h=mount({nodes,edges:[{from:'character',to:'world'},{from:'world',to:'character'}],freePorts:true,canConnect:(a,b)=>a!==b,onConnect:async(...args)=>{calls.push(args);return false;}},true);
+  let g=h.render();g.portProps('character',sourceSide,'人物').onClick(keyClick());g=h.render();assert.equal(g.portProps('world',targetSide,'世界').disabled,false);assert.equal(g.portProps('character',targetSide,'人物').disabled,sourceSide!==targetSide);g.portProps('world',targetSide,'世界').onClick(keyClick());await settle();assert.equal(calls.length,1);const [from,to,axis,ports]=calls[0];assert.equal(ports[from==='character'?'fromPort':'toPort'],sourceSide);assert.equal(ports[to==='world'?'toPort':'fromPort'],targetSide);assert.equal(axis,['top','bottom'].includes(sourceSide)?'vertical':'horizontal');
+ }
+});

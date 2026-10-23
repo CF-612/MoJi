@@ -73,8 +73,6 @@ function ModuleToggle({id}:{id:string}) {
 export function PreferencesDialog({close, novelTitle, onPreset}: {close: () => void; novelTitle?: string; onPreset?: () => void}) {
   const {preferences:p, update, error} = useWorkbenchPreferences();
   const [tab, setTab] = useState<SettingsTab>('appearance');
-  const [search,setSearch]=useState('');
-  const searchRows:[SettingsTab,string][]=[['appearance','主题 深色 浅色 跟随系统 动效 画布 视图 卡片颜色'],['typography','正文 字号 行距 编号 目录'],['modules','功能模块 伏笔 关系演变 时间线 分页 分组 梗概 仪表盘'],['other','更新 关于 写作要求 预设 背景 模糊']];
   const themeKey = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const step = event.key==='ArrowRight'||event.key==='ArrowDown' ? 1 : event.key==='ArrowLeft'||event.key==='ArrowUp' ? -1 : 0;
     if (!step) return;
@@ -86,7 +84,7 @@ export function PreferencesDialog({close, novelTitle, onPreset}: {close: () => v
   };
   return <Modal title="设置" close={close} className="settings-modal">
     <style>{settingsStyles}</style>
-    <label className="settings-search">搜索设置<input type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="例如：字号、伏笔、深色"/></label>{search.trim()&&<div className="row" aria-label="设置搜索结果">{searchRows.filter(([,text])=>text.includes(search.trim())).map(([id,text])=><button key={id} title={text} onClick={()=>{setTab(id);setSearch('');}}>{settingsTabs.find(t=>t[0]===id)?.[1]} →</button>)}{!searchRows.some(([,text])=>text.includes(search.trim()))&&<small>没有匹配设置</small>}</div>}<div className="settings-layout">
+    <div className="settings-layout">
       <nav className="settings-nav" aria-label="设置分类">
         {settingsTabs.map(([id,label])=><button key={id} type="button" aria-current={tab===id?'true':undefined} onClick={()=>setTab(id)}>{label}</button>)}
       </nav>

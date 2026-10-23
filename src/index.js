@@ -28,6 +28,7 @@ export const Config = z.object({
   cloudUrl: z.string().default(''),
 });
 const descriptions = {
+  moji_structure: '检索与维护本会话小说的写作结构、人物卡、关系、组织、伏笔与写作目标。writing.search 按需检索；writing.card.get 与 writing.cardRelations.get 读取卡片及关系；修改前读取当前版本并使用对应 expectedRevision。writing.review.preview/submit/list/get/apply/dismiss 管理待作者审阅的建议，不把建议当作已确认事实。writing_context.get 读取写作上下文；writing.history/restore 查看历史与恢复。',
   moji_project: '接手本会话绑定的小说并读取或修改卷、章、正文。novel.handoff 只返回作品索引、当前章节/任务、章节目录摘要和资料入口，不返回正文；需要正文时用 chapter.get。读操作返回 revision；修改必须提供 expectedRevision。chapter.update 用 content、append 或 patch:{oldText,newText} 三选一。删除需 confirm:true；非空卷还需 chapterPolicy:detach/delete。chapter.get 支持 start/maxChars。',
   moji_memory: '通过本地 stdio MCP 检索与维护本会话小说图谱。先用 graph.groups 查看人物/世界资料分组，再用 graph.list 的 query/type/groupId 搜索名称、别名和摘要；groupId:null 筛选未分组。列表不返回正文，命中后用 graph.get 读取详情，edge.list 用 nodeId 查关系。edge.create 的 from/to 是端点，name/content 可省略，空关系只显示连线，不编造说明。补充已有资料优先 graph.update；分组支持 graph.group.create/update/delete 和 graph.move 批量移动，删除分组保留条目。检查 status/factType/sources/knownBy，未确认或过期内容不当作既定事实。资料分 character_card 与 world_entry；graph.get/update/delete 必须用 nodeId，edge.get/update/delete 必须用 edgeId。修改需 expectedRevision，删除 confirm:true。',
   moji_plan: '统一剧情工作区。story.get 读取 cards、包含树、页面实例、时间安排和工作区 revision。story.apply 需要 expectedRevision 与 operation:{type,...}。card.create/value 创建剧情卡；card.update/id/expectedRevision/value 更新卡；move/refs/parent/before/after 调整包含与同级顺序。卷章只来自正文目录，不在规划创建。time.narration 与 time.story 独立；points 为固定发生点，拖卡不平移。证据须真实保存版本；AI 可安排计划，不得确认人物关系事实。冲突重读，保留作者草稿。',
@@ -42,6 +43,12 @@ export function defaultDataRoot(base = process.platform === 'win32'
 }
 
 export async function apply(ctx, config = {}) {
+  // Undefined descriptions poison every DSH request/header, even without a tool call.
+  for (const toolName of Object.keys(allowed)) {
+    if (typeof descriptions[toolName] !== 'string' || !descriptions[toolName].trim()) {
+      throw new Error(`Moji tool ${toolName} requires a non-empty description`);
+    }
+  }
   const root = config.dataRoot || process.env.MOJI_DATA_ROOT || process.env.CUIGENGJI_DATA_ROOT || defaultDataRoot();
   let sessionPolicy;
   const cloudClient=createDshCloudClient({credentials:ctx.credentials});
