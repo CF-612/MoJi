@@ -36,7 +36,7 @@ test('本机模式保留维护、导入导出与原会话策略',async()=>{
   assert.equal(opened,1);await runtime.close();assert.equal(calls.at(-1),'closed');
 });
 test('引用通过原生会话通道发送，保留作品、版本与草稿标识',async()=>{
-  const sent=[];const ctx={sessions:{using:async(id,opts,fn)=>{sent.push(id);return fn({ready:Promise.resolve(),binding:{ctx:{conversation:{send:async text=>sent.push(text)}}}});}},conversation:{},layout:{selectPanel:v=>sent.push(v)}};
+  const sent=[];const ctx={sessions:{using:async(id,opts,fn)=>{sent.push(id);return fn({sessionId:id,ready:Promise.resolve(),binding:{sessionId:id,session:{sessionId:id,prompt:async ([{text}],mode)=>{assert.equal(mode,'queue');sent.push(text);return {ok:true,value:{accepted:true}};}}}});}},conversation:{},layout:{selectPanel:v=>sent.push(v)}};
   await sendNativeReference(ctx,'author-session',referenceMessage({novelId:'novel-a',id:'chapter-b',kind:'chapter',revision:7,dirty:true},'选中正文'));
   assert.equal(sent[0],'author-session');assert.match(sent[1],/novel-a/);assert.match(sent[1],/读取版本：7/);assert.match(sent[1],/未保存草稿/);assert.match(sent[1],/选中正文/);assert.equal(sent[2],null);
 });

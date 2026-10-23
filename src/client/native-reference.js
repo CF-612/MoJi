@@ -11,10 +11,20 @@ export function referenceMessage(reference,selection=''){
   ].filter(Boolean).join('\n');
 }
 export async function sendNativeReference(ctx,sessionId,text){
-  if(!ctx.sessions?.using||!ctx.conversation)throw new Error('当前宿主未提供聊天引用通道，请更新 DSH');
+  if(typeof ctx.sessions?.using!=='function')throw new Error('当前宿主未提供聊天引用通道，请更新 DSH');
+  if(typeof sessionId!=='string'||!sessionId.trim())throw new Error('当前会话不可用，请重新打开工作台');
   await ctx.sessions.using(sessionId,{source:'cuigengji'},async reference=>{
     await reference.ready;
-    await reference.binding.ctx.conversation.send(text);
+    const binding=reference.binding;
+    if(reference.sessionId!==sessionId||binding?.sessionId!==sessionId||binding.session?.sessionId!==sessionId)throw new Error('会话不匹配，未发送，请重新打开当前会话的工作台');
+    if(typeof binding.session.prompt!=='function')throw new Error('当前宿主未提供聊天引用通道，请更新 DSH');
+    // Public SessionFace, not binding.ctx.conversation: the latter requires
+    // an injected Conversation fiber that a retained Session scope does not own.
+    const result=await binding.session.prompt([{type:'text',text}], 'queue');
+    if(result?.ok!==true||result.value?.accepted!==true){
+      throw new Error(result?.error?.message?`发送未被接受：${result.error.message}`:'发送未被接受，请保留提示词并检查当前会话');
+    }
   });
-  ctx.layout.selectPanel(null);
+  // Admission has succeeded. A navigation failure must not encourage resending.
+  try{await ctx.layout?.selectPanel?.(null);}catch{}
 }

@@ -29,6 +29,7 @@ export const mobileEditorStyles=`
  .cuigengji .chapter-main .editor-scroll{margin:0;border:0;box-shadow:none;padding:14px 20px 60px;background:var(--cg-paper)}
  .cuigengji .manuscript-title{font-size:23px;margin:10px 0 20px}
  .cuigengji .chapter-main textarea.manuscript{padding:0;line-height:var(--prose-leading,1.95);border:0;background:transparent;resize:none;font-size:var(--prose-size,18px)}
+ .cuigengji .chapter-main .manuscript-surface .prose-match-layer{padding-block:0}
  .cuigengji .auto-savebar{padding:4px 14px;min-height:26px;box-sizing:border-box;font-size:10px}
  .cuigengji .auto-savebar [role=status]{font-size:10px}
  .cuigengji .compact-tools{position:relative;flex:none;width:100%}
