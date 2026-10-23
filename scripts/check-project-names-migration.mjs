@@ -10,7 +10,7 @@ import {fileId, bookPath, storedChapterFile, storedSettingFile, storedPageFile} 
 const source = process.argv[2] && resolve(process.argv[2]), apply = process.argv.includes('--apply');
 const output = process.argv[3] && !process.argv[3].startsWith('--') ? resolve(process.argv[3]) : null;
 if (!source) throw new Error('Usage: node scripts/check-project-names-migration.mjs <data-root> [report-directory] [--apply]');
-const scratch = await mkdtemp(join(tmpdir(), 'cuigengji-project-names-'));
+const scratch = await mkdtemp(join(tmpdir(), 'moji-project-names-'));
 const sourceStore = new Store(source); let release = await sourceStore.acquire();
 let target = source;
 try {

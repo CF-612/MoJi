@@ -1,5 +1,5 @@
 ---
-name: cuigengji-plan
+name: moji-plan
 description: 讨论剧情走向、人物行动、因果或备选方案时使用；通过统一剧情卡、包含树、页面实例与时间安排维护共同思考的工作台。
 ---
 
@@ -9,7 +9,7 @@ description: 讨论剧情走向、人物行动、因果或备选方案时使用�
 
 ## 唯一工具协议
 
-调用 `cuigengji_plan`，使用 `{action,args}` 包装。当前仅支持 `story.get` 和 `story.apply`；旧规划、事件写入接口已经退出允许列表，不能重试或绕道调用。
+调用 `moji_plan`，使用 `{action,args}` 包装。当前仅支持 `story.get` 和 `story.apply`；旧规划、事件写入接口已经退出允许列表，不能重试或绕道调用。
 
 1. `story.get {}` 返回 `state`、`sources`、`history` 和 `canRedo`。`state.cards` 是按 ID 索引的剧情卡；`placements` 是包含与同级顺序；`pages` 的 `instances` 是页面展示坐标；`precedence` 是先后关系；`tracks` 是轨道。`sources` 提供真实正文卷章元数据，不包含正文。
 2. 根据作者提到的标题、内容和页面定位。页面的 `instances` 键形如 `card:ID`、`chapter:ID`、`volume:ID`，不是卡片 ID。UI 当前选页不是 Agent 隐式上下文。只在需要核对正文时用 `chapter.get`，不为调整连线读取全书。

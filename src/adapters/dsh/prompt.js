@@ -1,7 +1,7 @@
 import { persona } from './skills.js';
 
-const PERSONA_NAME = 'cuigengji:writing';
-const OWN_NAMES = new Set([PERSONA_NAME, 'cuigengji:handoff', 'cuigengji:preset', 'cuigengji:novel']);
+const PERSONA_NAME = 'moji:writing';
+const OWN_NAMES = new Set([PERSONA_NAME, 'moji:handoff', 'moji:preset', 'moji:novel', 'cuigengji:writing', 'cuigengji:handoff', 'cuigengji:preset', 'cuigengji:novel']);
 
 export function registerPrompt(ctx, { store, resolveBinding } = {}) {
   // Only author-enabled writing requirements join the stable persona. Story
@@ -28,7 +28,7 @@ export function registerPrompt(ctx, { store, resolveBinding } = {}) {
       sections: [
         ...result.sections.filter(entry => !OWN_NAMES.has(entry.name)),
         { name: PERSONA_NAME, text: persona, interpolate: false },
-        ...(preset?.enabled && preset.content ? [{ name: 'cuigengji:preset', text: `作者的写作要求：\n${preset.content}`, interpolate: false }] : []),
+        ...(preset?.enabled && preset.content ? [{ name: 'moji:preset', text: `作者的写作要求：\n${preset.content}`, interpolate: false }] : []),
       ],
       contexts: result.contexts.filter(entry => !OWN_NAMES.has(entry.name)),
     };

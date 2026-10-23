@@ -14,7 +14,7 @@
 
 ## Agent 调用
 
-`cuigengji_plan` 当前只公开 `story.get` 和 `story.apply`。完整字段说明及可执行示例见 [规划 Skill](../skills/cuigengji-plan/SKILL.md)。
+`moji_plan` 当前只公开 `story.get` 和 `story.apply`。完整字段说明及可执行示例见 [规划 Skill](../skills/moji-plan/SKILL.md)。
 
 1. `story.get {}` 返回 `state`、目录 `sources`、历史摘要 `history` 和 `canRedo`。以实际页面 ID 定位，不猜作者当前选择，也不把 main/null 当作所有作品通用的隐式页面。
 2. `story.apply {expectedRevision,requestId,reason?,operation:{type,...}}` 每次提交一个操作。最外层版本来自 `state.revision`；card.update 的 operation.expectedRevision 来自卡片本身。

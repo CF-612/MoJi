@@ -1,5 +1,5 @@
 {
-  "name": "cuigengji-chatgpt-workbench",
+  "name": "moji-chatgpt-workbench",
   "version": "0.11.0-v31.1",
   "private": true,
   "type": "module",
@@ -36,7 +36,7 @@
   "description": "墨叽：陪你写故事的烟灰蛸小说工作台，支持正文、自由画布、情节连线与人物世界资料。",
   "moji": {
     "id": "moji",
-    "englishName": "MoJi",
+    "englishName": "Moji",
     "updateManifestUrl": "https://raw.githubusercontent.com/CF-612/MoJi/moji-release/distribution/latest.json"
   }
 }

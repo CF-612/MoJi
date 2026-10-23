@@ -40,7 +40,7 @@ test('prompt only reads the bound writing preset, without fetching story context
   const unbound = await listeners['system-prompt/assemble']({ sections: [], contexts: [] }, { agent: { id: 'none' } }, next);
   assert.equal(unbound.sections.length, 2);
   const bound = await listeners['system-prompt/assemble']({ sections: [], contexts: [] }, { agent: { id: 'bound' } }, next);
-  assert.equal(bound.sections.some(section => section.name === 'cuigengji:writing'), true);
+  assert.equal(bound.sections.some(section => section.name === 'moji:writing'), true);
   assert.equal(bound.contexts.length, 0);
   assert.equal(bound.sections.some(section => section.name === 'cuigengji:handoff'), false);
   assert.deepEqual(audited, []);
@@ -69,6 +69,6 @@ test('reassembly removes old plugin content and preserves host entries', async (
   assert.equal(first.variables, original.variables);
   assert.doesNotMatch(JSON.stringify(first), /OLD_/);
   const unbound = await assemble({}, context, async () => second);
-  assert.equal(unbound.sections.filter(section => section.name === 'cuigengji:writing').length, 1);
+  assert.equal(unbound.sections.filter(section => section.name === 'moji:writing').length, 1);
   assert.deepEqual(unbound.contexts, [hostContext]);
 });

@@ -20,7 +20,7 @@ import { Launcher } from './launcher.tsx';
 import {WorkbenchHeader} from './shared/WorkbenchHeader.tsx';
 import {RefreshProvider, useWorkbenchRefresh} from './shared/refresh.tsx';
 
-const ID = 'dsh-cuigengji';
+const ID = 'dsh-moji';
 const RPC_ENDPOINT = 'cuigengji/dispatch';
 const message = error => error?.message || String(error);
 export const inject = ['connection', 'slots', 'sidebarRight', 'sidebarRightTabs', 'locale', 'layout', 'uiWorkspace', 'workspaces'];

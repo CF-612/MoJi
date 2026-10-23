@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 const manifest=JSON.parse(await readFile(new URL('../package.json',import.meta.url),'utf8'));
-const required=['runtime/index.js','runtime/application/maintenance/upgrade.js','runtime/infrastructure/persistence/upgrade-backup.js','lib/client.js','skills/cuigengji-maintenance/SKILL.md','docs/agent-installation.md','docs/upgrade.md','LICENSE'];
+const required=['runtime/index.js','runtime/application/maintenance/upgrade.js','runtime/infrastructure/persistence/upgrade-backup.js','lib/client.js','skills/moji-maintenance/SKILL.md','docs/agent-installation.md','docs/upgrade.md','LICENSE'];
 test('release audit derives current version and still rejects stale versions/private data/missing capabilities',async t=>{
  const dir=await mkdtemp(join(tmpdir(),'moji-pack-audit-'));t.after(()=>rm(dir,{recursive:true,force:true}));const file=join(dir,'pack.json');
  const run=async override=>{await writeFile(file,JSON.stringify([{name:manifest.name,version:manifest.version,unpackedSize:123,files:required.map(path=>({path})),...override}]));return spawnSync(process.execPath,[new URL('../scripts/audit-release.mjs',import.meta.url).pathname,file],{encoding:'utf8'});};

@@ -1,23 +1,23 @@
 import {readFile} from 'node:fs/promises';
+import manifest from '../package.json' with {type:'json'};
+import {ListResourcesRequestSchema} from '@modelcontextprotocol/sdk/types.js';
 import {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import {z} from 'zod';
 import {QUERY_ACTIONS,EDIT_ACTIONS} from './workbench-service.mjs';
 import {checkModelAction,modelCapabilities} from './model-actions.mjs';
 
-const uri = 'ui://cuigengji/workbench-v020';
+const uri = 'ui://moji/workbench-v020';
 export function createMcp(service) {
-  const server = new McpServer({name: 'cuigengji-sidebar', version: '0.2.0'});
-  server.registerResource('cuigengji-workbench', uri, {mimeType: 'text/html;profile=mcp-app'}, async () => ({contents: [{
-    uri, mimeType: 'text/html;profile=mcp-app', text: (await readFile(new URL('../dist/native-paused.html', import.meta.url), 'utf8')).replace('<html ', '<html data-mcp-app="true" '),
-    _meta: {'openai/ui': {preferredDisplayMode: 'inline', availableDisplayModes: ['inline', 'fullscreen']}}
-  }]}));
-  // 已保存的聊天工具结果引用旧 URI；不能在升级时撤销历史资源。
-  const legacyUri = 'ui://cuigengji/demo';
-  server.registerResource('cuigengji-demo-legacy', legacyUri, {mimeType: 'text/html;profile=mcp-app'}, async () => ({contents: [{
-    uri: legacyUri, mimeType: 'text/html;profile=mcp-app',
-    text: (await readFile(new URL('../dist/native-paused.html', import.meta.url), 'utf8')).replace('<html ', '<html data-mcp-app="true" '),
-    _meta: {'openai/ui': {preferredDisplayMode: 'inline', availableDisplayModes: ['inline', 'fullscreen']}}
-  }]}));
+  const server = new McpServer({name: 'Moji', version: manifest.version});
+  const metadata={mimeType: 'text/html;profile=mcp-app'};
+  // Retain saved conversation resources without advertising legacy brand names.
+  for(const resourceUri of [uri,'ui://cuigengji/workbench-v020','ui://cuigengji/demo']) {
+    server.registerResource(resourceUri===uri?'moji-workbench':'moji-history-'+resourceUri.split('/').at(-1),resourceUri,metadata,async()=>({contents:[{
+      uri:resourceUri,...metadata,text:(await readFile(new URL('../dist/native-paused.html',import.meta.url),'utf8')).replace('<html ','<html data-mcp-app="true" '),
+      _meta:{'openai/ui':{preferredDisplayMode:'inline',availableDisplayModes:['inline','fullscreen']}}
+    }]}));
+  }
+  server.server.setRequestHandler(ListResourcesRequestSchema,async()=>({resources:[{name:'moji-workbench',uri,...metadata}]}));
   const definitions = [
     ['workbench_open', '小说工作台', '打开小说工作台。聊天内显示短卡片，展开后在侧栏编辑；若主动隔离则显示暂停提示。可传当前聊天 contextId 保留独立作品选择。', {contextId:z.string().optional()}, true],
     ['chapter_read', '读取演示章节', '读取侧栏演示章节的最新正文和版本号；修改前调用。', {}, true],

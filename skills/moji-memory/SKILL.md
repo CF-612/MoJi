@@ -1,5 +1,5 @@
 ---
-name: cuigengji-memory
+name: moji-memory
 description: 讨论、设计或完善人物动机、世界规则、阵营与关系时使用；主动复用设定卡与关系图，保留未决提案并区分既定事实。
 ---
 
@@ -24,7 +24,7 @@ description: 讨论、设计或完善人物动机、世界规则、阵营与关�
 
 ## 查找、复用、更新
 
-所有下述 action 调用 `cuigengji_memory`，用 `{action,args}` 包装。
+所有下述 action 调用 `moji_memory`，用 `{action,args}` 包装。
 
 1. 根据人物名称、别名或场景关键词用 `graph.list {query,type?,groupId?}` 查找。query 会搜索名称、摘要、别名和正文，但列表不返回正文。没有命中时换合理别名；空结果不等于人物一定不存在。
 2. 用 `graph.get {nodeId}` 读取命中的全文和 revision；需要关系时 `edge.list {nodeId}`，详细核对某条边用 `edge.get {edgeId}`。不用每轮遍历整个图谱。

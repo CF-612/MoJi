@@ -67,5 +67,5 @@ test('memory groups validate references, batch move is atomic and delete preserv
   const bad=await run('novel.export');bad.novel.nodes[a.id].groupId='missing';
   await assert.rejects(run('novel.import',{backup:bad}),{code:'INVALID_INPUT'});
   assert.ok(isReadAction('graph.groups'));assert.ok(isReadAction('planning.groups'));
-  assert.ok(TOOL_ACTIONS.cuigengji_memory.includes('graph.move'));
+  assert.ok(TOOL_ACTIONS.moji_memory.includes('graph.move'));
 });

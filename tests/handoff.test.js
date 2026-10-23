@@ -54,21 +54,21 @@ test('handoff excludes unrelated bindings and distinguishes missing from unselec
 
 test('each registered task skill includes the operational guide with one metadata header', () => {
   const skills = [];
-  const shared = readFileSync(new URL('../skills/cuigengji-project/SKILL.md', import.meta.url), 'utf8')
+  const shared = readFileSync(new URL('../skills/moji-project/SKILL.md', import.meta.url), 'utf8')
     .replace(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/, '').trim();
   registerSkills({ skills: { register: skill => skills.push(skill) } });
   assert.equal(skills.length, skillSpecs.length);
   for (const skill of skills) {
     assert.match(skill.content, new RegExp(`^---\\r?\\nname: ${skill.name}\\r?\\n`));
-    assert.equal(skill.content.match(/^name: cuigengji-/gm).length, 1);
-    if (skill.name !== 'cuigengji-maintenance') {
-      assert.match(skill.content, /cuigengji_project/);
+    assert.equal(skill.content.match(/^name: moji-/gm).length, 1);
+    if (skill.name !== 'moji-maintenance') {
+      assert.match(skill.content, /moji_project/);
       assert.match(skill.content, /preset.read/);
       assert.match(skill.content, /nextStart/);
       assert.match(skill.content, /expectedRevision/);
       assert.equal(skill.content.split(shared).length, 2, 'include the complete shared guide exactly once');
     } else {
-      assert.match(skill.content, /cuigengji_maintenance/);
+      assert.match(skill.content, /moji_maintenance/);
       assert.doesNotMatch(skill.content, /小说正文.*按需读取/);
     }
   }

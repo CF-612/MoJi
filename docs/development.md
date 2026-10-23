@@ -1,6 +1,6 @@
 # 开发、测试与公开发布
 
-当前插件版本 0.4.0，Node.js 24+，DSH 兼容基线 0.2.0-rc.2。源码同时包含 TypeScript、JavaScript 和 JSX，尚未完成全部模块的 TypeScript 迁移。
+当前 Moji 版本和 DSH 兼容范围以 `package.json` 为准，需要 Node.js 24+。源码同时包含 TypeScript、JavaScript 和 JSX，尚未完成全部模块的 TypeScript 迁移。
 
 ## 模块与构建
 
@@ -54,14 +54,16 @@ node scripts/check-project-names-migration.mjs <数据目录> <报告目录>
 Windows 上 `scripts/check-release-install.mjs` 在临时 profile 中调用 DSH 原生 `runPluginCommand`，把 PATH 限制为桌面内置 Node shim 与 Windows 系统目录，检查找不到 Git，再验收本地或远程 `.tgz` 的新安装/旧包更新。它保留无关 profile 字段、启用组合包，随后用桌面 Node 加载 node_modules 中的编译包，验证维护工具、正文、规划、预设和真实 stdio MCP。不会读写用户 desktop profile。
 
 ```powershell
-node scripts/check-release-install.mjs --desktop-exe "C:\你的DSH安装目录\DeepSeek Harness.exe" --package "C:\发布目录\dsh-cuigengji-0.4.0.tgz" --old-package "C:\旧包目录\dsh-cuigengji-0.3.13.tgz" --report "C:\验收目录\update.json"
+node scripts/check-release-install.mjs --desktop-exe "C:\你的DSH安装目录\DeepSeek Harness.exe" --package "C:\发布目录\dsh-moji-PACKAGE_JSON_VERSION.tgz" --old-package "C:\旧包目录\dsh-cuigengji-0.3.13.tgz" --report "C:\验收目录\update.json"
 ```
 
 省略 `--old-package` 验证全新安装；`--package` 也可使用真实 Release `.tgz` URL。用户安装使用[原生 Agent 指南](agent-installation.md)，不运行此开发者验收脚本。
 
 ## 小说数据与源码分离
 
-公开仓库是 `https://github.com/mistnest/dsh-cuigengji-plugin`，只发布代码、公共文档与合成测试样例。真实小说、设定、导出包、操作日志、聊天记录和个人环境备份保存在仓库之外。
+当前公开仓库是 `https://github.com/CF-612/MoJi`（仓库 URL 保持既有大小写），只发布代码、公共文档与合成测试样例。真实小说、设定、导出包、操作日志、聊天记录和个人环境备份保存在仓库之外。
+
+上述 `PACKAGE_JSON_VERSION` 必须替换为实际构建版本；`--old-package` 示例保留旧包名称，用于验证升级兼容，不是当前安装源。
 
 根目录下的 `test-data`、`novel-data`、`data`、`backups`、`migration` 和 `releases` 被忽略，`*.cuigengji.json` 导出文件也被忽略。这是防误提交措施；已经被 Git 跟踪的文件仍需从索引移除，忽略规则不会抹掉提交历史。
 

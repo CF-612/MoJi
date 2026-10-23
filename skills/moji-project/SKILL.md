@@ -1,5 +1,5 @@
 ---
-name: cuigengji-project
+name: moji-project
 description: 接手催更姬小说项目，定位作者的协作目标，按需读取资料并安全保存正文、规划与设定。
 ---
 
@@ -14,17 +14,17 @@ description: 接手催更姬小说项目，定位作者的协作目标，按需�
 | 作者意图 | 工作方式 |
 | --- | --- |
 | “看看这一章”“讨论一下，先别改/别保存” | 读取相关材料并讨论，不修改作品 |
-| “后面怎么走”“这场决战怎么设计”“比较这两个方案”“推演一下人物行动” | 使用 cuigengji-plan，主动维护相关讨论页、事件与关系；未决定的走向保留为 idea，不要求作者先说“画到图里” |
-| “设计/完善这个人物”“这条世界规则怎么安排”“梳理阵营关系” | 使用 cuigengji-memory，主动复用设定与关系，记录明确设定或标明未确认的提案 |
-| “写下一章”“修改这一段” | 使用 cuigengji-write / cuigengji-revise，在请求范围内直接保存；不为每次写入重复确认 |
+| “后面怎么走”“这场决战怎么设计”“比较这两个方案”“推演一下人物行动” | 使用 moji-plan，主动维护相关讨论页、事件与关系；未决定的走向保留为 idea，不要求作者先说“画到图里” |
+| “设计/完善这个人物”“这条世界规则怎么安排”“梳理阵营关系” | 使用 moji-memory，主动复用设定与关系，记录明确设定或标明未确认的提案 |
+| “写下一章”“修改这一段” | 使用 moji-write / moji-revise，在请求范围内直接保存；不为每次写入重复确认 |
 
 具体构建、推演或比较写作结构的请求，默认包含维护相应讨论材料的授权；画布参与共同思考。提案仍是提案，不代表作者采用，更不代表可以改正文或既定事实。简单问答、只读审阅与明确不保存的讨论不写入；不把每条聊天都做成卡片。已有授权足以覆盖的修改直接完成，有真实目标歧义、改变既定主线或超出范围时才询问。写作请求不要求先批准规划。
 
 ## 项目接手与按需读取
 
-首次接手、切换作品或上下文缺失时，用 `cuigengji_project` 调用 `novel.handoff`。它返回作品身份、有限目录、会话任务和资料数量，不包含正文；默认只列最近 20 章，省略不代表不存在。索引不足时用 `chapter.list` 定位，不凭章节标题推断情节。
+首次接手、切换作品或上下文缺失时，用 `moji_project` 调用 `novel.handoff`。它返回作品身份、有限目录、会话任务和资料数量，不包含正文；默认只列最近 20 章，省略不代表不存在。索引不足时用 `chapter.list` 定位，不凭章节标题推断情节。
 
-没有绑定时，用 `cuigengji_context` 的 `binding.get` 核对，再请作者在面板选择作品。Agent 没有 `binding.set` 或新建作品接口。会话参考章可能为空、已删除或与本次请求不同，以作者当前指定目标为准。工具看不到用户当前打开的详情页、光标和未保存草稿；“这个人物/这一章”无法从对话确定时，询问名称，不猜 UI 状态。
+没有绑定时，用 `moji_context` 的 `binding.get` 核对，再请作者在面板选择作品。Agent 没有 `binding.set` 或新建作品接口。会话参考章可能为空、已删除或与本次请求不同，以作者当前指定目标为准。工具看不到用户当前打开的详情页、光标和未保存草稿；“这个人物/这一章”无法从对话确定时，询问名称，不猜 UI 状态。
 
 需要时按以下优先顺序取材，而不是每项都读一遍：
 
@@ -41,10 +41,10 @@ description: 接手催更姬小说项目，定位作者的协作目标，按需�
 
 | 工具 | 常用 action 与参数 |
 | --- | --- |
-| `cuigengji_project` | `novel.handoff {chapterLimit?}`；`chapter.list {volumeId?}`；`chapter.search {query,chapterId?,limit?}`；`chapter.get {chapterId,start?,maxChars?}`；`chapter.create/update/history/restore`；`volume.list/create/update/delete` |
-| `cuigengji_plan` | `story.get {}`；`story.apply {expectedRevision,requestId,operation:{type,...}}`（单操作，卡片更新另带卡片版本） |
-| `cuigengji_memory` | `graph.groups`；`graph.list {query?,type?,groupId?}`；`graph.get {nodeId}`；`graph.create/update/move`；`graph.group.create/update/delete`；`edge.list {nodeId?}`；`edge.get/create/update/delete` |
-| `cuigengji_context` | `binding.get`；`preset.read`；`context.get`（显式参考预览，通常直接按对象读取更省） |
+| `moji_project` | `novel.handoff {chapterLimit?}`；`chapter.list {volumeId?}`；`chapter.search {query,chapterId?,limit?}`；`chapter.get {chapterId,start?,maxChars?}`；`chapter.create/update/history/restore`；`volume.list/create/update/delete` |
+| `moji_plan` | `story.get {}`；`story.apply {expectedRevision,requestId,operation:{type,...}}`（单操作，卡片更新另带卡片版本） |
+| `moji_memory` | `graph.groups`；`graph.list {query?,type?,groupId?}`；`graph.get {nodeId}`；`graph.create/update/move`；`graph.group.create/update/delete`；`edge.list {nodeId?}`；`edge.get/create/update/delete` |
+| `moji_context` | `binding.get`；`preset.read`；`context.get`（显式参考预览，通常直接按对象读取更省） |
 
 `chapter.list`、`graph.list` 不返回正文。`story.get` 返回 `state`（cards、placements、pages、precedence、tracks 和 revision）与正文目录 `sources`，不是旧式分页节点查询；卡片内容不代表已写正文。`context.get` 不带章节参数时不隐式加载正文；指定章节会连带前文，局部修改优先 `chapter.get`。
 

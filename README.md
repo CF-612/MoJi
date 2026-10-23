@@ -1,4 +1,4 @@
-# 墨叽 · MoJi
+# 墨叽 · Moji
 
 **陪你写故事的烟灰蛸小说工作台。**
 
@@ -35,8 +35,8 @@ V3.1 新功能的实现与待验收范围见[交付进度](docs/moji-v3.1-progre
 需要 **Git、Node.js 24+ 和 npm**。以下命令从仓库根目录执行：
 
 ```sh
-git clone --branch codex/main --single-branch https://github.com/CF-612/MoJi.git
-cd MoJi
+git clone --branch codex/main --single-branch https://github.com/CF-612/MoJi.git Moji
+cd Moji
 npm ci
 npm ci --prefix integrations/chatgpt-workbench
 npm run build:workbench --prefix integrations/chatgpt-workbench
@@ -46,9 +46,9 @@ npm start --prefix integrations/chatgpt-workbench
 打开终端输出的地址，默认是 `http://127.0.0.1:43127/`。首次启动会创建一份演示作品，可以另建自己的作品。
 
 - 默认数据目录：`integrations/chatgpt-workbench/.data/demo/`。这是**持久化目录**，不是退出即清空的临时预览。
-- 正式写作前，建议通过环境变量 `CUIGENGJI_DATA_ROOT` 指定仓库外的绝对路径；`PORT` 可更改监听端口。启动日志会显示实际数据目录。切换目录不会自动搬运旧作品。
+- 正式写作前，建议通过环境变量 `MOJI_DATA_ROOT` 指定仓库外的绝对路径；`PORT` 可更改监听端口。启动日志会显示实际数据目录。切换目录不会自动搬运旧作品。
 - 本机 HTTP MCP 地址为 `http://127.0.0.1:43127/mcp`，仅适用于能访问这台电脑的客户端；云端客户端不能直接访问你的回环地址。
-- 支持本地 stdio 的客户端也可启动 `node /绝对路径/MoJi/integrations/chatgpt-workbench/server/index.mjs --stdio`，使用同一个 `CUIGENGJI_DATA_ROOT`。
+- 支持本地 stdio 的客户端也可启动 `node /绝对路径/Moji/integrations/chatgpt-workbench/server/index.mjs --stdio`，使用同一个 `MOJI_DATA_ROOT`（兼容旧 `CUIGENGJI_DATA_ROOT`，新变量优先）。
 - 本地服务没有公网登录保护，不要通过端口映射直接公开。
 
 暂无此版本的 Windows 安装包，请先从源码运行。仓库中的打包脚本不代表对应版本已经发布。
@@ -81,7 +81,9 @@ npm start --prefix integrations/chatgpt-workbench
 
 ## DSH 兼容与开发
 
-包名 `dsh-cuigengji`、部分工具名和数据标识继续保留，以兼容已有安装与作品；产品名称是墨叽，不要手动批量改动这些标识。
+产品品牌统一为 **Moji**（中文名：墨叽）；npm 包为 `dsh-moji`，AI 工具和 Skill 使用 `moji_*` / `moji-*`。已有作品目录、备份格式、内部 RPC 与凭据键保留兼容，不因改名移动或删除数据。上游名称与版权署名按原样保留。
+
+从旧 `dsh-cuigengji` 安装升级时，先导出作品备份并保存 profile 配置，记录原数据根。通过 DSH 原生插件管理停用／移除**旧插件本身**，保留作品目录，再安装 `dsh-moji` 并核对原数据根。安装脚本检测到旧依赖、bundle 或 patch 会停止，不自动改写旧安装。不能并行启用新旧实例，也不能只把旧压缩包重命名当成升级。
 
 安装好根目录与工作台依赖后，可从根目录构建 DSH 插件包：
 
@@ -89,7 +91,7 @@ npm start --prefix integrations/chatgpt-workbench
 npm pack
 ```
 
-`npm pack` 会先运行类型检查与构建，再生成 `dsh-cuigengji-<版本>.tgz`。通过 DSH 原生插件安装入口安装该本地包，保留原有 profile 配置；升级前先备份作品并完全退出宿主。工作台的“连接设置”可选择本机或个人云端，切换位置不自动迁移作品。
+`npm pack` 会先运行类型检查与构建，再生成 `dsh-moji-<版本>.tgz`。通过 DSH 原生插件安装入口安装该本地包，保留原有 profile 配置；升级前先备份作品并完全退出宿主。工作台的“连接设置”可选择本机或个人云端，切换位置不自动迁移作品。
 
 常用开发命令：
 

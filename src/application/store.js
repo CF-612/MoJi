@@ -241,7 +241,7 @@ export class Store extends ProjectStore {
       return { imported:imported.length, skipped:skipped.length, nodeIds:imported };
     }
     if (action.startsWith('planning.')) { const previous=n.planning?.sequence; const result=planningAction(n,action,a,actor); if(previous!==n.planning.sequence)touch(n); return result; }
-    if (action.startsWith('plan.')) fail('MIGRATED_ACTION', '旧规划接口已迁移，请使用 cuigengji_plan 的 planning.list/get/apply');
+    if (action.startsWith('plan.')) fail('MIGRATED_ACTION', '旧规划接口已迁移，请使用 moji_plan 的 story.get/story.apply');
     if (action === 'novel.get') return { ...n, story: undefined, writing: undefined, tavernSources: undefined, planning: undefined, plan: undefined, volumes: Object.values(n.volumes), chapters: Object.values(n.chapters).map(meta), nodes: Object.values(n.nodes).map(({ content, ...v }) => v), edges: Object.values(n.edges).map(({ content, ...v }) => v) };
     if (action === 'novel.handoff') return createHandoff(n, binding, a);
     if (action === 'novel.export') { ensurePlanning(n); return { format: 'cuigengji', schemaVersion: 2, exportedAt: now(), novel: clone(n) }; }
@@ -518,7 +518,7 @@ export class Store extends ProjectStore {
 
   importNovel(state, a) {
     const backup = a.backup;
-    if (!backup || backup.format !== 'cuigengji' || ![1,2].includes(backup.schemaVersion) || !backup.novel) fail('INVALID_BACKUP', '不是支持的 cuigengji 备份');
+    if (!backup || backup.format !== 'cuigengji' || ![1,2].includes(backup.schemaVersion) || !backup.novel) fail('INVALID_BACKUP', '不是支持的 Moji 备份');
     const n = clone(backup.novel);
     text(n.id, 'novel.id'); text(n.title, 'novel.title');
     novelPresentation(n);

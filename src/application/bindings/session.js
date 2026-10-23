@@ -30,7 +30,7 @@ export function createSessionPolicy({ store, audit, ready = async () => undefine
   function register(ctx, memory) {
     const disconnect = sessionId => {
       // Status/disposal are emit events; do not leave an unhandled rejection.
-      void memory.disconnect(sessionId).catch(error => ctx.logger?.warn?.(`cuigengji memory cleanup: ${error.message}`));
+      void memory.disconnect(sessionId).catch(error => ctx.logger?.warn?.(`Moji memory cleanup: ${error.message}`));
     };
     ctx.on('agent/pre-step', async ({ agent }, next) => {
       const sessionId = String(agent.session?.id || agent.id);

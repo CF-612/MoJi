@@ -10,12 +10,12 @@ import {planningArgsSchema} from '../src/adapters/dsh/planning-schema.js';
 
 const examples = {};
 for (const skill of ['plan','memory','write']) {
-  const text = await readFile(new URL(`../skills/cuigengji-${skill}/SKILL.md`, import.meta.url), 'utf8');
+  const text = await readFile(new URL(`../skills/moji-${skill}/SKILL.md`, import.meta.url), 'utf8');
   examples[skill] = [...text.matchAll(/```json\r?\n([\s\S]*?)\r?\n```/g)].map(match => JSON.parse(match[1]));
 }
 
 async function fixture(t, {independentPage = false} = {}) {
-  const root = await mkdtemp(join(tmpdir(), 'cuigengji-skill-example-'));
+  const root = await mkdtemp(join(tmpdir(), 'moji-skill-example-'));
   const tools = new Map(), effects = [];
   const ctx = {credentials:testCredentials(),tools:{register:tool=>tools.set(tool.name,tool)}, skills:{register(){}},
     connection:{fetch:{register(){}}}, on(){}, effect:fn=>effects.push(fn()),
@@ -50,7 +50,7 @@ async function fixture(t, {independentPage = false} = {}) {
   const expand = value => typeof value==='string'?(Object.hasOwn(ids,value)?ids[value]:value.startsWith('card:')&&ids[value.slice(5)]?'card:'+ids[value.slice(5)]:value):Array.isArray(value)?value.map(expand)
     :value&&typeof value==='object'?Object.fromEntries(Object.entries(value).map(([key,item])=>[key,expand(item)])):value;
   const execute=example=>{const input=expand(example);return invoke(input.action,input.args);};
-  return {ids,invoke,execute,seed,planTool:(action,args={})=>tools.get('cuigengji_plan').execute({action,args},{agent:{id:actor.sessionId},callId:`blocked-${++callId}`,signal:new AbortController().signal})};
+  return {ids,invoke,execute,seed,planTool:(action,args={})=>tools.get('moji_plan').execute({action,args},{agent:{id:actor.sessionId},callId:`blocked-${++callId}`,signal:new AbortController().signal})};
 }
 
 test('all planning skill examples execute and retry through actual host tools',async t=>{
@@ -161,14 +161,14 @@ test('parallel sandbox converges three actions, preserves author layout and keep
 });
 
 test('published planning actions stay aligned with the AI allowlist; legacy writes remain forbidden',async t=>{
- assert.deepEqual(TOOL_ACTIONS.cuigengji_plan,['story.get','story.apply']);
+ assert.deepEqual(TOOL_ACTIONS.moji_plan,['story.get','story.apply']);
  assert.ok(planningArgsSchema.properties.operation.properties.type);
  assert.equal(planningArgsSchema.properties.operations,undefined);
  assert.equal(planningArgsSchema.properties.nodeId,undefined);
  const {planTool}=await fixture(t);
  for(const action of ['planning.apply','planning.continue','planning.page.create','writing.event.create'])await assert.rejects(planTool(action,{}),/action.*must be one of/);
  for(const name of ['plan','project','write','revise']){
-  const text=await readFile(new URL(`../skills/cuigengji-${name}/SKILL.md`,import.meta.url),'utf8');
+  const text=await readFile(new URL(`../skills/moji-${name}/SKILL.md`,import.meta.url),'utf8');
   assert.doesNotMatch(text,/planning\.(?:apply|get|list|continue|search|page|revert)|writing\.event\./);
  }
 });

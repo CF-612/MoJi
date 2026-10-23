@@ -21,7 +21,10 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
       const response=await mf.dispatchFetch('http://localhost/mcp',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json, text/event-stream',Authorization:`Bearer ${token}`},body:JSON.stringify({jsonrpc:'2.0',id:++id,method,params})});
       assert.equal(response.status,200,await response.clone().text());const json=await response.json();assert.equal(json.error,undefined,JSON.stringify(json.error));return json.result;
     };
-    assert.ok((await call('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'qa',version:'1'}})).capabilities.tools);
+    const initialized=await call('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'qa',version:'1'}});
+    assert.ok(initialized.capabilities.tools);
+    assert.equal(initialized.serverInfo.name,'Moji');
+    assert.deepEqual((await call('resources/list')).resources.map(resource=>resource.uri),['ui://moji/cloud-v0102']);
     const listing=await call('tools/list');assert.ok(listing.tools.some(t=>t.name==='workbench_edit'));
     assert.ok(listing.tools.some(t=>t.name==='workbench_import_preview'),'聊天 AI 必须有导入预览工具');
     assert.ok(listing.tools.some(t=>t.name==='workbench_import'),'聊天 AI 必须有携带预览证明的导入工具');

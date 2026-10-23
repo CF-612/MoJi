@@ -1,5 +1,5 @@
 ---
-name: cuigengji-revise
+name: moji-revise
 description: 审阅或修订已保存正文，定位具体问题，用版本检查保留作者并行修改，并核对受影响的规划与设定。
 ---
 
@@ -9,7 +9,7 @@ description: 审阅或修订已保存正文，定位具体问题，用版本检�
 
 “帮我看看”“哪里不对”先给出定位明确的意见；“把这些问题修好”“改这一段”才在相应范围保存。作者已授权的修订不逐段请求确认，也不顺手重写未涉及的章节或既定情节。
 
-先读最新目标正文，遵循系统提示词中的写作预设，再按问题取相关规划和设定。用 `cuigengji_project` 的 `chapter.search {query,chapterId?,limit?}` 定位关键词，再 `chapter.get {chapterId,start,maxChars}` 读足上下文。搜索是原文子串匹配，没有命中不能证明全书不存在这个事实。
+先读最新目标正文，遵循系统提示词中的写作预设，再按问题取相关规划和设定。用 `moji_project` 的 `chapter.search {query,chapterId?,limit?}` 定位关键词，再 `chapter.get {chapterId,start,maxChars}` 读足上下文。搜索是原文子串匹配，没有命中不能证明全书不存在这个事实。
 
 ## 给出可处理的问题
 

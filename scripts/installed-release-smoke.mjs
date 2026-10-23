@@ -16,14 +16,14 @@ try {
   await apply(ctx,{dataRoot});
   const execute = async (name,action,args={}) => JSON.parse(await registered.get(name).execute({action,args},
     {agent:{id:'synthetic-upgrade-author'},callId:'smoke-read',signal:new AbortController().signal}));
-  const status = await execute('cuigengji_maintenance','status'); assert.equal(status.status,'ready',JSON.stringify(status.error));
-  const verification = await execute('cuigengji_maintenance','verify',{expectedVersion:manifest.version,expectedDataRoot:resolve(dataRoot)});
+  const status = await execute('moji_maintenance','status'); assert.equal(status.status,'ready',JSON.stringify(status.error));
+  const verification = await execute('moji_maintenance','verify',{expectedVersion:manifest.version,expectedDataRoot:resolve(dataRoot)});
   assert.equal(verification.verified,true);
   if (verification.summary.counts.novels) {
-    const info = await execute('cuigengji_project','novel.handoff'); assert.equal(info.novel.title,'雾港 · 公开合成升级样例');
-    assert.ok((await execute('cuigengji_memory','graph.list')).length >= 3,'actual MCP in desktop Node mode');
-    assert.ok((await execute('cuigengji_plan','planning.pages')).length >= 2);
-    assert.ok((await execute('cuigengji_context','preset.read')).content.includes('动作推进'));
+    const info = await execute('moji_project','novel.handoff'); assert.equal(info.novel.title,'雾港 · 公开合成升级样例');
+    assert.ok((await execute('moji_memory','graph.list')).length >= 3,'actual MCP in desktop Node mode');
+    assert.ok((await execute('moji_plan','story.get')).cards);
+    assert.ok((await execute('moji_context','preset.read')).content.includes('动作推进'));
   }
   console.log(JSON.stringify({ok:true,installedVersion:manifest.version,node:process.version,electron:process.versions.electron,
     fromStorageVersion:status.fromStorageVersion,migrated:status.migrated,counts:verification.summary.counts,backupPath:status.backupPath}));

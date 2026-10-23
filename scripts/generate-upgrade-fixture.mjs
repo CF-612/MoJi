@@ -9,7 +9,7 @@ import {createHash} from 'node:crypto';
 const source = resolve(process.argv[2] || ''), output = resolve(process.argv[3] || 'tests/fixtures/public-0.3.13');
 if (!process.argv[2]) throw new Error('Pass a checkout/archive of public commit 3edeccf59d95b590211f4a0f5cc61631f58636cf');
 const {Store} = await import(pathToFileURL(join(source,'src/application/store.js')));
-const parent = await mkdtemp(join(tmpdir(),'cuigengji-public-fixture-')), root = join(parent,'data'), store = new Store(root), actor = {kind:'human',sessionId:'synthetic-upgrade-author'};
+const parent = await mkdtemp(join(tmpdir(),'moji-public-fixture-')), root = join(parent,'data'), store = new Store(root), actor = {kind:'human',sessionId:'synthetic-upgrade-author'};
 try {
   const book = await store.dispatch('novel.create',{title:'雾港 · 公开合成升级样例'},actor);
   const run = (action,args={}) => store.dispatch(action,{novelId:book.id,...args},actor);

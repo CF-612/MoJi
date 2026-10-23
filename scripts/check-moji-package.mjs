@@ -4,7 +4,7 @@ import {mkdtemp,mkdir,readFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('../',import.meta.url)),version=JSON.parse(await readFile(resolve(root,'package.json'),'utf8')).version;
-const pack=process.argv[2]?resolve(process.argv[2]):resolve(root,'releases',`MoJi-${version}-windows-x64`);
+const pack=process.argv[2]?resolve(process.argv[2]):resolve(root,'releases',`Moji-${version}-windows-x64`);
 await mkdir(resolve(root,'.data/package-tests'),{recursive:true});const data=await mkdtemp(resolve(root,'.data/package-tests/clean-'));
 const port=43159,origin=`http://127.0.0.1:${port}`;
 async function start(){

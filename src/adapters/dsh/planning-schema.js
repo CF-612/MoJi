@@ -1,4 +1,4 @@
-// Public AI schema follows TOOL_ACTIONS.cuigengji_plan (story.get/story.apply).
+// Public AI schema follows TOOL_ACTIONS.moji_plan (story.get/story.apply).
 // Internal legacy readers are not a supported AI write protocol.
 export const planningArgsSchema = {
   type:'object',additionalProperties:true,

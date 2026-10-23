@@ -14,7 +14,7 @@ const args = process.argv.slice(2), arg = name => {const index=args.indexOf(name
 const currentManifest=JSON.parse(await readFile(new URL('../package.json',import.meta.url),'utf8'));
 const desktopExe = arg('--desktop-exe'), packageSpec = arg('--package'), oldPackage = args.includes('--old-package') ? arg('--old-package') : undefined;
 if (!desktopExe || !packageSpec || process.platform !== 'win32') throw new Error('Windows: --desktop-exe <exe> --package <local.tgz or URL> [--old-package <tgz>] [--report <json>]');
-const workspace = await mkdtemp(join(tmpdir(),'cuigengji-native-install-')), profile = join(workspace,'profile'), data = join(workspace,'novel-data');
+const workspace = await mkdtemp(join(tmpdir(),'moji-native-install-')), profile = join(workspace,'profile'), data = join(workspace,'novel-data');
 const runtime = join(dirname(resolve(desktopExe)),'resources/runtime'), windows = process.env.SystemRoot || 'C:\\Windows';
 const env = {...process.env,PATH:[join(runtime,'bin'),join(windows,'System32'),windows].join(';'),
   DSH_DESKTOP_NODE_EXECUTABLE:resolve(desktopExe),ELECTRON_RUN_AS_NODE:'1',CI:'true',PNPM_HOME:join(workspace,'pnpm')};
@@ -32,26 +32,33 @@ try {
   await mkdir(profile,{recursive:true}); await mkdir(data);
   await writeFile(join(profile,'package.json'),JSON.stringify({name:'isolated-release-test',private:true,customField:{keep:true},dsh:{profile:{bundles:[]}}},null,2));
   await writeFile(join(profile,'cordis.patch.yml'),'# unrelated host config remains untouched\n');
-  const install = async spec => {
+  const install = async (spec,packageName=currentManifest.name) => {
     const result = await runPluginCommand(context,['add',spec],options);
     assert.equal(result.exitCode,0,result.output); assert.notEqual(result.timedOut,true);
     const manifest = JSON.parse(await readFile(join(profile,'package.json'),'utf8'));
-    assert.equal(manifest.customField.keep,true); assert.ok(manifest.dsh.profile.bundles.includes('dsh-cuigengji'));
+    assert.equal(manifest.customField.keep,true); assert.ok(manifest.dsh.profile.bundles.includes(packageName));
     assert.equal(await readFile(join(profile,'cordis.patch.yml'),'utf8'),'# unrelated host config remains untouched\n');
-    return JSON.parse(await readFile(join(profile,'node_modules/dsh-cuigengji/package.json'),'utf8')).version;
+    return JSON.parse(await readFile(join(profile,'node_modules',packageName,'package.json'),'utf8')).version;
   };
   if (oldPackage) {
-    assert.equal(await install(resolve(oldPackage)),'0.3.13');
+    assert.equal(await install(resolve(oldPackage),'dsh-cuigengji'),'0.3.13');
     await copyFile(new URL('../tests/fixtures/public-0.3.13/store.json',import.meta.url),join(data,'store.json'));
     report.steps.push({operation:'install-old',version:'0.3.13'});
+    // Use the host's supported remove operation; keep the separate novel-data root.
+    const removed=await runPluginCommand(context,['remove','dsh-cuigengji'],options);
+    assert.equal(removed.exitCode,0,removed.output);
+    const updated=JSON.parse(await readFile(join(profile,'package.json'),'utf8'));
+    assert.ok(!updated.dependencies?.['dsh-cuigengji']);
+    assert.ok(!updated.dsh.profile.bundles.includes('dsh-cuigengji'));
+    report.steps.push({operation:'remove-legacy-package',dataPreserved:true});
   }
   assert.equal(await install(/^https?:/.test(packageSpec) ? packageSpec : resolve(packageSpec)),currentManifest.version);
-  for (const path of ['runtime/index.js','runtime/application/maintenance/upgrade.js','runtime/infrastructure/persistence/upgrade-backup.js','lib/client.js','skills/cuigengji-maintenance/SKILL.md']) {
+  for (const path of ['runtime/index.js','runtime/application/maintenance/upgrade.js','runtime/infrastructure/persistence/upgrade-backup.js','lib/client.js','skills/moji-maintenance/SKILL.md']) {
     const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-    assert.equal(hash(await readFile(join(profile,'node_modules/dsh-cuigengji',path))),hash(await readFile(new URL('../'+path,import.meta.url))),`installed ${path} must match this build`);
+    assert.equal(hash(await readFile(join(profile,'node_modules',currentManifest.name,path))),hash(await readFile(new URL('../'+path,import.meta.url))),`installed ${path} must match this build`);
   }
   report.steps.push({operation:oldPackage?'update':'fresh-install',version:currentManifest.version});
-  const smoke = spawnSync(resolve(desktopExe),['--expose-internals',fileURLToPath(new URL('./installed-release-smoke.mjs',import.meta.url)),join(profile,'node_modules/dsh-cuigengji'),data],
+  const smoke = spawnSync(resolve(desktopExe),['--expose-internals',fileURLToPath(new URL('./installed-release-smoke.mjs',import.meta.url)),join(profile,'node_modules',currentManifest.name),data],
     {env,encoding:'utf8',windowsHide:true,timeout:120000});
   assert.equal(smoke.status,0,smoke.stderr || smoke.stdout);
   report.smoke = JSON.parse(smoke.stdout.trim().split(/\r?\n/).at(-1)); report.ok = true;

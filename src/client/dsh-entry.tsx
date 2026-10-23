@@ -6,7 +6,7 @@ import {Launcher} from './launcher.tsx';
 import {NativeConnection} from './native-connection.tsx';
 import {referenceMessage,sendNativeReference} from './native-reference.js';
 
-const ID='dsh-cuigengji',RPC_ENDPOINT='cuigengji/dispatch';
+const ID='dsh-moji',RPC_ENDPOINT='cuigengji/dispatch';
 export const inject=['connection','slots','sidebarRight','sidebarRightTabs','locale','layout','uiWorkspace','workspaces','sessions','conversation'];
 export function apply(ctx){
   const sessions=new Map();
