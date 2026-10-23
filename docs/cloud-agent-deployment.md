@@ -12,14 +12,28 @@
 
 ### 插件 ZIP 安装与云端部署是两件事
 
-**网页 GPT 的“上传插件压缩包”是实际的插件安装入口。** 它与“创建插件”“添加自定义 MCP 服务器”是不同入口；打包好的插件可以携带相应连接配置，不能因为存在手填表单就否定 ZIP 安装方式。拥有对应权限时，可以上传符合格式的插件 ZIP；上传后仍需满足其中应用的访问权限并完成授权，见 [OpenAI 插件 ZIP 上传说明](https://help.openai.com/en/articles/20001256-plugins-in-chatgpt)。这里的上传不是普通聊天附件，也不是 DSH `.tgz` 或 Windows 独立程序 ZIP。
+**网页 GPT 的“上传插件压缩包”是实际的插件安装入口。** 它与“创建插件”“添加自定义 MCP 服务器”是不同入口；打包好的插件可以携带相应连接配置。拥有对应权限时，可以上传符合格式的插件 ZIP；上传后仍需满足其中应用的访问权限并完成授权，见 [OpenAI 插件 ZIP 上传说明](https://help.openai.com/en/articles/20001256-plugins-in-chatgpt)。这里的上传不是普通聊天附件，也不是 DSH `.tgz` 或 Windows 独立程序 ZIP。
 
-插件 ZIP 描述插件及其连接配置；**上传插件不会自动完成 Cloudflare 部署**。墨叽插件包应连接使用者自己的个人云端。现已提供按[官方打包说明](https://developers.openai.com/plugins/build/plugins)制作的公共源码模板与离线生成器：`npm run package:plugin -- "https://你的实例.workers.dev"`。生成结构、上传步骤及验收边界见[个人插件 ZIP 指南](plugin-package.md)。
+插件 ZIP 描述插件及其连接配置；**上传插件不会自动完成 Cloudflare 部署**。墨叽插件包应连接使用者自己的个人云端。现已提供按[官方打包说明](https://developers.openai.com/plugins/build/plugins)制作的公共源码模板与离线生成器：`npm run package:plugin -- "https://你的实例.workers.dev"`。若下载的是发布资产 `Moji-<版本>-plugin-generator.zip`，它是生成工具，**不能直接上传为插件**；应先生成自己的 `moji-personal.zip`。生成结构、上传步骤及验收边界见[个人插件 ZIP 指南](plugin-package.md)。
 图标、名称和描述可以作为墨叽的通用模板共享；**服务器 URL 必须指向使用者自己的实例**（MCP 地址为 HTTPS 根地址加 `/mcp`），不能把作者的个人云端连接作为所有人的公共库。身份验证使用 OAuth，各使用者分别完成授权；工作台密钥、Cloudflare 凭据和 OAuth token 不放进共享 ZIP，也不在聊天里传递。部署与打包仍是两个明确步骤；生成器不会部署、上传或代替授权，真实账号导入与跨端 GUI 验收仍待完成。
 
 本文下方说明**如何部署墨叽个人云端后端**。已经通过插件 ZIP 安装的用户，应先核对插件实际连接的实例，不能为了照搬本文重新创建重复插件。若明确选择另建自定义远程 MCP 连接，则网页“添加自定义 MCP 服务器”使用公开 HTTPS `/mcp` 地址及 OAuth；这是另一条配置流程，账号／工作区权限以 [OpenAI 自定义 MCP 说明](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt) 为准。
 
 **墨叽继续通过 GitHub 分发，已取消 OpenAI 官方插件目录上架路线。** 使用者自行部署个人云端、配置自己的实例并授权，不使用作者的公共共享后端。官方 ZIP／MCP 文档仅作为安装格式和连接技术参考，不表示要提交官方目录审核。手机使用仍需账号可用该远程应用和界面，不提供未经核验的手机设置菜单。
+
+## 让当前 Agent 帮忙：已有部署提示词
+
+DSH 工作台「更多功能 → 本地 / 云端 → 个人云端」内已有「发送部署提示词给当前 Agent」「复制部署提示词」和「查看提示词」。发送只把说明交给当前会话，不会自动部署、开新任务或授权收费；宿主没有发送通道或发送失败时，复制到当前聊天即可。
+
+下面是界面实际使用的[提示词源码](../integrations/chatgpt-workbench/vendor/cuigengji/src/client/shared/cloud-deployment-prompt.mjs)原文，可直接复制。Agent 应继续按本文选择当前源码、确认操作并完成验收，不把收到提示词当成部署成功。
+
+```text
+请帮我部署我自己的 Moji（墨叽）个人云端实例，供 DSH / Codex 完整可视化插件工作台共用作品。目标必须能打开正文、资料与规划页面，不把 CLI 或仅列出 MCP 工具当作交付。
+先阅读当前默认分支 moji-release 的官方部署指南：https://github.com/CF-612/MoJi/blob/moji-release/docs/cloud-agent-deployment.md ，并遵循该分支 README 的显式新建/更新流程；不要使用固定旧版本或直接部署根模板。
+先确认我是新建实例还是更新已有实例，再核对我的 Cloudflare 账号、资源范围与可能费用。此消息仅请求部署协助，不授权自动创建收费资源、付款、删除或覆盖已有数据；实际资源变更前请让我明确确认。登录与密钥输入由我在官方授权/本地隐藏输入中完成，不在聊天里索要密码、令牌或工作台密钥。
+已有实例应保留原清单、绑定、密钥与作品；不能同名接管、创建空替代库或在结果不明时盲目重试。分别报告部署、健康检查、完整可视化插件注册、真实客户端授权及工作台页面验收；失败如实说明。注册和授权步骤按当前宿主支持的官方流程操作。
+部署完成后给我 HTTPS 实例根地址用于 DSH，及 /mcp 地址用于 MCP 客户端。本机作品不会自动上传或同步；需要迁移时先说明备份、预览导入与冲突方案，另征得我同意。
+```
 
 ## 1. 准备账号、电脑与源码
 
@@ -33,7 +47,7 @@
 4. 已配置的 `workers.dev` 账号子域名；在 Workers & Pages 确认。当前脚本不会代为注册账号级子域名，也不要求购买自定义域名，见 [workers.dev 官方说明](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/)。
 5. 为墨叽准备至少 24 字符的随机工作台密钥，保存在自己的密码管理器。它不是 Cloudflare API token，也不是 ChatGPT 密码。
 
-从 [项目仓库](https://github.com/CF-612/MoJi) 选择你要用的源码分支／标签／提交。默认发布分支和开发分支可能不同，不要混用旧文档、旧包和新脚本。下面 `YOUR_REF` 要换成你已核对存在且决定采用的分支或标签；需要精确复现时再 checkout 已核实的提交。不要把占位符原样执行。
+从 [项目仓库](https://github.com/CF-612/MoJi) 选择你要用的源码分支／标签／提交。部署提示词指向持续维护的 `moji-release` 分支；默认发布分支和开发分支可能不同，不要混用旧文档、旧包和新脚本。需要当前候选版功能时，在 [Releases](https://github.com/CF-612/MoJi/releases) 核对当前候选版（预发布）及其源码标签，并明确接受试用性质；更新清单中的 `latestStable` 与当前候选版不是同一概念，不能只取稳定版而误以为包含候选版新功能。下面 `YOUR_REF` 要换成你已核对存在且决定采用的分支或标签；需要精确复现时再 checkout 已核实的提交。不要把占位符原样执行。
 
 ```sh
 git clone --branch YOUR_REF --single-branch https://github.com/CF-612/MoJi.git Moji
@@ -68,7 +82,7 @@ npm run deploy:new -- --account YOUR_ACCOUNT_ID --instance my-writing --manifest
 
 脚本检查账号和资源，生成带随机后缀的独立 Worker、D1、KV，执行已审核数据库迁移、构建上传、设置密钥并检查服务。Durable Objects 绑定与迁移随 Worker 部署。遇同名冲突停止，不复用他人的库；**不要直接部署根 `wrangler.jsonc` 模板或开启自动资源供应**。
 
-提示 `Workbench key (hidden; 24+ characters)` 时，由本人输入准备好的随机密钥。不要放进命令参数、聊天、截图、源码或普通文件。非交互环境会停在密钥阶段，不能当作成功。
+提示 `Workbench key (hidden; 24+ characters)` 时，由本人输入准备好的随机密钥。不要放进命令参数、聊天、截图、源码或普通文件。非交互环境会停在密钥阶段，不能当作成功；此时资源和服务可能已创建。请本人在可交互终端按脚本输出的同模式 `--resume` 命令继续，不重新新建，也不要让 Agent 通过聊天或明文文件收集密钥。
 
 保存部署输出的 HTTPS 根地址，并妥善备份 `.moji-cloud/` 清单和生成配置。它们记录账号、资源 ID、源码提交及阶段，不含密钥，但也不要公开提交。清单绑定原绝对路径；换电脑或目录时不要伪造新清单继续更新，应先核实迁移方式。**清单不是作品备份。**
 
@@ -86,7 +100,7 @@ npm run deploy:new -- --account YOUR_ACCOUNT_ID --instance my-writing --manifest
 
 ### MCP／ChatGPT／Codex 客户端
 
-1. 先确认当前插件的连接方式。已通过 ZIP 安装时，核对其 MCP／应用映射是否指向自己的云端；具体包的更新方式待核对，勿盲目重建插件。若使用自定义远程 MCP 连接，在对应入口填写 **HTTPS 根地址加 `/mcp`**，例如 `https://你的实例.workers.dev/mcp`，选择 OAuth。不要把这条创建流程当作 ZIP 安装流程。
+1. 先确认当前插件的连接方式。已通过 ZIP 安装时，核对其 MCP／应用映射是否指向自己的云端；同一地址、OAuth 配置及包内品牌元数据不变时，通常无需重做 ZIP；包内容变动时按宿主支持的版本更新流程处理，见[插件升级说明](plugin-package.md#后续升级github个人云端与-zip-分开)，勿盲目重建插件。若使用自定义远程 MCP 连接，在对应入口填写 **HTTPS 根地址加 `/mcp`**，例如 `https://你的实例.workers.dev/mcp`，选择 OAuth。不要把这条创建流程当作 ZIP 安装流程。
 2. 在你自己的实例授权页核对域名、客户端和回调地址，再由本人输入工作台密钥。使用内置 OAuth，无需 Auth0；不要把密钥手填成 Bearer token，也不要发给聊天中的 AI。
 3. 完成授权后，在新会话中选择墨叽，先读取测试作品，再打开可视化工作台。工具扫描／初始化成功与完整 GUI 可用应分别检查。
 4. 手机端仅在账号确实可用该远程插件及其视图时继续；若没有入口、没有写权限或无法显示界面，记录宿主与限制，不把“部署成功”说成“手机验收通过”。

@@ -22,7 +22,9 @@ try {
   if (verification.summary.counts.novels) {
     const info = await execute('moji_project','novel.handoff'); assert.equal(info.novel.title,'雾港 · 公开合成升级样例');
     assert.ok((await execute('moji_memory','graph.list')).length >= 3,'actual MCP in desktop Node mode');
-    assert.ok((await execute('moji_plan','story.get')).cards);
+    const story = await execute('moji_plan','story.get');
+    assert.ok(story.state && typeof story.state === 'object' && !Array.isArray(story.state),'story.get must return a state object');
+    assert.ok(story.state.cards && typeof story.state.cards === 'object' && !Array.isArray(story.state.cards),'story.get.state.cards must be a card map');
     assert.ok((await execute('moji_context','preset.read')).content.includes('动作推进'));
   }
   console.log(JSON.stringify({ok:true,installedVersion:manifest.version,node:process.version,electron:process.versions.electron,
