@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {build} from 'esbuild';import {mkdtemp,writeFile,readFile} from 'node:fs/promises';import {join,resolve} from 'node:path';import {tmpdir} from 'node:os';import {pathToFileURL} from 'node:url';
+import {build} from 'esbuild';import {mkdtemp,writeFile,readFile,mkdir} from 'node:fs/promises';import {join,resolve} from 'node:path';import {tmpdir} from 'node:os';import {pathToFileURL} from 'node:url';
 import {sendMcpDeployment} from '../integrations/chatgpt-workbench/client/deployment-agent.mjs';
 import {sendNativeReference} from '../src/client/native-reference.js';
 import {cloudDeploymentPrompt} from '../integrations/chatgpt-workbench/vendor/cuigengji/src/client/shared/cloud-deployment-prompt.mjs';
@@ -11,7 +11,7 @@ test('MCP deployment uses current conversation text only, checks capability and 
  await assert.rejects(sendMcpDeployment({...app,sendMessage:async()=>{throw new Error('断连');}},'x'),/断连/);
 });
 test('DSH deployment uses exact current session and propagates errors without starting another task',async()=>{
- let sent,session;const ctx={sessions:{using:async(id,options,fn)=>{session=id;await fn({ready:Promise.resolve(),binding:{ctx:{conversation:{send:async text=>{sent=text;}}}}});}},conversation:{},layout:{selectPanel(){}}};
+ let sent,session;const ctx={sessions:{using:async(id,options,fn)=>{session=id;await fn({sessionId:id,ready:Promise.resolve(),binding:{sessionId:id,session:{sessionId:id,prompt:async ([{text}],mode)=>{assert.equal(mode,'queue');sent=text;return {ok:true,value:{accepted:true}};}}}});}},conversation:{},layout:{selectPanel(){}}};
  await sendNativeReference(ctx,'current-session',cloudDeploymentPrompt);assert.equal(session,'current-session');assert.equal(sent,cloudDeploymentPrompt);
  await assert.rejects(sendNativeReference({},'id','x'),/未提供/);
  const failure={...ctx,sessions:{using:async()=>{throw new Error('会话不可用');}}};await assert.rejects(sendNativeReference(failure,'id','x'),/会话不可用/);
@@ -21,7 +21,7 @@ test('deployment prompt is current, generic and requires separate resource and m
 });
 test('real card and guide components gate host capabilities, show status and render copy fallback',async()=>{
  const result=await build({stdin:{resolveDir:process.cwd(),loader:'tsx',contents:`import React from 'react';import {renderToStaticMarkup as render} from 'react-dom/server';import {DshConnectionCard,DshConnectionContext} from './integrations/chatgpt-workbench/vendor/cuigengji/src/client/shared/dsh-connection.tsx';import {CloudDeploymentGuide,DeploymentAgentContext} from './integrations/chatgpt-workbench/vendor/cuigengji/src/client/shared/CloudDeploymentGuide.tsx';export const absent=render(<DshConnectionCard/>);export const local=render(<DshConnectionContext.Provider value={{status:'当前：本地保存',open(){}}}><DshConnectionCard/></DshConnectionContext.Provider>);export const cloud=render(<DshConnectionContext.Provider value={{status:'个人云端 · 已连接',open(){}}}><DshConnectionCard/></DshConnectionContext.Provider>);export const fallback=render(<DeploymentAgentContext.Provider value={{host:'mcp',send:null}}><CloudDeploymentGuide/></DeploymentAgentContext.Provider>);export const supported=render(<DeploymentAgentContext.Provider value={{host:'mcp',send:async()=>''}}><CloudDeploymentGuide/></DeploymentAgentContext.Provider>);`},bundle:true,write:false,platform:'node',format:'esm',packages:'external',loader:{'.png':'dataurl','.jpg':'dataurl'}});
- const dir=await mkdtemp(resolve('.test-runtime/deployment-render-')),file=join(dir,'fixture.mjs');await writeFile(file,result.outputFiles[0].text);const output=await import(pathToFileURL(file));assert.equal(output.absent,'');assert.match(output.local,/当前：本地保存/);assert.match(output.local,/aria-label="本地 \/ 云端"/);assert.match(output.cloud,/个人云端 · 已连接/);assert.match(output.fallback,/复制部署提示词/);assert.doesNotMatch(output.fallback,/发送部署提示词给当前 Agent/);assert.match(output.supported,/发送部署提示词给当前 Agent/);
+ await mkdir('.test-runtime',{recursive:true});const dir=await mkdtemp(resolve('.test-runtime/deployment-render-')),file=join(dir,'fixture.mjs');await writeFile(file,result.outputFiles[0].text);const output=await import(pathToFileURL(file));assert.equal(output.absent,'');assert.match(output.local,/当前：本地保存/);assert.match(output.local,/aria-label="本地 \/ 云端"/);assert.match(output.cloud,/个人云端 · 已连接/);assert.match(output.fallback,/复制部署提示词/);assert.doesNotMatch(output.fallback,/发送部署提示词给当前 Agent/);assert.match(output.supported,/发送部署提示词给当前 Agent/);
  const source=await readFile('src/client/native-connection.tsx','utf8');assert.doesNotMatch(source,/moji-connection-trigger/);assert.match(source,/!showWorkbench&&<nav/);assert.match(source,/不会自动迁移/);
 });
 

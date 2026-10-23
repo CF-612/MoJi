@@ -37,7 +37,7 @@ export function applyWithRPC(ctx,rpc){
       await sendNativeReference(ctx,sessionId,referenceMessage(reference,selection));
       return '引用已交给这条对话';
     };
-    const sendDeployment=ctx.sessions?.using&&ctx.conversation?async text=>{await sendNativeReference(ctx,sessionId,text);return '部署提示词已交给当前 DSH Agent';}:null;
+    const sendDeployment=typeof ctx.sessions?.using==='function'?async text=>{await sendNativeReference(ctx,sessionId,text);return '部署提示词已交给当前 DSH Agent';}:null;
     return <DeploymentAgentContext.Provider value={{host:'dsh',send:sendDeployment}}><LocaleContext.Provider value={ctx.locale}><CollaborationContext.Provider value={discuss}><NativeConnection key={sessionId} sessionId={sessionId} rpc={rpc} Workbench={SharedWorkbench}/></CollaborationContext.Provider></LocaleContext.Provider></DeploymentAgentContext.Provider>;
   }));
 }
