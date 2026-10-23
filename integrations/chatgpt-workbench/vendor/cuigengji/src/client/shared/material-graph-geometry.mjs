@@ -19,7 +19,7 @@ export function materialPorts(edge,points){
  const from=horizontal?(dx>=0?'right':'left'):(dy>=0?'bottom':'top'),to=horizontal?(dx>=0?'left':'right'):(dy>=0?'top':'bottom');
  return {fromPort:edge.fromPort||from,toPort:edge.toPort||to};
 }
-/** Same natural-first planning router and obstacle fallback; only attachment vectors differ. */
+/** Same free-curve planning geometry; only attachment vectors differ. */
 export function materialConnection(edge,points,nodes=Object.keys(points).map(id=>({id}))){
  const {fromPort:from,toPort:to}=materialPorts(edge,points),start=materialEndpoint(points[edge.from],from),end=materialEndpoint(points[edge.to],to);
  const rectangles=nodes.filter(n=>points[n.id]).map(n=>({id:n.id,...points[n.id],width:MATERIAL_WIDTH,height:MATERIAL_HEIGHT}));

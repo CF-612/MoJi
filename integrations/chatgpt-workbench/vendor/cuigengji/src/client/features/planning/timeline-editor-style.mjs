@@ -1,9 +1,12 @@
 export const timelineEditorStyle=`
 .u-timeline-editor-region{min-width:0;min-height:0;overflow:hidden}
-.cuigengji .u-timeline-editor{display:flex;flex-direction:column;height:100%;min-height:0;min-width:0;overflow:hidden;background:var(--cg-paper);border:1px solid var(--cg-line);border-radius:12px;outline:none}
-.cuigengji .u-timeline-editor-heading{display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--cg-line);flex:none}
+.cuigengji .u-timeline-editor{display:flex;flex-direction:column;height:100%;min-height:0;min-width:0;overflow:hidden;background:var(--cg-paper);border:2px solid var(--cg-accent);border-radius:12px;outline:none}
+.cuigengji .u-timeline-editor-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;background:var(--cg-wash);border-bottom:1px solid var(--cg-line);flex:none}
 .cuigengji .u-timeline-editor-heading h3{font-size:14px;margin:0;line-height:1.5}
 .cuigengji .u-timeline-editor-heading button{min-height:32px;padding:5px 8px;background:var(--cg-wash);border:0;font-size:12px}
+.cuigengji .u-timeline-editor-title{min-width:0}.cuigengji .u-timeline-editor-title small{display:block;font-size:11px;color:var(--cg-muted);margin-bottom:3px}
+.cuigengji .u-timeline-editor-actions{display:flex;justify-content:flex-end;gap:8px;padding:10px 12px 0;flex:none}.cuigengji .u-timeline-editor-actions button{min-height:32px}
+.cuigengji .u-timeline-editor-lock-note{margin:0;padding:8px 12px 10px;font-size:12px;line-height:1.5;color:var(--cg-muted);border-bottom:1px solid var(--cg-line);flex:none}
 .u-timeline-editor-content{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scroll-padding:12px}
 .cuigengji .u-timeline-editor-content>.u-form{padding:14px;gap:15px;min-width:0}
 .cuigengji .u-timeline-editor .u-form-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:0}

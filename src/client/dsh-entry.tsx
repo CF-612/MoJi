@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React from 'react';
-import {LocaleContext,registerLocale,Workbench as SharedWorkbench,CollaborationContext} from '#moji-shared-ui';
+import {LocaleContext,registerLocale,Workbench as SharedWorkbench,CollaborationContext,DeploymentAgentContext} from '#moji-shared-ui';
 import {createReliableRpc} from '../../integrations/chatgpt-workbench/client/reliable-rpc.mjs';
 import {Launcher} from './launcher.tsx';
 import {NativeConnection} from './native-connection.tsx';
@@ -37,6 +37,7 @@ export function applyWithRPC(ctx,rpc){
       await sendNativeReference(ctx,sessionId,referenceMessage(reference,selection));
       return '引用已交给这条对话';
     };
-    return <LocaleContext.Provider value={ctx.locale}><CollaborationContext.Provider value={discuss}><NativeConnection key={sessionId} sessionId={sessionId} rpc={rpc} Workbench={SharedWorkbench}/></CollaborationContext.Provider></LocaleContext.Provider>;
+    const sendDeployment=ctx.sessions?.using&&ctx.conversation?async text=>{await sendNativeReference(ctx,sessionId,text);return '部署提示词已交给当前 DSH Agent';}:null;
+    return <DeploymentAgentContext.Provider value={{host:'dsh',send:sendDeployment}}><LocaleContext.Provider value={ctx.locale}><CollaborationContext.Provider value={discuss}><NativeConnection key={sessionId} sessionId={sessionId} rpc={rpc} Workbench={SharedWorkbench}/></CollaborationContext.Provider></LocaleContext.Provider></DeploymentAgentContext.Provider>;
   }));
 }

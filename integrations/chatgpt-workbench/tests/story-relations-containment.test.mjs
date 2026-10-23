@@ -7,24 +7,25 @@ const points=[0,1].map(i=>({id:'p'+i,order:i,location:{story:{binding:{kind:'car
 const props={state:{storyAxis:axis,cards:{c:{id:'c',title:'共享卡',status:'selected',cast:[],time:{story:{axisVersion:1,start:739617,end:739619,trackId:'t'}},points}}},sources:{chapters:[]},people:[{id:'a',type:'character_card',name:'甲'},{id:'b',type:'character_card',name:'乙'}],relations:[],evolution:true,relationClock:{setMode(){}},novelId:'synthetic-scroll',save:async()=>true};
 test('actual standalone story relations render own styles and one constrained focusable region beside a separate tray',()=>{
  const html=renderToStaticMarkup(React.createElement(StoryTimeAxis,{...props,relationTarget:{}}));
- assert.match(html,/class="story-axis [^"]*sa-relations-view/);
+ assert.match(html,/<section class="timeline-workspace-column [^"]*"[^>]*><header class="timeline-toolbar"/,'toolbar is inside main pane so sidebar spans its height');
+ assert.match(html,/class="story-axis [^"]*/);
  assert.match(html,/\.cuigengji \.unified-story&gt;\.story-axis\{[^}]*display:flex/,'root layout must outrank legacy .cuigengji .story-axis block rule');
  assert.match(html,/\.cuigengji \.unified-story&gt;\.story-axis:before\{content:none/,'old vertical-axis decoration must not leak');
  assert.match(html,/class="sa-relations-region" role="region" aria-label="故事关系内容" tabindex="0"/);
- assert.equal((html.match(/>定位<\/button>/g)||[]).length,2);
+ assert.equal((html.match(/aria-label="定位时间指针"/g)||[]).length,1,'one shared toolbar locate action');
  assert.match(html,/\.u-rel-scroll\{overflow:auto;min-height:0;flex:1/,'shared relation styles must mount without UnifiedTimeline');
  assert.match(html,/\.sa-workspace&gt;\.sa-relations-region\{display:none;min-height:0;min-width:0;overflow:auto/);
- assert.match(html,/<details class="sa-tray"[\s\S]*?<\/details><\/section><div class="relation-sidebar-divider" role="separator"[^>]*><\/div><div class="sa-relations-region"/,'tray closes inside the axis column, followed by the resize separator and a separate relationship region');
- assert.equal((html.match(/class="relation-sidebar-divider" role="separator"/g)||[]).length,1,'exactly one resize separator sits between the real panes');
+ assert.match(html,/<section class="timeline-tray u-time-tray [^"]*"[\s\S]*?<\/section><\/section><div class="relation-sidebar-divider [^"]*"><div class="relation-sidebar-resize" role="separator"[\s\S]*?<\/nav><\/div><div class="sa-relations-region"/,'tray closes inside the axis column, followed by the resize separator and a separate relationship region');
+ assert.equal((html.match(/class="relation-sidebar-resize" role="separator"/g)||[]).length,1,'exactly one resize separator sits between the real panes');
  const relationMarkup=html.slice(html.indexOf('<div class="sa-relations-region"'));
- assert.doesNotMatch(relationMarkup,/<details class="sa-tray"/,'pending tray must never be nested inside the relationship scroll region');
+ assert.doesNotMatch(relationMarkup,/<section class="timeline-tray u-time-tray /,'pending tray must never be nested inside the relationship scroll region');
  assert.match(html,/\.sa-relations-view \.sa-workspace&gt;\.sa-axis-column\{display:none\}/,'narrow relation view hides the whole axis/tray column');
 });
 test('axis view retains pending tray and one persistent relationship pane with no nested scroll owner',()=>{
  const html=renderToStaticMarkup(React.createElement(StoryTimeAxis,props));
- assert.match(html,/<details class="sa-tray"/);
+ assert.match(html,/<section class="timeline-tray u-time-tray /);
  assert.equal((html.match(/role="region" aria-label="故事关系内容"/g)||[]).length,1,'wide layout needs exactly one persistent relation region');
- assert.match(html,/\.sa-relations-region \.u-rel-scroll\{overflow:visible\}/,'outer region owns story relation scroll; nested content must not compete');
+ assert.match(html,/\.cuigengji \.timeline-workspace&gt;\.sa-relations-region\{overflow:hidden;border-radius:0\}/,'wrapper never adds a competing outer scrollbar');assert.match(html,/\.cuigengji \.timeline-workspace&gt;\.sa-relations-region \.u-rel-scroll\{overflow:auto;min-height:0;flex:1\}/,'shared relationship inner region owns scrolling in both modes');
  assert.match(html,/\.sa-has-relations \.sa-workspace&gt;\.sa-relations-region\{display:block\}/,'wide workspace displays the existing region rather than a duplicate');
 });
 test.after(()=>rm(folder,{recursive:true,force:true}));

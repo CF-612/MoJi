@@ -1,4 +1,5 @@
 import React from 'react';
+import {Icon} from './icons.tsx';
 import {useWorkbenchPreferences} from './preferences.tsx';
 import {cardLabels,defaultCardColors} from './card-colors.js';
 export function CardColorFields({keys=Object.keys(cardLabels)}:{keys?:string[]}) {
@@ -11,5 +12,5 @@ export function CardLegend({planning=false}:{planning?:boolean}) {
   return <div className="card-color-legend" aria-label={planning?'规划进展图例':'设定类型图例'}>{keys.map(key=><span key={key}><i style={{background:preferences.cardColors[key]}} aria-hidden="true"/>{cardLabels[key]}</span>)}</div>;
 }
 export function CardQuickButton({title,open,disabled=false}:{title:string;open:()=>void;disabled?:boolean}) {
-  return <button type="button" data-graph-editor className="card-quick-settings" aria-label={`快捷设置 ${title}`} title="快捷设置" disabled={disabled} onPointerDown={e=>e.stopPropagation()} onDoubleClick={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();open();}}>⚙</button>;
+  return <button type="button" data-graph-editor className="card-quick-settings" aria-label={`快捷设置 ${title}`} title="快捷设置" disabled={disabled} onPointerDown={e=>e.stopPropagation()} onDoubleClick={e=>e.stopPropagation()} onClick={e=>{e.stopPropagation();open();}}><Icon name="settings"/></button>;
 }

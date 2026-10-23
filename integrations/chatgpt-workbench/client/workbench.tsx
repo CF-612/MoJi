@@ -1,3 +1,5 @@
+import {sendMcpDeployment} from './deployment-agent.mjs';
+import {DeploymentAgentContext} from '../vendor/cuigengji/src/client/shared/CloudDeploymentGuide.tsx';
 import {createHostLayout} from './host-layout.mjs';
 import React from 'react';
 import {createRoot} from 'react-dom/client';
@@ -42,6 +44,7 @@ function hostContext(context:any){
   lastHostMode=mode;
   window.dispatchEvent(new Event('cuigengji:host-context'));
 }
+const sendDeployment=(text:string)=>sendMcpDeployment(app,text);
 function NativeSurface(){
   const [mode,setMode]=React.useState(lastHostMode||app.getHostContext()?.displayMode||'inline');
   const [error,setError]=React.useState('');
@@ -50,7 +53,7 @@ function NativeSurface(){
     window.addEventListener('cuigengji:host-context',update);
     return()=>window.removeEventListener('cuigengji:host-context',update);
   },[]);
-  if(mode==='fullscreen')return <CollaborationContext.Provider value={discuss}><Workbench sessionId={`native:${sessionId}`} rpc={rpc}/></CollaborationContext.Provider>;
+  if(mode==='fullscreen')return <DeploymentAgentContext.Provider value={{host:'mcp',send:app.getHostCapabilities()?.message?.text?sendDeployment:null}}><CollaborationContext.Provider value={discuss}><Workbench sessionId={`native:${sessionId}`} rpc={rpc}/></CollaborationContext.Provider></DeploymentAgentContext.Provider>;
   return <section className="native-summary"><h1>小说工作台</h1><p>在聊天旁边查看正文、设定与规划。</p><button onClick={async()=>{
     try{const result=await app.requestDisplayMode({mode:'fullscreen'});setMode(result.mode);hostContext({displayMode:result.mode});}
     catch(e){setError((e as Error).message);}

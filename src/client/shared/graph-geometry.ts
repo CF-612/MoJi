@@ -4,6 +4,10 @@ export interface Rect extends Point {width:number;height:number}
 export const CARD_WIDTH=248, CARD_HEIGHT=168, PORT_Y=36;
 // Manual zoom normally stops at 10%; large outlines may go lower to fit.
 // The absolute floor protects transforms/hit targets from corrupt saved cameras.
+// Below 60%, a 248×168 card is smaller than 149×101 screen px: prioritize moving it.
+export const CONNECTION_MIN_ZOOM=.6;
+export const connectionPortsEnabled=(zoom:number)=>Number.isFinite(zoom)&&zoom>=CONNECTION_MIN_ZOOM;
+export const connectionHitScale=(zoom:number)=>1/Math.max(CONNECTION_MIN_ZOOM,Number.isFinite(zoom)?zoom:1);
 export const MIN_ZOOM=.0001, DEFAULT_MIN_ZOOM=.1, MAX_ZOOM=1.8;
 export const clampZoom=(zoom:number,minZoom=DEFAULT_MIN_ZOOM)=>Math.max(Math.max(MIN_ZOOM,Math.min(DEFAULT_MIN_ZOOM,minZoom)),Math.min(MAX_ZOOM,Number.isNaN(zoom)?1:zoom));
 export const validCamera=(value:any):value is Camera=>!!value&&[value.x,value.y,value.zoom].every(Number.isFinite)&&value.zoom>=MIN_ZOOM&&value.zoom<=MAX_ZOOM;

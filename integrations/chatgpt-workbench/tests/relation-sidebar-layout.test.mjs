@@ -13,10 +13,10 @@ export function render(evolution=true,relationTarget=null){return renderToStatic
 `},bundle:true,write:false,format:'iife',globalName:'SidebarTest',platform:'node',loader:{'.png':'dataurl'}});
 const {render}=new Function('require',outputFiles[0].text+';return SidebarTest;')(createRequire(import.meta.url));
 test('故事轴与真实人物关系图同时保留在组件树，不以切页卸载',()=>{
- for(const target of [null,{}]){const html=render(true,target);assert.match(html,/class="sa-axis-column"/);assert.match(html,/class="sa-relations-region"/);assert.match(html,/class="u-relation-network[^"]*"/);assert.match(html,/人物关系演变/);assert.match(html,/故事轴与待安排/);}
+ for(const target of [null,{}]){const html=render(true,target);assert.match(html,/class="timeline-workspace-column sa-axis-column"/);assert.match(html,/class="sa-relations-region"/);assert.match(html,/class="u-relation-network[^"]*"/);assert.match(html,/人物关系演变/);assert.match(html,/aria-label="情节与待安排"/);}
 });
 test('未启用演化时只渲染故事轴，没有幽灵侧栏或切页入口',()=>{
- const html=render(false);assert.match(html,/class="sa-axis-column"/);assert.doesNotMatch(html,/class="sa-relations-region"/);assert.doesNotMatch(html,/aria-label="故事时间内容"/);
+ const html=render(false);assert.match(html,/class="timeline-workspace-column sa-axis-column"/);assert.doesNotMatch(html,/class="sa-relations-region"/);assert.doesNotMatch(html,/aria-label="故事时间内容"/);
 });
 test('两种时间线均以具名内容容器900px为断点，宽屏规则可覆盖切页状态',()=>{
  assert.match(storyAxisStyle,/@container story-workspace \(min-width:900px\)/);assert.match(timelineInteractionStyle,/@container narrative-workspace \(min-width:900px\)/);

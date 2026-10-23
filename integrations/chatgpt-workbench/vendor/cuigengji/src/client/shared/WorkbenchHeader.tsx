@@ -1,6 +1,9 @@
+import {workbenchMenuStyles} from './workbench-menu-style.ts';
+import {CloudDeploymentGuide,DeploymentAgentContext} from './CloudDeploymentGuide.tsx';
+import {DshConnectionContext,DshConnectionCard} from './dsh-connection.tsx';
 import {ToolSheet} from './ToolSheet.tsx';
 import moji from '../assets/moji.png';
-import React from 'react';
+import React,{useContext} from 'react';
 import {useModules} from '../modules/context.tsx';
 import {navigationModules} from '../modules/registry.mjs';
 import {Icon} from './icons.tsx';
@@ -11,12 +14,21 @@ interface Props {
 }
 
 export function WorkbenchHeader({home, novelTitle, tab, busy, refreshing, onHome, onTab, onRefresh, onSettings, onAbout, onSearch}: Props) {
-  const modules=useModules();
+  const modules=useModules(),dsh=useContext(DshConnectionContext),deploymentAgent=useContext(DeploymentAgentContext);
   return <header className="workbench-header workbench-navigation">
     <div className="navigation-origin"><button className="navigation-home" aria-label="作品首页" aria-current={home ? 'page' : undefined} disabled={busy} onClick={onHome}><img src={moji} width={24} height={24} alt=""/><span>{home?'墨叽':'作品库'}</span></button>
     </div>
     {novelTitle && !home && <nav className="navigation-tabs" aria-label="小说功能">{[['detail','详情'],['chapters','正文'], ['plan','规划'], ['memory','资料'], ...navigationModules(modules).filter(([id])=>id!=='overview')].map(([id, name]) => <button key={id} disabled={busy} className={tab === id ? 'selected' : ''} aria-pressed={tab === id} onClick={() => onTab(id)}>{name}</button>)}</nav>}
-    <div className="navigation-actions"><ToolSheet icon="more-horizontal" label="工作台更多功能" title="工作台" dismissOnAction>{novelTitle&&!home&&onSearch&&<button aria-label="搜索作品" disabled={busy} onClick={onSearch}><Icon name="search"/>搜索作品</button>}<button aria-label="刷新当前页面" disabled={busy||refreshing} onClick={onRefresh}><Icon name="refresh"/>刷新当前页面</button>{novelTitle&&!home&&<><button onClick={()=>onTab('preset')}>写作要求</button><button onClick={()=>onTab('manage')}>作品与备份</button></>}<button aria-label="设置" onClick={onSettings}><Icon name="settings"/>设置</button><button aria-label="关于墨叽" onClick={onAbout}><Icon name="about"/>关于与来源</button></ToolSheet>
-    </div>
+    <div className="navigation-actions"><style>{workbenchMenuStyles}</style><ToolSheet icon="more-horizontal" label="工作台更多功能" title="工作台" dismissOnAction><div className="workbench-more-options">
+      <DshConnectionCard/>
+      {!dsh&&deploymentAgent&&<section aria-label="连接与云端"><strong>连接与云端</strong><p>当前实例由所用插件及宿主配置管理。更换实例请按所用插件的配置入口接入；这里没有本机 / 云端切换开关，作品不会自动迁移。</p><CloudDeploymentGuide/></section>}
+      {novelTitle&&!home&&onSearch&&<MenuRow icon="search" title="搜索作品" note="查找正文、资料与规划" disabled={busy} onClick={onSearch}/>}
+      <MenuRow icon="refresh" navigation={false} title="刷新当前页面" note="获取最新内容，保留当前草稿" disabled={busy||refreshing} onClick={onRefresh}/>
+      {novelTitle&&!home&&<><MenuRow icon="edit" title="写作要求" note="管理这部作品的写作预设" onClick={()=>onTab('preset')}/><MenuRow icon="book" title="作品与备份" note="管理作品、导入与导出" onClick={()=>onTab('manage')}/></>}
+      <MenuRow icon="settings" title="设置" note="界面外观与工作台偏好" onClick={onSettings}/>
+      <MenuRow icon="about" title="关于与来源" label="关于墨叽" note="版本信息、交流与开源致谢" onClick={onAbout}/>
+    </div></ToolSheet></div>
   </header>;
 }
+
+function MenuRow({icon,title,note,label=title,disabled=false,navigation=true,onClick}:any){return <button type="button" aria-label={label} disabled={disabled} onClick={onClick}><span className="workbench-menu-icon" aria-hidden="true"><Icon name={icon}/></span><span className="workbench-menu-copy"><strong>{title}</strong><small>{note}</small></span>{navigation&&<span className="workbench-menu-arrow" aria-hidden="true">›</span>}</button>;}

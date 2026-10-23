@@ -5,10 +5,11 @@ import {runInNewContext} from 'node:vm';
 import {fileURLToPath} from 'node:url';
 import {emptyWorkspace,reconcile,applyStory,moveError,objectIndex} from '../vendor/cuigengji/src/domain/story-workspace.mjs';
 const bundle=await build({entryPoints:[fileURLToPath(new URL('../vendor/cuigengji/src/client/shared/graph.tsx',import.meta.url))],bundle:true,jsx:"transform",write:false,format:'iife',globalName:'Graph',plugins:[{name:'hooks',setup(b){b.onResolve({filter:/^react(?:\/jsx-runtime)?$/},()=>({path:'react',namespace:'shim'}));b.onLoad({filter:/.*/,namespace:'shim'},()=>({contents:'export const jsx=()=>null,jsxs=jsx,Fragment="fragment"; export const {useContext,useEffect,useLayoutEffect,useRef,useState}=globalThis.testReact; export default globalThis.testReact;'}));b.onLoad({filter:/[/\\]dialog\.tsx$/},()=>({contents:'export const useDialog=()=>({confirm:async()=>true});'}));b.onLoad({filter:/[/\\]shared[/\\]state\.js$/},()=>({contents:'export const SessionScope={}; export const readLocal=key=>key.endsWith(":draft")?null:globalThis.initialCamera||null;'}));}}]});
-function mount(options={},withEffects=false,initialCamera=null){
+// Interaction fixtures start at editing zoom; overview gating has dedicated coverage below.
+function mount(options={},withEffects=false,initialCamera={x:0,y:0,zoom:1}){
   let cursor=0,pointTarget;const hooks=[],timers=[],effects=[],resizeObservers=[],listeners=new Map();
   const eventTarget={addEventListener(name,fn){if(!listeners.has(name))listeners.set(name,new Set());listeners.get(name).add(fn);},removeEventListener(name,fn){listeners.get(name)?.delete(fn);}};
-  class Element{constructor(edit=false,dataset={}){this.edit=edit;this.dataset=dataset;}closest(selector){if(this.edit&&/input|textarea|graph-editor/.test(selector))return this;if(this.dataset.graphPort&&selector.includes('[data-graph-port]'))return this;if(this.dataset.nodeId&&selector.includes('[data-node-id]'))return this;if(this.dataset.graphPort&&/(^|,)button/.test(selector))return this;return null;}getBoundingClientRect(){return {left:0,top:0};}setPointerCapture(){}focus(){}contains(){return true;}addEventListener(){}removeEventListener(){}}
+  class Element{constructor(edit=false,dataset={}){this.edit=edit;this.dataset=dataset;}closest(selector){if(this.edit&&/input|textarea|graph-editor/.test(selector))return this;if(this.dataset.graphPort&&selector.includes('[data-graph-port]'))return this;if(this.dataset.nodeId&&selector.includes('[data-node-id]'))return this;if(this.dataset.graphPort&&/(^|,)button/.test(selector))return this;return null;}getBoundingClientRect(){return {left:0,top:0};}setPointerCapture(id){(this.captured??=new Set()).add(id);}hasPointerCapture(id){return this.captured?.has(id)??false;}releasePointerCapture(id){this.captured?.delete(id);}focus(){}contains(){return true;}addEventListener(){}removeEventListener(){}}
   const element=new Element();Object.assign(element,{clientWidth:390,clientHeight:550,offsetWidth:390});
   const react={useContext:()=> 'touch-test',useEffect(fn,deps){if(!withEffects)return;const n=cursor++,old=hooks[n];if(!old||deps.some((d,i)=>d!==old.deps[i])){hooks[n]={deps,cleanup:old?.cleanup};effects.push(()=>{hooks[n].cleanup?.();hooks[n].cleanup=fn();});}},useLayoutEffect(fn,deps){react.useEffect(fn,deps);},createElement(){},useRef(value){const n=cursor++;return hooks[n]??=( {current:value});},useState(value){const n=cursor++;hooks[n]??={value:typeof value==='function'?value():value};return [hooks[n].value,v=>{hooks[n].value=typeof v==='function'?v(hooks[n].value):v;}];}};
   const ctx={testReact:react,Element,initialCamera,ResizeObserver:class{constructor(fn){this.fn=fn;resizeObservers.push(fn);}observe(){this.fn();}disconnect(){}},localStorage:{setItem(){},removeItem(){}},window:{...eventTarget,clearTimeout(){},setTimeout:fn=>(timers.push(fn),timers.length)},document:{...eventTarget,elementFromPoint:()=>pointTarget||element,activeElement:element},crypto,setTimeout:fn=>(timers.push(fn),timers.length),clearTimeout(){},structuredClone};runInNewContext(bundle.outputFiles[0].text,ctx);
@@ -91,4 +92,24 @@ test('material ports connect across axes and same sides without imposing plot di
   const calls=[],nodes=[{id:'character',revision:1,position:{x:0,y:0}},{id:'world',revision:1,position:{x:400,y:300}}],h=mount({nodes,edges:[{from:'character',to:'world'},{from:'world',to:'character'}],freePorts:true,canConnect:(a,b)=>a!==b,onConnect:async(...args)=>{calls.push(args);return false;}},true);
   let g=h.render();g.portProps('character',sourceSide,'人物').onClick(keyClick());g=h.render();assert.equal(g.portProps('world',targetSide,'世界').disabled,false);assert.equal(g.portProps('character',targetSide,'人物').disabled,sourceSide!==targetSide);g.portProps('world',targetSide,'世界').onClick(keyClick());await settle();assert.equal(calls.length,1);const [from,to,axis,ports]=calls[0];assert.equal(ports[from==='character'?'fromPort':'toPort'],sourceSide);assert.equal(ports[to==='world'?'toPort':'fromPort'],targetSide);assert.equal(axis,['top','bottom'].includes(sourceSide)?'vertical':'horizontal');
  }
+});
+
+
+test('缩小总览隐藏并禁用所有端口，过期事件也不能开始连线；放大恢复',()=>{
+ for(const zoom of [.1,.35,.599999]){
+  const h=mount({nodes:[{id:'a',revision:1,position:{x:40,y:60}}]},true,{x:0,y:0,zoom});let g=h.render();
+  for(const side of ['top','bottom','left','right']){const p=g.portProps('a',side,'卡');assert.equal(p.hidden,true);assert.equal(p.disabled,true);assert.equal(p.tabIndex,-1);p.onClick(keyClick());p.onPointerDown(h.event(1,40,60));assert.equal(h.render().wire,null);}
+  g.zoomTo(.6);g=h.render();for(const side of ['top','bottom','left','right']){const p=g.portProps('a',side,'卡');assert.equal(p.hidden,false);assert.equal(p.disabled,false);}
+  const stale=g.portProps('a','right','卡');stale.onClick(keyClick());assert.ok(h.render().wire);g=h.render();g.zoomTo(.35);assert.equal(h.render().wire,null);stale.onClick(keyClick());stale.onPointerDown(h.event(1,40,60));assert.equal(h.render().wire,null);
+ }
+});
+test('缩小后触屏和鼠标仍可拖动卡片，不触发连接；原有边保留',()=>{
+ for(const pointerType of ['touch','mouse']){
+  const edges=[{from:'a',to:'b'}],calls=[],h=mount({nodes:[{id:'a',revision:1,position:{x:40,y:60}},{id:'b',revision:1,position:{x:400,y:60}}],edges,onLayout:async()=>true,onConnect:async(...args)=>calls.push(args)},true,{x:0,y:0,zoom:.35});let g=h.render();
+  const e=(x,y)=>({...h.event(1,x,y),pointerType,target:h.port('a',undefined)});
+  if(pointerType==='touch')g.scrollProps.onPointerDown(e(40,60));else g.cardProps('a',()=>{}).onPointerDown(e(40,60));g.scrollProps.onPointerMove(e(54,74));g.scrollProps.onPointerUp(e(54,74));g=h.render();assert.ok(g.points.a.x>40);assert.equal(g.wire,null);assert.equal(calls.length,0);assert.equal(edges.length,1);
+ }
+});
+test('等待布局写入时缩小会取消旧连接，放大也不提交过期目标',async()=>{
+ const fixture=planningFixture(),calls=[];let finish;const h=mount({nodes:fixture.nodes,canConnect:fixture.canConnect,onLayout:()=>new Promise(r=>finish=r),onConnect:async(...args)=>{calls.push(args);return false;}},true);let g=h.render();g.arrange({'chapter:a':{x:31,y:42}});g=h.render();g.portProps('chapter:a','right','甲').onClick(keyClick());g=h.render();g.portProps('chapter:b','left','乙').onClick(keyClick());await settle();g=h.render();g.zoomTo(.35);g=h.render();g.zoomTo(1);finish(true);await settle();assert.equal(calls.length,0);assert.equal(h.render().wire,null);
 });

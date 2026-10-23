@@ -122,11 +122,11 @@ try {
     await page.getByRole('button',{name:'还原布局',exact:true}).click();await waitIdle();
     const persisted=await read(names[0]);await page.reload();await page.getByRole('button',{name:kind,exact:true}).click();await page.getByRole('button',{name:'画布',exact:true}).click();
     await at(names[0],persisted.position);
-    // Right-drag translates the pseudo-infinite world and never edits story data.
+    // Left-drag on blank translates the pseudo-infinite world and never edits story data.
     await page.setViewportSize({width:900,height:850});
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
     const canvas=page.locator('.planning-canvas-scroll'),cb=await canvas.boundingBox(),beforePan=await camera(),beforePanData=await read(names[0]);
-    await page.mouse.move(cb.x+cb.width-50,cb.y+cb.height-90);await page.mouse.down({button:'right'});await page.mouse.move(cb.x+cb.width-200,cb.y+cb.height-90,{steps:5});await page.mouse.up({button:'right'});
+    await page.mouse.move(cb.x+cb.width-50,cb.y+cb.height-90);await page.mouse.down();await page.mouse.move(cb.x+cb.width-200,cb.y+cb.height-90,{steps:5});await page.mouse.up();
     await expect.poll(async()=>Math.round((await camera()).x-beforePan.x)).toBe(-150);
     expect(await canvas.evaluate(el=>el.scrollLeft)).toBe(0);expect((await read(names[0])).revision).toBe(beforePanData.revision);
     await expect(page.getByRole('menu')).toHaveCount(0);

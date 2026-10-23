@@ -1,5 +1,7 @@
 /** Shared canvas-first surfaces for planning and settings. */
 export const graphStyles = `
+/* Hidden connection buttons must not retain pseudo-element hit targets on overview cards. */
+.cuigengji .graph-port[hidden] {display:none!important;pointer-events:none!important;}
 .cuigengji {--cg-canvas:color-mix(in srgb,var(--cg-ink) 3%,var(--cg-paper));--cg-edge:color-mix(in srgb,var(--cg-muted) 65%,var(--cg-paper));}
 .cuigengji .canvas-heading {padding:9px 16px;}
 .cuigengji .canvas-heading .module-toolbar {gap:6px;min-height:36px;}
