@@ -11,13 +11,13 @@ import {legacyCanvasSvg} from '../vendor/cuigengji/src/client/shared/canvas-expo
 import {planningConnection,planningSvg,planningPalette} from '../vendor/cuigengji/src/client/shared/planning-canvas-geometry.mjs';
 const root=new URL('../../../',import.meta.url).pathname,ui=new URL('../vendor/cuigengji/src/client/',import.meta.url).pathname;
 const source=ui+'features/planning/UnifiedPlanning.jsx',folder=await mkdtemp(join(tmpdir(),'moji-planning-ui-'));
-const stub=`export const useModules=()=>globalThis.testPlanningModules||({pages:true,timeline:true,foreshadow:true,evolution:true}),useDialog=()=>({ask:async()=>null,confirm:async()=>true}),useRelationClock=()=>({}),useResource=()=>({value:[]}),useWorkbenchPreferences=()=>({preferences:globalThis.testPlanningPreferences||{planningView:'timeline'}}),usePreference=(key,value)=>globalThis.testPlanningPreferenceHook?globalThis.testPlanningPreferenceHook(key,value):[key.endsWith('area')?'canvas':value,()=>{}],SessionScope={};
+const stub=`export const useModules=()=>globalThis.testPlanningModules||({pages:true,timeline:true,foreshadow:true,evolution:true}),useDialog=()=>globalThis.testPlanningDialog||({ask:async()=>null,confirm:async()=>true}),useRelationClock=()=>({}),useResource=()=>({value:[]}),useWorkbenchPreferences=()=>({preferences:globalThis.testPlanningPreferences||{planningView:'timeline'}}),usePreference=(key,value)=>globalThis.testPlanningPreferenceHook?globalThis.testPlanningPreferenceHook(key,value):[key.endsWith('area')?'canvas':value,()=>{}],SessionScope={};
 export const PositionFields=()=>null,TimelineCardEditorShell=()=>null,InternalPoints=()=>null,CanvasExport=()=>null,RelationPointManager=()=>null,Modal=()=>null,GraphControls=()=>null,CastAvatars=()=>null,CardChapterLinks=()=>null,Foreshadows=()=>null,PlotForeshadows=()=>null,UnifiedTimeline=()=>null,StoryTimeAxis=()=>null,Icon=()=>null,PlanningToolsDialog=()=>null,PlanningToolGroup=()=>null;
 export const relationEditStyle='',foreshadowStyle='',unifiedStoryStyle='',useGraph=options=>globalThis.testPlanningGraph?.(options)||({}),curve=()=>'',CARD_WIDTH=248,CARD_HEIGHT=208,narrationChapters=()=>[];`;
-await build({stdin:{contents:`export{UnifiedPlanning,UnifiedCanvas}from${JSON.stringify(source)};import React from'react';export{React};`,resolveDir:root},outfile:join(folder,'ui.cjs'),bundle:true,platform:'node',format:'cjs',alias:{react:root+'node_modules/react'},plugins:[{name:'contexts-only',setup(b){b.onResolve({filter:/.*/},a=>a.importer===source&&!a.path.startsWith('react')&&!/outline-fold-preference\.mjs|story-event-draft\.mjs|OutlineRow\.jsx|outline-row-style\.mjs|outline-row-interaction\.mjs|story-tracks\.mjs|story-workspace\.mjs|story-create-intent\.mjs|planning-canvas-geometry\.mjs|planning-card-presentation\.mjs|resource-error\.mjs|drafts\.js/.test(a.path)?{path:'contexts',namespace:'qa'}:undefined);b.onLoad({filter:/.*/,namespace:'qa'},()=>({contents:stub}));}}]});
+await build({stdin:{contents:`export{UnifiedPlanning,UnifiedCanvas}from${JSON.stringify(source)};import React from'react';export{React};`,resolveDir:root},outfile:join(folder,'ui.cjs'),bundle:true,platform:'node',format:'cjs',alias:{react:root+'node_modules/react'},plugins:[{name:'contexts-only',setup(b){b.onResolve({filter:/.*/},a=>a.importer===source&&!a.path.startsWith('react')&&!/planning-selection\.mjs|outline-fold-preference\.mjs|story-event-draft\.mjs|OutlineRow\.jsx|outline-row-style\.mjs|outline-row-interaction\.mjs|story-tracks\.mjs|story-workspace\.mjs|story-create-intent\.mjs|planning-canvas-geometry\.mjs|planning-card-presentation\.mjs|resource-error\.mjs|drafts\.js/.test(a.path)?{path:'contexts',namespace:'qa'}:undefined);b.onLoad({filter:/.*/,namespace:'qa'},()=>({contents:stub}));}}]});
 const require=createRequire(import.meta.url),{UnifiedPlanning,UnifiedCanvas,React}=require(join(folder,'ui.cjs'));
 const all=el=>!el||typeof el!=='object'?[]:[el,...React.Children.toArray(el.props?.children).flatMap(all)];
-const text=el=>typeof el==='string'?el:!el||typeof el!=='object'?'':React.Children.toArray(el.props?.children).map(text).join('');
+const text=el=>typeof el==='string'||typeof el==='number'?String(el):!el||typeof el!=='object'?'':React.Children.toArray(el.props?.children).map(text).join('');
 function mount(call,novelId,initial){let index=0,seeded=false;const slots=[];const dispatcher={useContext(){return 'stable-user';},useState(initialValue){const i=index++;if(!(i in slots)){if(initialValue===null&&!seeded){slots[i]=initial;seeded=true;}else slots[i]=typeof initialValue==='function'?initialValue():initialValue;}return[slots[i],v=>slots[i]=typeof v==='function'?v(slots[i]):v];},useRef(value){const i=index++;return slots[i]??={current:value};},useEffect(){},useMemo(create,deps){const i=index++,old=slots[i];if(!old||!deps||!old.deps||deps.length!==old.deps.length||deps.some((value,n)=>!Object.is(value,old.deps[n])))slots[i]={value:create(),deps:deps?.slice()};return slots[i].value;}};const render=()=>{index=0;const holder=React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.ReactCurrentDispatcher;holder.current=dispatcher;try{return UnifiedPlanning({call,novelId,tick:0,busy:false});}finally{holder.current=null;}};return {render,button:label=>all(render()).find(e=>e.type==='button'&&text(e)===label),editor:()=>all(render()).find(e=>e.type?.name==='CardEditor')};}
 const value={title:'same author intent',summary:'保留原创建',content:'',status:'idea',purpose:'情节',cast:[],scope:[],time:{}};
 function memoryStorage(){const map=new Map();return {getItem:k=>map.get(k)??null,setItem:(k,v)=>map.set(k,v),removeItem:k=>map.delete(k),map};}
@@ -91,7 +91,7 @@ test('generation focuses committed canvas nodes once, never stale nodes or ordin
  const props=canvas().props;assert.deepEqual(props.generationFocus,{pageId:'main',revision:state.revision});
  const effects=[],fits=[];let selected=['card:loose'],rendered=false;
  globalThis.testPlanningGraph=({nodes})=>({points:Object.fromEntries(nodes.map(n=>[n.id,n.position])),scroll:{current:{}},selected,select(ids){selected=ids;},fit(){assert.equal(rendered,true,'fit happens after render');assert.deepEqual(selected,[],'old selection cannot hide new outline');fits.push(nodes.map(n=>n.id));},cardProps:()=>({}),portProps:()=>({})});
- const renderCanvas=overrides=>{rendered=false;const holder=React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.ReactCurrentDispatcher;holder.current={useEffect:fn=>effects.push(fn)};try{UnifiedCanvas({...props,...overrides});}finally{holder.current=null;}rendered=true;while(effects.length)effects.shift()();};
+ const renderCanvas=overrides=>{rendered=false;const holder=React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.ReactCurrentDispatcher;holder.current={useEffect:fn=>effects.push(fn),useState:value=>[typeof value==='function'?value():value,()=>{}],useRef:value=>({current:value})};try{UnifiedCanvas({...props,...overrides});}finally{holder.current=null;}rendered=true;while(effects.length)effects.shift()();};
  try{
   renderCanvas({state:before,page:before.pages[0],objects:objectIndex(before,sources)});assert.equal(fits.length,0,'old revision must not consume request');
   renderCanvas({page:{...props.page,id:'other'}});assert.equal(fits.length,0,'other page must not consume request');
@@ -117,4 +117,55 @@ test('generation requests only the explicit successful destination, never a fail
    else{const destination=dedicated?state.pages.find(p=>p.generated).id:'main';assert.equal(canvas.props.generationFocus.pageId,destination);assert.deepEqual(destinations,dedicated?[destination]:[]);if(dedicated)assert.deepEqual(state.pages[0],before.pages[0],'dedicated generation leaves free page untouched');}
   }
  }finally{delete globalThis.testPlanningModules;delete globalThis.testPlanningPreferenceHook;}
+});
+
+
+test('outline mixed-selection Delete sends one atomic card-only operation and protects source chapters',async()=>{
+ globalThis.localStorage=memoryStorage();globalThis.testPlanningPreferenceHook=(key,value)=>[key.endsWith('v31-area')?'outline':value,()=>{}];
+ const sources={volumes:[{id:'v',title:'Volume',order:0}],chapters:[{id:'c',title:'Chapter',volumeId:'v',order:0}]};let state=emptyWorkspace();reconcile(state,sources);state=applyStory(state,sources,{type:'card.create',value:{title:'Plot'}},()=> 'plot');
+ const confirmations=[],writes=[];globalThis.testPlanningDialog={ask:async()=>null,confirm:async text=>(confirmations.push(text),true)};
+ const ui=mount(async(action,args)=>{writes.push(args);state=applyStory(state,sources,args.operation,()=> 'new');return {state,sources,history:[]};},'mixed-delete',{state,sources,history:[]});
+ try{
+  ui.button('多选').props.onClick();
+  for(const title of ['Volume','Chapter','Plot'])all(ui.render()).find(e=>e.type==='input'&&e.props['aria-label']===`选择${title}`).props.onChange();
+  assert.equal(ui.button('删除剧情卡／篇章（1）').props.disabled,false);
+  const root=ui.render(),checkbox=all(root).find(e=>e.type==='input'&&e.props['aria-label']==='选择Plot');assert.equal(checkbox.props['data-planning-selection'],'true');const target={closest:selector=>selector.includes('input:not([data-planning-selection="true"])')?null:{}};let prevented=0;
+  root.props.onKeyDown({key:'Delete',target,preventDefault(){prevented++;},stopPropagation(){}});
+  await new Promise(resolve=>setTimeout(resolve,0));
+  assert.equal(prevented,1);assert.equal(writes.length,1);assert.deepEqual(writes[0].operation,{type:'card.deleteMany',ids:['plot']});assert.match(confirmations[0],/2 个正文卷／章节将保留/);assert.match(confirmations[0],/不只是隐藏本页展示/);assert.ok(state.placements['chapter:c']);assert.ok(state.placements['volume:v']);assert.equal(state.cards.plot,undefined);
+ }finally{delete globalThis.testPlanningPreferenceHook;delete globalThis.testPlanningDialog;}
+});
+
+test('outline search clears stale selected cards; cancelling batch confirmation leaves every source untouched',async()=>{
+ globalThis.localStorage=memoryStorage();globalThis.testPlanningPreferenceHook=(key,value)=>[key.endsWith('v31-area')?'outline':value,()=>{}];
+ const sources={volumes:[],chapters:[]};let state=emptyWorkspace();state=applyStory(state,sources,{type:'card.create',value:{title:'HiddenPlot'}},()=> 'a');let writes=0;
+ globalThis.testPlanningDialog={ask:async()=>null,confirm:async()=>false};const ui=mount(async()=>{writes++;},'search-delete',{state,sources,history:[]});
+ try{
+  ui.button('多选').props.onClick();all(ui.render()).find(e=>e.type==='input'&&e.props['aria-label']==='选择HiddenPlot').props.onChange();await ui.button('删除剧情卡／篇章（1）').props.onClick();assert.equal(writes,0);
+  all(ui.render()).find(e=>e.type==='input'&&e.props['aria-label']==='搜索大纲').props.onChange({target:{value:'no matches'}});
+  assert.equal(ui.button('删除剧情卡／篇章（0）').props.disabled,true);assert.equal(writes,0);
+ }finally{delete globalThis.testPlanningPreferenceHook;delete globalThis.testPlanningDialog;}
+});
+
+test('canvas custom-group filter hides unrelated cards without dropping canonical graph nodes or deleting hidden selection',()=>{
+ const sources={volumes:[],chapters:[]};let state=emptyWorkspace();for(const id of ['a','b'])state=applyStory(state,sources,{type:'card.create',value:{title:id},pageId:'main'},()=>id);
+ state=applyStory(state,sources,{type:'group.create',name:'Custom',refs:['card:b']},()=> 'group');
+ const selected=['card:a','card:b'],calls=[],holder=React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.ReactCurrentDispatcher;let graphOptions;
+ globalThis.testPlanningGraph=options=>(graphOptions=options,{points:Object.fromEntries(options.nodes.map(n=>[n.id,n.position])),selected,scroll:{current:null},cardProps:()=>({}),portProps:()=>({}),select:()=>{},fit:()=>{}});
+ holder.current={useState:value=>[value,()=>{}],useRef:value=>({current:value}),useEffect:()=>{}};
+ let view;
+ try{view=UnifiedCanvas({state,sources,objects:objectIndex(state,sources),page:state.pages[0],people:[],groups:state.groups,groupFilter:'group',groupsEnabled:true,onDelete:async refs=>(calls.push(refs),true),save:async()=>true});}finally{holder.current=null;delete globalThis.testPlanningGraph;}
+ assert.deepEqual(graphOptions.nodes.map(n=>n.id),['card:a','card:b'],'layout queue retains canonical nodes');assert.deepEqual(graphOptions.visibleIds,['card:b']);assert.deepEqual(all(view).filter(e=>e.type==='section'&&e.props['data-node-id']).map(e=>e.props['data-node-id']),['card:b']);
+ const scroll=all(view).find(e=>e.props?.className?.includes('planning-canvas-scroll'));
+ const toolbar=all(view).find(e=>e.props?.['aria-label']==='画布多选操作');assert.equal(toolbar.props.onKeyDown,scroll.props.onKeyDown,'selection toolbar also receives Delete after clicking Select All');
+ toolbar.props.onKeyDown({key:'Delete',target:{closest:()=>null},preventDefault(){},stopPropagation(){}});assert.deepEqual(calls,[['card:b']]);
+});
+
+test('empty custom group explains how to add members rather than offering an ineffective offscreen fit',()=>{
+ const sources={volumes:[],chapters:[]};let state=emptyWorkspace();state=applyStory(state,sources,{type:'card.create',value:{title:'Outside group'},pageId:'main'},()=> 'a');state=applyStory(state,sources,{type:'group.create',name:'Empty',refs:[]},()=> 'empty');
+ const holder=React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.ReactCurrentDispatcher;
+ globalThis.testPlanningGraph=options=>({points:Object.fromEntries(options.nodes.map(n=>[n.id,n.position])),selected:[],outOfView:true,scroll:{current:null},cardProps:()=>({}),portProps:()=>({}),select:()=>{},fit:()=>{throw new Error('empty group must not offer fit');}});
+ holder.current={useState:value=>[value,()=>{}],useRef:value=>({current:value}),useEffect:()=>{}};let view;
+ try{view=UnifiedCanvas({state,sources,objects:objectIndex(state,sources),page:state.pages[0],people:[],groups:state.groups,groupFilter:'empty',groupsEnabled:true,save:async()=>true});}finally{holder.current=null;delete globalThis.testPlanningGraph;}
+ assert.match(text(view),/此分组在本页暂无内容/);assert.doesNotMatch(text(view),/内容在视野外/);assert.equal(all(view).filter(e=>e.type==='button'&&text(e)==='适应视图').length,0);
 });

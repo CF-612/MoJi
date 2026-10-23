@@ -32,6 +32,7 @@ export function reconcile(state,sources){
   for(const ref of Object.keys(page.instances))if(!valid[ref]){delete page.instances[ref];changed=true;}
   if(page.outline){const refs=page.outline.refs.filter(ref=>valid[ref]&&page.instances[ref]);if(refs.length!==page.outline.refs.length){page.outline.refs=refs;changed=true;}}
  }
+ for(const group of state.groups||[]){const refs=group.refs.filter(ref=>typeof ref==='string'&&Object.hasOwn(valid,ref));if(refs.length!==group.refs.length){group.refs=refs;changed=true;}}
  state.precedence=state.precedence.filter(e=>{const ok=valid[e.from]&&valid[e.to];if(!ok)changed=true;return ok;});
  for(const card of Object.values(state.cards)){
   card.scope=(card.scope||[]).filter(id=>valid[refOf('chapter',id)]);
@@ -139,6 +140,22 @@ export function generatedOutline(state,sources,page,{relayoutExisting=false,adop
  const points=compactOutlineLayout(state,sources,ownedRefs,{origin});
  return {points,added,updated,preserved,ownedRefs,origin};
 }
+/** Remove only the generated projection. Source objects and shared links are not owned by a page. */
+export function removeOutlineProjection(page){
+ const refs=page.outline?.refs||(page.generated?Object.keys(page.instances):[]);
+ for(const ref of refs)delete page.instances[ref];
+ delete page.outline;delete page.generated;
+ return refs.length;
+}
+function deletePlotCard(state,objects,id){
+ const ref=refOf('card',id),parent=state.placements[ref].parent;
+ for(const child of Object.keys(state.placements))if(state.placements[child].parent===ref)move(state,child,parent,objects);
+ delete state.cards[id];delete state.placements[ref];
+ for(const group of state.groups||[])group.refs=group.refs.filter(value=>value!==ref);
+ if(state.storyAxis?.anchor?.cardId===id)delete state.storyAxis.anchor.cardId;
+ for(const page of state.pages){delete page.instances[ref];if(page.outline)page.outline.refs=page.outline.refs.filter(value=>value!==ref);}
+ state.precedence=state.precedence.filter(e=>e.from!==ref&&e.to!==ref);
+}
 export function applyStory(input,sources,operation,newId){
  const state=clone(input),objects=objectIndex(state,sources),op=operation;
  switch(op.type){
@@ -196,22 +213,45 @@ export function applyStory(input,sources,operation,newId){
   }
   case 'group':{
    const refs=[...new Set(op.refs||[])];if(!refs.length)fail('请先选择章节或卡片。');
+   if(refs.some(ref=>typeof ref!=='string'||!Object.hasOwn(objects,ref)||!Object.hasOwn(state.placements,ref)))fail('所选对象已不存在，请重新选择。');
+   // Selecting a parent already includes its subtree; do not flatten selected descendants.
+   const roots=refs.filter(ref=>!refs.some(other=>other!==ref&&descendants(state,other).includes(ref)));
+   const page=op.pageId?state.pages.find(p=>p.id===op.pageId):null;
+   if(op.pageId&&!page)fail('画布页面不存在。');
    const id=newId(),ref=refOf('card',id);state.cards[id]={id,revision:1,...cardValue({title:op.title,purpose:'篇章'})};
-   const parents=new Set(refs.map(r=>state.placements[r]?.parent));
-   state.placements[ref]={parent:parents.size===1?[...parents][0]:ROOT,order:Math.min(...refs.map(r=>state.placements[r]?.order||0)),manual:true};
-   for(const child of refs)move(state,child,ref,objectIndex(state,sources));break;
+   const parents=new Set(roots.map(r=>state.placements[r].parent));
+   state.placements[ref]={parent:parents.size===1?[...parents][0]:ROOT,order:Math.min(...roots.map(r=>state.placements[r].order||0)),manual:true};
+   for(const child of roots)move(state,child,ref,objectIndex(state,sources));
+   if(page){const points=roots.map(ref=>page.instances[ref]).filter(Boolean);page.instances[ref]={x:points.length?Math.min(...points.map(p=>p.x)):60,y:points.length?Math.min(...points.map(p=>p.y))-308:60,revision:1};}
+   break;
   }
-  case 'card.delete':{
-   const ref=refOf('card',op.id);if(!state.cards[op.id])fail('剧情卡不存在。');const parent=state.placements[ref].parent;
-   for(const child of Object.keys(state.placements))if(state.placements[child].parent===ref)move(state,child,parent,objects);
-   delete state.cards[op.id];delete state.placements[ref];
-   if(state.storyAxis?.anchor?.cardId===op.id)delete state.storyAxis.anchor.cardId;
-   for(const page of state.pages){delete page.instances[ref];if(page.outline)page.outline.refs=page.outline.refs.filter(id=>id!==ref);}state.precedence=state.precedence.filter(e=>e.from!==ref&&e.to!==ref);break;
+  case 'card.delete':case 'card.deleteMany':{
+   const ids=op.type==='card.delete'?[op.id]:Array.isArray(op.ids)?[...new Set(op.ids)]:[];
+   if(!ids.length)fail('请选择要删除的剧情卡。');
+   if(ids.some(id=>typeof id!=='string'||!Object.hasOwn(state.cards,id)))fail('剧情卡不存在，请重新选择；正文卷章不能在这里删除。');
+   for(const id of ids)deletePlotCard(state,objects,id);
+   break;
   }
   case 'precedence':{
    if(!objects[op.from]||!objects[op.to]||op.from===op.to)fail('先后关系需要两个不同对象。');
    const exists=state.precedence.find(e=>e.from===op.from&&e.to===op.to);
    if(op.remove)state.precedence=state.precedence.filter(e=>e!==exists);else if(!exists)state.precedence.push({id:newId(),from:op.from,to:op.to});break;
+  }
+  case 'group.create':{
+   const name=String(op.name||'').trim(),refs=[...new Set(op.refs||[])];
+   if(!name||name.length>100)fail('请填写 1—100 字的分组名称。');
+   if(refs.some(ref=>typeof ref!=='string'||!Object.hasOwn(objects,ref)))fail('分组成员已不存在，请重新选择。');
+   state.groups??=[];for(const group of state.groups)group.refs=group.refs.filter(ref=>!refs.includes(ref));
+   state.groups.push({id:newId(),name,refs});break;
+  }
+  case 'group.rename':case 'group.delete':case 'group.assign':{
+   state.groups??=[];const group=state.groups.find(group=>group.id===op.id);
+   if(op.type!=='group.assign'||op.id!==null)if(!group)fail('分组不存在。');
+   if(op.type==='group.delete'){state.groups=state.groups.filter(value=>value!==group);break;}
+   if(op.type==='group.rename'){const name=String(op.name||'').trim();if(!name||name.length>100)fail('请填写 1—100 字的分组名称。');group.name=name;break;}
+   const refs=[...new Set(op.refs||[])];if(!refs.length||refs.some(ref=>typeof ref!=='string'||!Object.hasOwn(objects,ref)))fail('请选择仍存在的分组成员。');
+   for(const item of state.groups)item.refs=item.refs.filter(ref=>!refs.includes(ref));
+   if(group)group.refs.push(...refs);break;
   }
   case 'page.create':if(!String(op.name||'').trim())fail('请填写页面名称。');else state.pages.push({id:newId(),name:op.name.trim(),instances:{}});break;
   case 'page.generate':{
@@ -222,14 +262,35 @@ export function applyStory(input,sources,operation,newId){
    const layout=generatedOutline(state,sources,page,{relayoutExisting:op.relayoutExisting===true,adoptHierarchy:op.adoptHierarchy===true});
    for(const [ref,point] of Object.entries(layout.points))page.instances[ref]={...point,revision:(page.instances[ref]?.revision||0)+1};
    page.outline={refs:layout.ownedRefs,origin:layout.origin};
+   // Explicit regeneration replaces the previous projection, including an inline
+   // outline made before enabling pages. Never erase unrelated manual instances.
+   state.pages=state.pages.filter(other=>{
+    if(other===page||(!other.generated&&!other.outline))return true;
+    const wasGenerated=!!other.generated;removeOutlineProjection(other);
+    return !wasGenerated||other.id==='main'||Object.keys(other.instances).length>0;
+   });
    break;
+  }
+  case 'page.delete':{
+   const page=state.pages.find(p=>p.id===op.pageId);if(!page)fail('画布页面不存在。');
+   state.pages=state.pages.filter(p=>p!==page);
+   if(!state.pages.length)state.pages=[{id:'main',name:'自由构思',instances:{}}];
+   break;
+  }
+  case 'page.outline.remove':{
+   const page=state.pages.find(p=>p.id===op.pageId);if(!page||(!page.outline&&!page.generated))fail('本页没有生成的大纲展示。');
+   removeOutlineProjection(page);break;
   }
   case 'instance.add':{
    const page=state.pages.find(p=>p.id===op.pageId);if(!page||!objects[op.ref])fail('页面或内容对象不存在。');
    if(!page.instances[op.ref])page.instances[op.ref]={x:op.position?.x??60,y:op.position?.y??60,revision:1};break;
   }
-  case 'instance.remove':{
-   const page=state.pages.find(p=>p.id===op.pageId);if(!page)fail('页面不存在。');delete page.instances[op.ref];if(page.outline)page.outline.refs=page.outline.refs.filter(ref=>ref!==op.ref);break;
+  case 'instance.remove':case 'instance.removeMany':{
+   const page=state.pages.find(p=>p.id===op.pageId);if(!page)fail('页面不存在。');
+   const refs=op.type==='instance.remove'?[op.ref]:Array.isArray(op.refs)?[...new Set(op.refs)]:[];
+   if(!refs.length||refs.some(ref=>typeof ref!=='string'||!Object.hasOwn(objects,ref)||!Object.hasOwn(page.instances,ref)))fail('所选展示已不存在，请重新选择。');
+   for(const ref of refs)delete page.instances[ref];
+   if(page.outline)page.outline.refs=page.outline.refs.filter(ref=>!refs.includes(ref));break;
   }
   case 'instance.layout':{
    const page=state.pages.find(p=>p.id===op.pageId);if(!page)fail('页面不存在。');
@@ -261,6 +322,14 @@ export function validateRestore(value,sources){
  if(value.storyAxis)validateStoryAxis(value.storyAxis);
  validateTrackPreferences(value);
  const objects=objectIndex(value,sources);
+ if(value.groups!==undefined){
+  if(!Array.isArray(value.groups))fail('规划分组无效。');
+  const ids=new Set(),members=new Set();
+  for(const group of value.groups){
+   if(!safe(group.id)||ids.has(group.id)||typeof group.name!=='string'||!group.name.trim()||group.name.length>100||!Array.isArray(group.refs))fail('规划分组无效。');
+   ids.add(group.id);for(const ref of group.refs){if(typeof ref!=='string'||!Object.hasOwn(objects,ref)||members.has(ref))fail('规划分组成员无效或重复。');members.add(ref);}
+  }
+ }
  for(const ref of Object.keys(value.placements))if(!objects[ref])fail('备份包含当前目录中不存在的卷章；请使用配套测试作品。');
  assertTree(value,sources);
  for(const card of Object.values(value.cards))validateCard(card,sources,value);
