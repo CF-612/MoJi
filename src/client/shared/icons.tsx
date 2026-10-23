@@ -4,7 +4,7 @@ export type IconName = 'home' | 'refresh' | 'settings' | 'filter' | 'edit' | 'ab
 const paths: Record<IconName, React.ReactNode> = {
   home: <><path d="m3 10 9-7 9 7"/><path d="M5 9v11h5v-6h4v6h5V9"/></>,
   refresh: <><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6.5 6.5A8 8 0 0 1 20 12M4 12a8 8 0 0 0 13.5 5.5"/></>,
-  settings: <><path d="m9 3-1 3-3 1 .3 3L3 12l2.3 2-.3 3 3 1 1 3h6l1-3 3-1-.3-3 2.3-2-2.3-2 .3-3-3-1-1-3Z"/><circle cx="12" cy="12" r="3"/></>,
+  settings: <><path d="M9.245 5.348 L10.350 2.644 L13.650 2.644 L14.755 5.348 L17.449 4.218 L19.782 6.551 L18.652 9.245 L21.356 10.350 L21.356 13.650 L18.652 14.755 L19.782 17.449 L17.449 19.782 L14.755 18.652 L13.650 21.356 L10.350 21.356 L9.245 18.652 L6.551 19.782 L4.218 17.449 L5.348 14.755 L2.644 13.650 L2.644 10.350 L5.348 9.245 L4.218 6.551 L6.551 4.218 Z"/><circle cx="12" cy="12" r="3"/></>,
   filter: <><path d="M4 6h16M7 12h10M10 18h4"/><circle cx="8" cy="6" r="2"/><circle cx="15" cy="12" r="2"/></>,
   edit: <><path d="m15 4 5 5M4 20l4-1L20 7a2 2 0 0 0-3-3L5 16Z"/></>,
   about: <><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></>,
@@ -13,5 +13,5 @@ const paths: Record<IconName, React.ReactNode> = {
 };
 
 export function Icon({name}: {name: IconName}) {
-  return <svg className="app-icon" aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
+  return <svg className="app-icon" data-icon={name} style={name==='settings'?{flexShrink:0,aspectRatio:'1 / 1'}:undefined} aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">{paths[name]}</svg>;
 }

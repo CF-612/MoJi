@@ -1,4 +1,8 @@
 export const timelineInteractionStyle=`
+/* Chapter-boundary ticks share the story ruler's contrast and length hierarchy. */
+.cuigengji .u-time-ruler>span{color:var(--cg-ink)}
+.cuigengji .u-time-ruler>span::before{content:'';position:absolute;left:0;bottom:0;width:2px;height:14px;border-radius:1px;background:color-mix(in srgb,var(--cg-ink) 72%,var(--cg-paper));pointer-events:none}
+
 .cuigengji .u-point-marker{position:absolute;bottom:1px;transform:translateX(-50%);font-size:10px;line-height:15px;padding:2px;border:0;background:transparent;color:var(--state-color,#547dc3);z-index:2;min-width:22px;min-height:20px}
 
 .cuigengji .u-timeline{container:narrative-workspace / inline-size;min-height:0;overflow:hidden;background:var(--cg-paper)}

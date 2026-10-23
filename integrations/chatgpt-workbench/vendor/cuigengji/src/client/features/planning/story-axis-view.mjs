@@ -31,9 +31,9 @@ export function storyLaneLayout(axis,cards,shared=[]){
  const above=groups('above'),below=groups('below');let y=0;for(const lane of above){lane.y=y;y+=lane.height;}const line=y+30;y=line+70;for(const lane of below){lane.y=y;y+=lane.height;}
  return {line,height:Math.max(320,y+34),lanes:[...above,...below]};
 }
-export function storyDrop(projection,rect,scrollLeft,x,y,layout){const localY=y-rect.top;if(x<rect.left||x>rect.right||Math.abs(localY-layout.line)<20)return null;const side=localY<layout.line?'above':'below',lane=layout.lanes.find(l=>l.side===side);if(!lane)return null;return {start:projection.xToTime(x-rect.left+scrollLeft-64),side,row:Math.min(30,Math.max(0,Math.floor((localY-lane.y-26)/storyCardRowHeight)))};}
+export function storyDrop(projection,rect,scrollLeft,x,y,layout){const localY=y-rect.top;if(x<rect.left||x>rect.right||Math.abs(localY-layout.line)<20)return null;const side=localY<layout.line?'above':'below',lane=layout.lanes.find(l=>l.side===side);if(!lane)return null;return {start:projection.xToTime(x-rect.left+scrollLeft-64),side,row:Math.min(30,Math.max(0,Math.floor((localY-lane.y-(layout.cardInset??26))/(layout.rowHeight??storyCardRowHeight))))};}
 // Packing is by visual side, not by track membership; it never rewrites stored dates or rows.
-export function storyDisplayCards(cards,projection,axis=null,shared=[]){const occupied=new Map();return [...cards].sort((a,b)=>a.time.story.start-b.time.story.start||a.id.localeCompare(b.id)).map(card=>{const t=card.time.story,side=storyPlacementSide(t,axis,shared),group=axis?`${side}:${storyTrackKey(t)}`:side,x=projection.timeToX(t.start),rows=occupied.get(group)||[];let row=Math.min(30,t.row||0);while(rows[row]!==undefined&&rows[row]>x-230)row++;rows[row]=x;occupied.set(group,rows);return {...card,displayRow:row,displaySide:side};});}
+export function storyDisplayCards(cards,projection,axis=null,shared=[],scale=1){const occupied=new Map();return [...cards].sort((a,b)=>a.time.story.start-b.time.story.start||a.id.localeCompare(b.id)).map(card=>{const t=card.time.story,side=storyPlacementSide(t,axis,shared),group=axis?`${side}:${storyTrackKey(t)}`:side,x=projection.timeToX(t.start),rows=occupied.get(group)||[];let row=Math.min(30,t.row||0);while(rows[row]!==undefined&&rows[row]>x-230*scale)row++;rows[row]=x;occupied.set(group,rows);return {...card,displayRow:row,displaySide:side};});}
 export function storyDefaultCursor(axis,cursor){return Number.isSafeInteger(cursor)?cursor:axis?.anchor.coordinate??0;}
 const compactCount=n=>{const unit=n>=1e8?1e8:n>=1e4?1e4:1,suffix=unit===1e8?'亿':unit===1e4?'万':'';return Number((n/unit).toFixed(n/unit<10?1:0))+suffix;};
 export function storyGapLabel(axis,start,end){const year=axis.calendar.kind==='custom'?axis.calendar.monthLengths.reduce((a,b)=>a+b,0):365.2425,months=axis.calendar.kind==='custom'?axis.calendar.monthLengths.length:12,days=end-start;let unit=axis.primaryTick.unit;if(unit==='year'&&days<year)unit=days>=year/months?'month':'day';if(unit==='month'&&days<year/months)unit='day';const n=unit==='year'?days/year:unit==='month'?days/year*months:days;return `约${compactCount(n)}${unit==='year'?'年':unit==='month'?'个月':'天'}空白`;}
@@ -45,7 +45,7 @@ export function storyDragDrop(projection,rect,scrollLeft,x,y,layout,gesture){
  const placement=storyDrop(projection,rect,scrollLeft,x,y,layout);if(!placement)return null;
  const delta=x-gesture.x+scrollLeft-gesture.scroll,start=gesture.card.time.story.start;
  const lane=layout.lanes.find(l=>l.side===placement.side&&l.trackKey===storyTrackKey(gesture.card.time.story))||layout.lanes.find(l=>l.side===placement.side);
- return {...placement,row:Math.min(30,Math.max(0,Math.floor((y-rect.top-lane.y-26)/storyCardRowHeight))),start:delta===0?start:projection.xToTime(projection.timeToX(start)+delta)};
+ return {...placement,row:Math.min(30,Math.max(0,Math.floor((y-rect.top-lane.y-(layout.cardInset??26))/(layout.rowHeight??storyCardRowHeight)))),start:gesture.pending?placement.start:delta===0?start:projection.xToTime(projection.timeToX(start)+delta)};
 }
 
 // Ensure a symmetric date window can fill the viewport before any events exist.
@@ -72,4 +72,23 @@ export function withStoryAnchorTick(axis,projection,ticks){
  }
  const chosen=[...nearby,{coordinate,x,anchor:true}];
  return [...ticks.filter(t=>chosen.every(c=>Math.abs(t.x-c.x)>=clearance)),...chosen].sort((a,b)=>a.x-b.x);
+}
+
+// ResizeObserver contentRect excludes borders and scrollbars and preserves subpixels.
+// Never round up a fitted world: even <1px overflow can toggle classic scrollbars.
+export function storyViewportSize({width=0,height=0}){
+ return {width:Math.max(0,Math.floor(width)),height:Math.max(0,Math.floor(height))};
+}
+
+// Pack names independently from their exact date ticks; reserve the origin name first.
+export function storyMarkerLabels(axis,projection){
+ const rows=[[]],width=label=>Math.min(180,Math.max(60,[...label].length*12+12));
+ const anchorX=projection.timeToX(axis.anchor.coordinate),anchorWidth=width(axis.anchor.label||'故事起点');
+ rows[0].push([anchorX-anchorWidth/2,anchorX+anchorWidth/2]);
+ const markers=[...axis.markers].sort((a,b)=>a.coordinate-b.coordinate||a.id.localeCompare(b.id)).map(marker=>{
+  const x=projection.timeToX(marker.coordinate),w=width(marker.label),left=x-w/2,right=x+w/2;
+  let row=0;while(rows[row]?.some(([a,b])=>left<b+12&&right>a-12))row++;
+  (rows[row]??=[]).push([left,right]);return {...marker,displayRow:row,labelWidth:w};
+ });
+ return {markers,rowCount:rows.length,anchorWidth};
 }

@@ -27,12 +27,12 @@ test('playhead leaves writes/card interactions separate',()=>{
  assert.match(source,/if\(g\.playhead\)\{if\(dragged\.current\)seekPlayhead\(e\.clientX\);return;\}/);
  assert.match(source,/button,input,select,textarea,\[data-track-control\],\[data-story-card\]/);
  assert.match(source,/onPointerCancel=\{cancel\}/);
- assert.match(source,/aria-valuetext=\{formatStoryDate\(cursor,axis.calendar\)\}/);
+ assert.match(source,/valueText=\{formatStoryDate\(cursor,axis.calendar\)\}/);
 });
 
-test('playhead uses a font-independent SVG and wins global button transform reset',()=>{
- assert.match(source,/className="sa-playhead-handle"[\s\S]*?<svg aria-hidden="true"/);
- assert.doesNotMatch(source,/>Ⅱ</);
- const css=readFileSync(new URL('../integrations/chatgpt-workbench/vendor/cuigengji/src/client/features/planning/story-axis-style.mjs',import.meta.url),'utf8');
- assert.match(css,/\.cuigengji \.unified-story \.sa-playhead-handle\{[^}]*transform:translateX\(-50%\)/);
+test('shared playhead uses font-independent CSS thumb and overrides global button reset',()=>{
+ assert.match(source,/<TimelinePlayhead/);
+ const base=new URL('../integrations/chatgpt-workbench/vendor/cuigengji/src/client/features/planning/',import.meta.url),component=readFileSync(new URL('TimelinePlayhead.jsx',base),'utf8'),css=readFileSync(new URL('timeline-playhead-style.mjs',base),'utf8');
+ assert.match(component,/className="timeline-playhead-thumb" aria-hidden="true"/);assert.match(component,/aria-valuetext=\{valueText\}/);assert.doesNotMatch(component,/>Ⅱ</);
+ assert.match(css,/\.cuigengji \.timeline-playhead>\.timeline-playhead-handle\{[^}]*transform:translateX\(-50%\)/);assert.match(css,/pointer-events:none/);
 });

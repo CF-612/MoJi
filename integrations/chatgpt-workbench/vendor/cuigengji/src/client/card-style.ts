@@ -1,4 +1,7 @@
 export const cardStyles=`
+.cuigengji .card-quick-settings {display:inline-flex;align-items:center;justify-content:center;}
+.cuigengji .card-quick-settings svg.app-icon {width:18px;height:18px;}
+.cuigengji .graph-overview .card-quick-settings svg.app-icon {width:calc(18px * var(--graph-title-scale));height:calc(18px * var(--graph-title-scale));}
 .cuigengji .setting-card.kind-character {--graph-card-tone:var(--card-character);}
 .cuigengji .setting-card.kind-world {--graph-card-tone:var(--card-world);}
 .cuigengji .scene-card.state-idea,.cuigengji .planning-list .state-idea {--graph-card-tone:var(--card-idea);}

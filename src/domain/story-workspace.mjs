@@ -1,3 +1,4 @@
+import {packOutline} from './compact-outline-layout.mjs';
 import {validateTrackPreferences,reorderTracks,setStoryTrackSide} from './story-tracks.mjs';
 import {editStoryAxis,validateStoryAxis,validateStoryPlacement} from './story-axis.mjs';
 import {editRelation,validateRelationPoints} from './story-relation-edit.mjs';
@@ -119,6 +120,9 @@ export function outlineHierarchyRefs(state,sources){
  for(const ref of [...refs]){let parent=state.placements[ref]?.parent;const seen=new Set([ref]);while(parent&&parent!==ROOT&&objects[parent]&&!seen.has(parent)){seen.add(parent);refs.add(parent);parent=state.placements[parent]?.parent;}}
  return [...refs];
 }
+export function compactOutlineLayout(state,sources,refs=Object.keys(objectIndex(state,sources)),options={}){
+ return packOutline(objectIndex(state,sources),state.placements,refs,options);
+}
 export function generatedOutline(state,sources,page,{relayoutExisting=false,adoptHierarchy=false}={}){
  const objects=objectIndex(state,sources),refs=Object.keys(objects),instances=page?.instances||{};
  // Old generated pages have no ownership marker: preserve their positions on the
@@ -132,7 +136,7 @@ export function generatedOutline(state,sources,page,{relayoutExisting=false,adop
  const origin=page?.outline?.origin||{x:manual.length?Math.max(...manual.map(([,p])=>p.x+248))+100:60,y:manual.length?Math.min(...manual.map(([,p])=>p.y)):60};
  // Preserve one instance per source reference. An already visible manual card is
  // not duplicated; only explicit hierarchy adoption can change its coordinates.
- const points=treeLayout(state,sources,ownedRefs,{origin});
+ const points=compactOutlineLayout(state,sources,ownedRefs,{origin});
  return {points,added,updated,preserved,ownedRefs,origin};
 }
 export function applyStory(input,sources,operation,newId){

@@ -10,4 +10,25 @@ const {render}=new Function('require',outputFiles[0].text+';return TimelineTest;
 test('两种时间线均显示标题与状态属性，不常驻摘要、头像或编辑按钮',()=>{for(const mode of ['story','narration']){const html=render(mode);assert.match(html,/只显示这个标题/);assert.doesNotMatch(html,/不应常驻的摘要|完整正文只在编辑页|编辑内容 ↗|详情 ↗/);assert.match(html,/data-card-state="selected"/);assert.match(html,/data-foreshadow-linked="true"/);assert.doesNotMatch(html,/<div class="u-strip-meta"/);}});
 test('编辑只注入一个原位二级页，原关系图不卸载或新增第三栏',()=>{for(const mode of ['story','narration']){const html=render(mode,true);assert.equal((html.match(/class="u-timeline-editor-region"/g)||[]).length,1);assert.match(html,/aria-label="返回时间线"/);assert.match(html,/aria-label="测试编辑字段"/);assert.match(html,/class="u-relation-network/);assert.doesNotMatch(html,/<dialog/);}});
 test('宽屏编辑替换关系栏，窄屏全内容二级页；两者均按实际容器宽度',()=>{assert.match(timelineEditorStyle,/\.sa-workspace\.sa-editing>\.sa-axis-column,\.cuigengji \.sa-workspace\.sa-editing>\.sa-relations-region\{display:none\}/);assert.match(timelineEditorStyle,/@container story-workspace \(min-width:900px\)/);assert.match(timelineEditorStyle,/@container narrative-workspace \(min-width:900px\)/);assert.match(timelineEditorStyle,/grid-template-columns:minmax\(0,1fr\) 360px/);assert.match(timelineEditorStyle,/overflow:auto;overscroll-behavior:contain/);});
-test('复用原CardEditor保存与未保存确认，拖动不会打开编辑',async()=>{const base=new URL('../vendor/cuigengji/src/client/features/planning/',import.meta.url),source=await readFile(new URL('UnifiedPlanning.jsx',base),'utf8'),story=await readFile(new URL('StoryTimeAxis.jsx',base),'utf8'),narration=await readFile(new URL('UnifiedTimeline.jsx',base),'utf8');assert.match(source,/const Frame=embedded\?TimelineCardEditorShell:Modal/);assert.match(source,/save=\{editSave\}/);assert.match(source,/editorGuard.current&&!await editorGuard.current\(\)/);assert.match(story,/if\(!dragged.current\)\{setSelected\(card.id\);setCursor\(t.start\);open\(card\)/);assert.match(narration,/if\(!pointerDragged.current\)\{setSelected\(item.card.id\);setCursor\(item.start\);open\(item.card\)/);assert.match(source,/日期修改随本次“保存”一起提交/);});
+test('复用原CardEditor保存与未保存确认，拖动不会打开编辑',async()=>{const base=new URL('../vendor/cuigengji/src/client/features/planning/',import.meta.url),source=await readFile(new URL('UnifiedPlanning.jsx',base),'utf8'),story=await readFile(new URL('StoryTimeAxis.jsx',base),'utf8'),narration=await readFile(new URL('UnifiedTimeline.jsx',base),'utf8');assert.match(source,/const Frame=embedded\?TimelineCardEditorShell:Modal/);assert.match(source,/save=\{editSave\}/);assert.match(source,/editorGuard.current&&!await editorGuard.current\(\)/);assert.match(source,/日期修改随本次“保存”一起提交/);});
+
+test('编辑面板明确标示编辑状态并提供常驻保存、取消、关闭入口',()=>{for(const mode of ['story','narration']){const html=render(mode,true);assert.match(html,/正在编辑剧情卡/);assert.match(html,/剧情卡编辑面板/);assert.match(html,/取消编辑/);assert.match(html,/关闭 ×/);assert.match(html,/编辑中暂不能移动卡片，请先保存或取消编辑。/);assert.match(html,/class="u-timeline-editor-actions"/);}});
+
+// Execute the shipped card handler expressions with controlled dependencies. This
+// covers handler behavior, not browser dispatch/capture (covered by CUA separately).
+test('实际卡片处理器：单击只选择、双击编辑、拖动后不误开编辑',async()=>{
+ const base=new URL('../vendor/cuigengji/src/client/features/planning/',import.meta.url);
+ for(const [file,marker,refName] of [['StoryTimeAxis.jsx','data-story-card=','dragged'],['UnifiedTimeline.jsx','data-time-item=','pointerDragged']]){
+  const source=await readFile(new URL(file,base),'utf8'),cardSource=source.slice(source.indexOf(marker));
+  const expressions=['onClick','onDoubleClick'].map(name=>{const match=cardSource.match(new RegExp(name+'=\\{([\\s\\S]*?)\\} (?=on[A-Z])'));assert.ok(match,name);return match[1];});
+  const card={id:'c'},item={card,start:42},t={start:42},ref={current:false},calls=[];
+  let selectionAllowed=true;
+  const scope={card,item,t,[refName]:ref,editor:null,marquee:{select:(id,add)=>{calls.push(['select',id,!!add]);return selectionAllowed;}},setCursor:value=>calls.push(['cursor',value]),open:value=>calls.push(['open',value.id])};
+  const [click,doubleClick]=expressions.map(expression=>new Function(...Object.keys(scope),'return ('+expression+');')(...Object.values(scope)));
+  const event={shiftKey:false,ctrlKey:false,metaKey:false,target:{closest:()=>null}};
+  click(event);assert.deepEqual(calls,[['select','c',false],['cursor',42]]);
+  calls.length=0;doubleClick(event);assert.deepEqual(calls,[['open','c']]);
+  calls.length=0;ref.current=true;click(event);doubleClick(event);assert.deepEqual(calls,[]);
+  ref.current=false;selectionAllowed=false;click(event);assert.deepEqual(calls,[['select','c',false]],'edit-lock selection refusal cannot move cursor');
+ }
+});

@@ -4,3 +4,5 @@ export function relationPoint(rect,x,y){const scale=Math.min(rect.width/460,rect
 export function zoomRelation(view,next,point={x:230,y:170}){const zoom=clampRelationZoom(next),ratio=zoom/view.zoom;return {zoom,offset:{x:point.x-230-(point.x-230-view.offset.x)*ratio,y:point.y-170-(point.y-170-view.offset.y)*ratio}};}
 export function relationSidebarWidth(width,ratio=1/3){return Math.max(280,Math.min(Math.max(280,width-440),width*Math.max(.2,Math.min(.6,ratio))));}
 export function relationSidebarKey(novelId,mode){return `moji:relation-sidebar:${novelId}:${mode}`;}
+
+export const relationSidebarLayout=width=>width>=900?'wide':'pages';

@@ -33,3 +33,11 @@ for(const [name,g] of [['live',live],['legacy',legacy]]){
   assert.equal(g.fitCamera([],500,500),null);assert.equal(g.fitCamera(rects,0,500),null);
  });
 }
+
+for(const [name,g] of [['live',live],['legacy',legacy]])test(`${name}: overview connection gate has a stable 60% boundary and bounded targets`,()=>{
+ assert.equal(g.CONNECTION_MIN_ZOOM,.6);
+ for(const zoom of [g.MIN_ZOOM,.01,.1,.35,.599999,0,NaN,Infinity])assert.equal(g.connectionPortsEnabled(zoom),false);
+ for(const zoom of [.6,.600001,1,1.8])assert.equal(g.connectionPortsEnabled(zoom),true);
+ for(const zoom of [g.MIN_ZOOM,.01,.35,.6,1,1.8,NaN])assert.ok(g.connectionHitScale(zoom)<=1/.6);
+ assert.equal(g.connectionHitScale(1),1);assert.ok(Math.abs(g.connectionHitScale(.6)*44*.6-44)<1e-10);
+});

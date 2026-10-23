@@ -39,16 +39,16 @@ try{
   assert.ok((await page.evaluate(()=>window.nativeInject)).includes('sessions'));
   assert.equal(await page.getByRole('dialog').count(),0,'连接面板默认隐藏');
   assert.equal(await page.getByRole('button',{name:'打开墨叽'}).getByAltText('烟灰蛸').count(),1);
-  await page.getByRole('button',{name:'连接设置',exact:true}).click();await page.getByRole('radio',{name:/个人云端/}).click();await page.getByLabel('个人云端地址').fill('https://cloud.example');await page.getByRole('button',{name:'保存并切换'}).click();
+  await page.getByRole('button',{name:'工作台更多功能'}).click();await page.getByRole('button',{name:'本地 / 云端',exact:true}).click();await page.getByRole('radio',{name:/个人云端/}).click();await page.getByLabel('个人云端地址').fill('https://cloud.example');await page.getByRole('button',{name:'保存并切换'}).click();
   await page.getByText('同一云端测试作品',{exact:true}).first().waitFor();
   assert.equal(await page.getByText('本机原生测试作品',{exact:true}).count(),0);
   assert.deepEqual(errors,[]);assert.ok(calls.includes('connection.configure'));assert.ok(calls.includes('binding.get'));
   assert.equal(await page.getByRole('dialog').count(),0,'连接后收起设置');
   await mkdir(join(root,'.data/dsh-candidate'),{recursive:true});await page.screenshot({path:join(root,'.data/dsh-candidate/native-ui.png'),fullPage:true});
-  await page.getByRole('button',{name:'连接设置',exact:true}).click();await page.screenshot({path:join(root,'.data/dsh-candidate/native-connection.png'),fullPage:true});
-  await page.keyboard.press('Escape');assert.equal(await page.getByRole('dialog').count(),0);assert.equal(await page.getByRole('button',{name:'连接设置',exact:true}).evaluate(el=>el===document.activeElement),true);
-  await page.setViewportSize({width:360,height:760});await page.getByRole('button',{name:'连接设置',exact:true}).click();
+  await page.getByRole('button',{name:'工作台更多功能'}).click();await page.getByRole('button',{name:'本地 / 云端',exact:true}).click();await page.screenshot({path:join(root,'.data/dsh-candidate/native-connection.png'),fullPage:true});
+  await page.keyboard.press('Escape');assert.equal(await page.getByRole('dialog').count(),0);assert.equal(await page.getByRole('button',{name:'工作台更多功能'}).evaluate(el=>el===document.activeElement),true);
+  await page.setViewportSize({width:360,height:760});await page.getByRole('button',{name:'工作台更多功能'}).click();await page.getByRole('button',{name:'本地 / 云端',exact:true}).click();
   assert.equal(await page.getByRole('dialog').evaluate(el=>el.scrollWidth<=el.clientWidth),true,'窄侧栏中面板不横向溢出');await page.screenshot({path:join(root,'.data/dsh-candidate/native-connection-narrow.png'),fullPage:true});
-  await page.getByRole('button',{name:'关闭连接设置'}).click();assert.equal(await page.getByRole('dialog').count(),0);
+  await page.getByRole('button',{name:'关闭本地与云端设置'}).click();assert.equal(await page.getByRole('dialog').count(),0);
   console.log(JSON.stringify({ok:true,shippedBundle:true,localAndCloud:true,launcher:true,pageErrors:errors.length}));
 }finally{await browser?.close();await runtime.close();await new Promise(resolve=>server.close(resolve));}
