@@ -4,7 +4,7 @@ import {timelineToolbarStyle} from './timeline-toolbar-style.mjs';
 export const timelineMenuAvailableHeight=({top,columnBottom,viewportBottom})=>Math.max(0,Math.floor(Math.min(columnBottom,viewportBottom)-top-8));
 
 /** Shared presentation only. Each axis owns its projection, cursor and mutations. */
-export function TimelineToolbar({mode,onModeChange,disabled=false,actionsDisabled=false,createActions=[],onLocate,zoomLabel,onZoomOut,onZoomIn,zoomOutDisabled=false,zoomInDisabled=false,moreActions=[],menuContent=null}){
+export function TimelineToolbar({mode,onModeChange,disabled=false,actionsDisabled=false,createActions=[],onLocate,zoomLabel,onZoomOut,onZoomIn,zoomOutDisabled=false,zoomInDisabled=false,moreActions=[],menuContent=null,onRelations,selectionTools=null}){
  const root=useRef(null);
  const fitMenu=menu=>{
   const popup=menu.querySelector('.timeline-toolbar-popover');if(!popup)return;
@@ -35,8 +35,10 @@ export function TimelineToolbar({mode,onModeChange,disabled=false,actionsDisable
  return <header className="timeline-toolbar" ref={root} onKeyDown={escape}><style>{timelineToolbarStyle}</style>
   <div className="timeline-toolbar-modes" role="group" aria-label="时间线坐标">{[['narration','叙述顺序'],['story','故事时间']].map(([id,label])=><button type="button" key={id} aria-pressed={mode===id} disabled={disabled} onClick={()=>{closeMenus();if(mode!==id)onModeChange?.(id);}}>{label}</button>)}</div>
   <div className="timeline-toolbar-actions">
+   {onRelations&&<button type="button" className="timeline-toolbar-relations" aria-label="查看人物关系" disabled={disabled} onClick={()=>{closeMenus();onRelations();}}>人物关系</button>}
+   {selectionTools}
    {createActions.length>0&&menu('新建时间线内容',createActions,null,'create')}
-   {onLocate&&<button type="button" aria-label="定位时间指针" disabled={disabled} onClick={onLocate}>定位</button>}
+   {onLocate&&<button type="button" className="timeline-toolbar-locate" aria-label="定位时间指针" disabled={disabled} onClick={onLocate}>定位</button>}
    {(onZoomOut||onZoomIn||zoomLabel!=null)&&<div className="timeline-toolbar-zoom" role="group" aria-label="时间线缩放"><button type="button" aria-label="缩小时间线" disabled={disabled||zoomOutDisabled||!onZoomOut} onClick={onZoomOut}>−</button><span title="滚轮或加减按钮缩放">{zoomLabel}</span><button type="button" aria-label="放大时间线" disabled={disabled||zoomInDisabled||!onZoomIn} onClick={onZoomIn}>＋</button></div>}
    {(moreActions.length>0||menuContent)&&menu('时间线更多操作',moreActions,menuContent,'more')}
   </div>

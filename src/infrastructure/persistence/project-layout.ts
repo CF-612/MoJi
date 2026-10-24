@@ -26,11 +26,15 @@ const invalidFileCharacterTest = /[<>:"/\\|?*\u0000-\u001f\u007f]/;
 const reservedFileStem = /^(con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i;
 export const managedFileKey = (name: string) => name.normalize('NFC').toLowerCase();
 
+// Reserve room under a 255-byte component limit for FileTransaction's
+// `.${name}.stage-${uuid}` temporary name (44 extra UTF-8 bytes).
+export const MANAGED_FILE_BYTE_LIMIT = 200;
 function shortenFileStem(stem: string, suffix: string) {
-  let result = '';
+  let result = '', bytes = Buffer.byteLength(suffix, 'utf8');
   for (const character of stem) {
-    if (result.length + character.length + suffix.length > 120) break;
-    result += character;
+    const characterBytes = Buffer.byteLength(character, 'utf8');
+    if (result.length + character.length + suffix.length > 120 || bytes + characterBytes > MANAGED_FILE_BYTE_LIMIT) break;
+    result += character; bytes += characterBytes;
   }
   return (result.replace(/[ .]+$/g, '') || '未命名') + suffix;
 }
@@ -89,7 +93,7 @@ export function namedChapterFiles(chapters: Record<string, Row>, previous: Recor
   for (const [id, chapter] of Object.entries(chapters)) {
     const old = previous[id]?.file;
     const sameTitle = previous[id]?.metadata?.title === chapter.title;
-    if (validManagedFileName(old) && sameTitle && !claimed.has(managedFileKey(old))) {
+    if (validManagedFileName(old) && Buffer.byteLength(old, 'utf8') <= MANAGED_FILE_BYTE_LIMIT && sameTitle && !claimed.has(managedFileKey(old))) {
       result[id] = old; claimed.add(managedFileKey(old)); continue;
     }
     result[id] = uniqueFileName(chapter.title, id, '未命名章节', used);
@@ -103,7 +107,7 @@ export function namedSettingFiles(nodes: Record<string, Row>, previous: Record<s
   for (const [id, node] of Object.entries(nodes)) {
     const old = previous[id]?.file, type = node.type === 'character_card' ? '角色' : '世界';
     const sameName = previous[id]?.name === node.name;
-    if (validManagedFileName(old) && sameName && previous[id]?.type === node.type && !claimed.has(managedFileKey(old))) {
+    if (validManagedFileName(old) && Buffer.byteLength(old, 'utf8') <= MANAGED_FILE_BYTE_LIMIT && sameName && previous[id]?.type === node.type && !claimed.has(managedFileKey(old))) {
       result[id] = old; claimed.add(managedFileKey(old)); continue;
     }
     result[id] = uniqueFileName(type + '-' + node.name, id, '未命名设定', used);
@@ -149,7 +153,7 @@ export function planningPageFiles(board: Row, previous?: PlanningIndex | null, o
     // The previous file may carry a collision suffix such as “（2）”; the
     // page metadata is the source of truth for deciding whether its name
     // still matches, so a repeated save keeps the same physical file.
-    if (validManagedFileName(old) && oldLabel === label && !claimed.has(managedFileKey(old))) {
+    if (validManagedFileName(old) && Buffer.byteLength(old, 'utf8') <= MANAGED_FILE_BYTE_LIMIT && oldLabel === label && !claimed.has(managedFileKey(old))) {
       result[pageKey(pageId)] = old; claimed.add(managedFileKey(old)); continue;
     }
     result[pageKey(pageId)] = uniqueFileName(label, id, pageId === null ? '主线' : '未命名页面', used, pageId === null ? 'main' : shortFileId(pageId));

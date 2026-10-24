@@ -15,7 +15,7 @@ export interface Preferences {
   cardColors: Record<string,string>;
   numbering: 'chinese'|'arabic';
   fontSize: number; leading: number; directory: boolean;
-  fontFamily:string; fontColor:string; fontWeight:number; fontItalic:boolean; fontUnderline:boolean; letterSpacing:number; titleAlign:string; pageMargin:number; mobilePageMargin:number; bottomSpace:number; showInfoBar:boolean; transparentTitle:boolean; countPunctuation:boolean; wordCountPosition:string; backdropBlur:boolean; openAtEnd:boolean; quickInput:boolean; pairedPunctuation:boolean; writingSpeed:boolean; writingSpeedCompact:boolean;
+  fontFamily:string; fontColor:string; fontWeight:number; fontItalic:boolean; fontUnderline:boolean; letterSpacing:number; titleAlign:string; pageMargin:number; mobilePageMargin:number; bottomSpace:number; showInfoBar:boolean; transparentTitle:boolean; countPunctuation:boolean; wordCountPosition:string; backdropBlur:boolean; openAtEnd:boolean; quickInput:boolean; pairedPunctuation:boolean; writingSpeed:boolean; writingSpeedCompact:boolean; writingSpeedDisplay:'banner'|'floating';
   planningView: 'canvas' | 'outline' | 'timeline'; memoryView: 'canvas' | 'list'; motion: 'system' | 'reduce';
 }
 export const defaults: Preferences = { ...editorDefaults, modules:normalizeModules(), numbering:'chinese', theme:'system', cardColors: {...defaultCardColors}, fontSize: 18, leading: 1.95, directory: true, planningView: 'timeline', memoryView: 'list', motion: 'system' };

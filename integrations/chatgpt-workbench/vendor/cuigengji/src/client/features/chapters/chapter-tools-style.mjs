@@ -27,4 +27,12 @@ html[data-host-platform=mobile][data-host-mode=fullscreen] .cuigengji .chapter-t
 .cuigengji .chapter-bookinfo-count{flex:none;white-space:nowrap}.cuigengji .chapter-bookinfo-count .wordcount-mode{display:none}
 .cuigengji .chapter-main .chapter-footer>.chapter-save-status{display:block;flex:none;font-size:inherit;line-height:1.6;white-space:nowrap}.cuigengji .chapter-main .chapter-footer>.chapter-save-status[data-expanded=true]{flex:1 0 100%;white-space:normal;overflow-wrap:anywhere}
 .cuigengji .chapter-footer .chapter-saved-mark{font-size:12px}.cuigengji .chapter-footer .chapter-save-retry{min-height:28px;font-size:11px}
+
+.cuigengji{--linked-character:var(--card-character,#4b83da);--linked-world:var(--card-world,#d99548);--linked-card:var(--card-written,#16a34a);--linked-foreshadow:light-dark(#8981c8,#b6a9ef)}
+.cuigengji .prose-match-layer mark[data-linked=true]:not([data-prose-match]){box-shadow:none;outline:none}
+.cuigengji .chapter-highlight-key{display:inline-flex;gap:8px;flex-wrap:wrap;margin-left:8px}.cuigengji .chapter-highlight-key span{border-bottom:2px solid var(--linked-tone);line-height:1.4}
+.cuigengji .chapter-ribbon-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.cuigengji .chapter-ribbon-heading h3{margin:0}
+.cuigengji .chapter-ribbon-heading button{min-height:36px;padding:6px 9px;font-size:12px;background:var(--cg-paper);border:1px solid var(--cg-line);border-radius:8px;color:var(--cg-accent)}
+.cuigengji .chapter-highlight-status{font-size:11px;color:var(--cg-muted);margin:5px 0 10px}
 `;

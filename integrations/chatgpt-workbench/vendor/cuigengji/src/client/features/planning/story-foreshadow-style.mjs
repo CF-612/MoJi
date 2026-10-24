@@ -11,4 +11,15 @@ export const foreshadowStyle=`
 @container(max-width:650px){.sf-card>header{grid-template-columns:34px minmax(0,1fr) 58px;gap:10px}.sf-card .sf-toggle{grid-column:3;grid-row:1;padding:4px;min-height:36px;font-size:11px}.sf-summary{gap:7px}.sf-summary .sf-status{grid-column:auto;font-size:10px}.sf-summary>small{font-size:10px}.sf-card[data-expanded=false]>header{padding:14px}.sf-card[data-expanded=false] .sf-title h3{font-size:14px}.sf-card .sf-title h3{overflow-wrap:anywhere}}
 @media(prefers-reduced-motion:reduce){.sf-toggle svg{transition:none}}
 
+
+@container(max-width:600px){
+ .cuigengji .sf-page{padding:8px 8px 20px}
+ .cuigengji .sf-toolbar{gap:8px;margin-bottom:8px}
+ .cuigengji .sf-toolbar small{display:none}
+ .cuigengji .sf-toolbar h2{font-size:18px;margin:0}
+ .cuigengji .sf-controls{gap:4px;margin-bottom:8px}
+ .cuigengji .sf-controls>input{min-height:36px;padding:6px 10px}
+ .cuigengji .sf-filters{width:100%;flex-wrap:nowrap;overflow-x:auto}
+ .cuigengji .sf-filters button{flex:none;min-height:36px;padding:6px 8px}
+}
 `;

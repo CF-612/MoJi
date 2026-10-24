@@ -39,3 +39,10 @@ test('live graph right-blank marquee retains selected refs for context menu with
  const h=fixture(t);let graph=h.render();graph.scrollProps.onPointerDown(h.event(new Target(),{button:2,clientX:-10,clientY:-10}));graph.scrollProps.onPointerMove(h.event(new Target(),{button:2,clientX:700,clientY:300}));graph.scrollProps.onPointerUp(h.event(new Target(),{button:2,clientX:700,clientY:300}));graph=h.render();assert.deepEqual(graph.selected,['a','b']);assert.equal(h.contexts.length,0);
  graph.scrollProps.onPointerDown(h.event(new Target(),{button:2,clientX:900,clientY:400}));graph.scrollProps.onPointerUp(h.event(new Target(),{button:2,clientX:900,clientY:400}));assert.deepEqual(h.contexts[0].selected,['a','b']);
 });
+test('touch long press opens the same anchored card context without editor activation',async t=>{
+ const h=fixture(t);let graph=h.render(),opened=[];graph.cardProps('a',()=>opened.push('a'));
+ graph.scrollProps.onPointerDown(h.event(new Target('a'),{pointerType:'touch',clientX:30,clientY:40}));
+ await new Promise(resolve=>setTimeout(resolve,550));
+ assert.equal(h.contexts.length,1);assert.deepEqual(h.contexts[0].selected,['a']);assert.equal(h.contexts[0].x,30);assert.equal(h.contexts[0].y,40);
+ graph.scrollProps.onPointerUp(h.event(h.viewport,{pointerType:'touch'}));await Promise.resolve();assert.deepEqual(opened,[]);
+});

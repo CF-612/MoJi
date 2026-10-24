@@ -11,10 +11,10 @@ import {legacyCanvasSvg} from '../vendor/cuigengji/src/client/shared/canvas-expo
 import {planningConnection,planningSvg,planningPalette} from '../vendor/cuigengji/src/client/shared/planning-canvas-geometry.mjs';
 const root=new URL('../../../',import.meta.url).pathname,ui=new URL('../vendor/cuigengji/src/client/',import.meta.url).pathname;
 const source=ui+'features/planning/UnifiedPlanning.jsx',folder=await mkdtemp(join(tmpdir(),'moji-planning-ui-'));
-const stub=`export const useModules=()=>globalThis.testPlanningModules||({pages:true,timeline:true,foreshadow:true,evolution:true}),useDialog=()=>globalThis.testPlanningDialog||({ask:async()=>null,confirm:async()=>true}),useRelationClock=()=>({}),useResource=()=>({value:[]}),useWorkbenchPreferences=()=>({preferences:globalThis.testPlanningPreferences||{planningView:'timeline'}}),usePreference=(key,value)=>globalThis.testPlanningPreferenceHook?globalThis.testPlanningPreferenceHook(key,value):[key.endsWith('area')?'canvas':value,()=>{}],SessionScope={};
+const stub=`export const useModules=()=>globalThis.testPlanningModules||({pages:true,timeline:true,foreshadow:true,evolution:true}),useDialog=()=>globalThis.testPlanningDialog||({ask:async()=>null,confirm:async()=>true}),useRelationClock=()=>globalThis.testPlanningRelationClock||({}),useResource=()=>({value:[]}),useWorkbenchPreferences=()=>({preferences:globalThis.testPlanningPreferences||{planningView:'timeline'}}),usePreference=(key,value)=>globalThis.testPlanningPreferenceHook?globalThis.testPlanningPreferenceHook(key,value):[key.endsWith('area')?'canvas':value,()=>{}],SessionScope={};
 export const PositionFields=()=>null,TimelineCardEditorShell=()=>null,InternalPoints=()=>null,CanvasExport=()=>null,RelationPointManager=()=>null,Modal=()=>null,GraphControls=()=>null,CastAvatars=()=>null,CardChapterLinks=()=>null,Foreshadows=()=>null,PlotForeshadows=()=>null,UnifiedTimeline=()=>null,StoryTimeAxis=()=>null,Icon=()=>null,PlanningToolsDialog=()=>null,PlanningToolGroup=()=>null;
 export const relationEditStyle='',foreshadowStyle='',unifiedStoryStyle='',useGraph=options=>globalThis.testPlanningGraph?.(options)||({}),curve=()=>'',CARD_WIDTH=248,CARD_HEIGHT=208,narrationChapters=()=>[];`;
-await build({stdin:{contents:`export{UnifiedPlanning,UnifiedCanvas}from${JSON.stringify(source)};import React from'react';export{React};`,resolveDir:root},outfile:join(folder,'ui.cjs'),bundle:true,platform:'node',format:'cjs',alias:{react:root+'node_modules/react'},plugins:[{name:'contexts-only',setup(b){b.onResolve({filter:/.*/},a=>a.importer===source&&!a.path.startsWith('react')&&!/planning-selection\.mjs|outline-fold-preference\.mjs|story-event-draft\.mjs|OutlineRow\.jsx|outline-row-style\.mjs|outline-row-interaction\.mjs|story-tracks\.mjs|story-workspace\.mjs|story-create-intent\.mjs|planning-canvas-geometry\.mjs|planning-card-presentation\.mjs|resource-error\.mjs|drafts\.js/.test(a.path)?{path:'contexts',namespace:'qa'}:undefined);b.onLoad({filter:/.*/,namespace:'qa'},()=>({contents:stub}));}}]});
+await build({stdin:{contents:`export{UnifiedPlanning,UnifiedCanvas}from${JSON.stringify(source)};import React from'react';export{React};`,resolveDir:root},outfile:join(folder,'ui.cjs'),bundle:true,platform:'node',format:'cjs',loader:{'.png':'dataurl'},alias:{react:root+'node_modules/react'},plugins:[{name:'contexts-only',setup(b){b.onResolve({filter:/.*/},a=>a.importer===source&&!a.path.startsWith('react')&&!/card-appearance\.tsx|CanvasMenu\.tsx|planning-card-menu\.mjs|planning-selection\.mjs|outline-fold-preference\.mjs|story-event-draft\.mjs|OutlineRow\.jsx|outline-row-style\.mjs|outline-row-interaction\.mjs|story-tracks\.mjs|story-workspace\.mjs|story-create-intent\.mjs|planning-canvas-geometry\.mjs|planning-card-presentation\.mjs|resource-error\.mjs|drafts\.js/.test(a.path)?{path:'contexts',namespace:'qa'}:undefined);b.onLoad({filter:/.*/,namespace:'qa'},()=>({contents:stub}));}}]});
 const require=createRequire(import.meta.url),{UnifiedPlanning,UnifiedCanvas,React}=require(join(folder,'ui.cjs'));
 const all=el=>!el||typeof el!=='object'?[]:[el,...React.Children.toArray(el.props?.children).flatMap(all)];
 const text=el=>typeof el==='string'||typeof el==='number'?String(el):!el||typeof el!=='object'?'':React.Children.toArray(el.props?.children).map(text).join('');
@@ -55,7 +55,7 @@ test('planning survives blocked localStorage getter and ignores malformed cached
 test('actual Generate UI requires opt-in before relayout of all-already-visible hierarchy, preserves unrelated card',async()=>{
  globalThis.localStorage=memoryStorage();globalThis.testPlanningModules={pages:false,timeline:true,foreshadow:true};const sources={volumes:[{id:'v',title:'卷',order:0}],chapters:[{id:'a',title:'甲章',volumeId:'v',order:0},{id:'b',title:'乙章',volumeId:'v',order:1}]};let state=emptyWorkspace();reconcile(state,sources);state=applyStory(state,sources,{type:'card.create',value:{title:'自由卡'},pageId:'main',position:{x:999,y:111}},()=> 'loose');for(const [i,ref]of Object.keys(objectIndex(state,sources)).entries())if(!state.pages[0].instances[ref])state=applyStory(state,sources,{type:'instance.add',ref,pageId:'main',position:{x:30,y:50+i*250}},()=> 'unused');
  const before=structuredClone(state),writes=[],ui=mount(async(action,args)=>{writes.push(args);state=applyStory(state,sources,args.operation,()=> 'unused');return {state,sources,history:[{revision:state.revision,at:Date.now(),reason:'generation'}]};},'synthetic-generate',{state,sources,history:[]});
- all(ui.render()).find(e=>e.type==='button'&&text(e).includes('生成大纲视图')).props.onClick();assert.equal(ui.button('确认生成').props.disabled,true);assert.ok(text(ui.render()).includes('尚未选择重排范围'));const checkbox=all(ui.render()).find(e=>e.type==='input'&&e.props.type==='checkbox');assert.ok(checkbox);checkbox.props.onChange({target:{checked:true}});assert.equal(ui.button('确认生成').props.disabled,false);await ui.button('确认生成').props.onClick();assert.equal(writes.length,1);assert.equal(writes[0].operation.pageId,'main');assert.equal(writes[0].operation.adoptHierarchy,true);assert.equal(writes[0].expectedRevision,before.revision);assert.deepEqual(state.pages[0].instances['card:loose'],before.pages[0].instances['card:loose']);assert.equal(state.pages[0].instances['chapter:a'].y,state.pages[0].instances['chapter:b'].y);delete globalThis.testPlanningModules;
+ all(ui.render()).find(e=>e.type==='button'&&e.props['aria-label']==='规划更多操作').props.onClick();ui.button('生成大纲视图').props.onClick();assert.equal(ui.button('确认生成').props.disabled,true);assert.ok(text(ui.render()).includes('尚未选择重排范围'));const checkbox=all(ui.render()).find(e=>e.type==='input'&&e.props.type==='checkbox');assert.ok(checkbox);checkbox.props.onChange({target:{checked:true}});assert.equal(ui.button('确认生成').props.disabled,false);await ui.button('确认生成').props.onClick();assert.equal(writes.length,1);assert.equal(writes[0].operation.pageId,'main');assert.equal(writes[0].operation.adoptHierarchy,true);assert.equal(writes[0].expectedRevision,before.revision);assert.deepEqual(state.pages[0].instances['card:loose'],before.pages[0].instances['card:loose']);assert.equal(state.pages[0].instances['chapter:a'].y,state.pages[0].instances['chapter:b'].y);delete globalThis.testPlanningModules;
 });
 
 test('unrelated material graph export keeps relationship names instead of reclassifying them as plot precedence',()=>{
@@ -86,7 +86,7 @@ test('generation focuses committed canvas nodes once, never stale nodes or ordin
  const before=structuredClone(state),ui=mount(async(action,args)=>{state=applyStory(state,sources,args.operation,()=> 'generated');return {state,sources,history:[]};},'focus',{state,sources,history:[]});
  const canvas=()=>all(ui.render()).find(e=>e.type===UnifiedCanvas);
  assert.equal(canvas().props.generationFocus,null);
- all(ui.render()).find(e=>e.type==='button'&&text(e).includes('生成大纲视图')).props.onClick();
+ all(ui.render()).find(e=>e.type==='button'&&e.props['aria-label']==='规划更多操作').props.onClick();ui.button('生成大纲视图').props.onClick();
  await ui.button('确认生成').props.onClick();
  const props=canvas().props;assert.deepEqual(props.generationFocus,{pageId:'main',revision:state.revision});
  const effects=[],fits=[];let selected=['card:loose'],rendered=false;
@@ -111,7 +111,7 @@ test('generation requests only the explicit successful destination, never a fail
    let state=emptyWorkspace();reconcile(state,sources);const before=structuredClone(state),destinations=[];
    globalThis.testPlanningPreferenceHook=(key,fallback)=>[key.endsWith('v31-area')?'canvas':fallback,value=>{if(key.endsWith('v31-page'))destinations.push(value);}];
    const ui=mount(async(action,args)=>{if(fail)throw new Error('save rejected');state=applyStory(state,sources,args.operation,()=> 'dedicated');return {state,sources,history:[]};},`destination-${dedicated}-${fail}`,{state,sources,history:[]});
-   all(ui.render()).find(e=>e.type==='button'&&text(e).includes('生成大纲视图')).props.onClick();await ui.button('确认生成').props.onClick();
+   all(ui.render()).find(e=>e.type==='button'&&e.props['aria-label']==='规划更多操作').props.onClick();ui.button('生成大纲视图').props.onClick();await ui.button('确认生成').props.onClick();
    const canvas=all(ui.render()).find(e=>e.type===UnifiedCanvas);
    if(fail){assert.equal(canvas.props.generationFocus,null);assert.deepEqual(destinations,[]);assert.deepEqual(state,before);}
    else{const destination=dedicated?state.pages.find(p=>p.generated).id:'main';assert.equal(canvas.props.generationFocus.pageId,destination);assert.deepEqual(destinations,dedicated?[destination]:[]);if(dedicated)assert.deepEqual(state.pages[0],before.pages[0],'dedicated generation leaves free page untouched');}
@@ -168,4 +168,47 @@ test('empty custom group explains how to add members rather than offering an ine
  holder.current={useState:value=>[value,()=>{}],useRef:value=>({current:value}),useEffect:()=>{}};let view;
  try{view=UnifiedCanvas({state,sources,objects:objectIndex(state,sources),page:state.pages[0],people:[],groups:state.groups,groupFilter:'empty',groupsEnabled:true,save:async()=>true});}finally{holder.current=null;delete globalThis.testPlanningGraph;}
  assert.match(text(view),/此分组在本页暂无内容/);assert.doesNotMatch(text(view),/内容在视野外/);assert.equal(all(view).filter(e=>e.type==='button'&&text(e)==='适应视图').length,0);
+});
+
+
+test('both timeline axes reuse protected selected-only deletion, confirmation, cancellation and editing guard',async()=>{
+ globalThis.localStorage=memoryStorage();globalThis.testPlanningPreferenceHook=(key,value)=>[key.endsWith('v31-area')?'timeline':value,()=>{}];
+ try{
+  for(const mode of ['story','narration']){
+   globalThis.testPlanningRelationClock={mode};
+   const sources={volumes:[{id:'v',title:'Volume',order:0}],chapters:[{id:'c',title:'Chapter',volumeId:'v',order:0}]};
+   let state=emptyWorkspace();reconcile(state,sources);for(const id of ['a','b','keep'])state=applyStory(state,sources,{type:'card.create',value:{title:id},pageId:'main'},()=>id);
+   const writes=[],confirmations=[];let accept=false;
+   globalThis.testPlanningDialog={ask:async()=>null,confirm:async message=>(confirmations.push(message),accept)};
+   const ui=mount(async(action,args)=>{writes.push(args);state=applyStory(state,sources,args.operation,()=> 'new');return {state,sources,history:[]};},`timeline-delete-${mode}`,{state,sources,history:[]});
+   const timeline=()=>all(ui.render()).find(e=>e.type?.name===(mode==='story'?'StoryTimeAxis':'UnifiedTimeline'));
+   assert.equal(typeof timeline().props.onDelete,'function');
+   const before=structuredClone(state),refs=['volume:v','chapter:c','card:a','card:b'];
+   assert.equal(await timeline().props.onDelete(refs),false);assert.equal(writes.length,0);assert.deepEqual(state,before,'cancel does not delete or mutate selection sources');
+   accept=true;assert.equal(await timeline().props.onDelete(refs),true);
+   assert.equal(writes.length,1);assert.deepEqual(writes[0].operation,{type:'card.deleteMany',ids:['a','b']});
+   assert.match(confirmations.at(-1),/2 个正文卷／章节将保留/);assert.match(confirmations.at(-1),/撤销规划修改/);
+   assert.ok(state.cards.keep);assert.ok(state.placements['volume:v']);assert.ok(state.placements['chapter:c']);assert.equal(state.cards.a,undefined);assert.equal(state.cards.b,undefined);
+   timeline().props.open(state.cards.keep);assert.ok(timeline().props.editor,'draft editor is open');
+   assert.equal(await timeline().props.onDelete(['card:keep']),false);assert.equal(writes.length,1);assert.ok(state.cards.keep,'editing guard never discards an open draft');
+  }
+ }finally{delete globalThis.testPlanningRelationClock;delete globalThis.testPlanningPreferenceHook;delete globalThis.testPlanningDialog;}
+});
+
+test('both timeline undo callbacks use persisted story history and restore exact deleted cards and placements',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'moji-timeline-undo-')),service=await createService(dir),novelId=service.novelId;
+ const call=(action,args={})=>service.rpc(action,{novelId,...args},'timeline-undo-test','human');
+ globalThis.localStorage=memoryStorage();globalThis.testPlanningPreferenceHook=(key,value)=>[key.endsWith('v31-area')?'timeline':value,()=>{}];globalThis.testPlanningDialog={confirm:async()=>true,ask:async()=>null};
+ try{
+  let data=await call('story.get');
+  for(const title of ['restore-a','restore-b','untouched'])data=await call('story.apply',{expectedRevision:data.state.revision,operation:{type:'card.create',value:{title},pageId:'main',position:{x:123,y:456}}});
+  for(const mode of ['story','narration']){
+   globalThis.testPlanningRelationClock={mode};const before=structuredClone(data.state),ids=Object.values(data.state.cards).filter(c=>c.title.startsWith('restore-')).map(c=>c.id);
+   const ui=mount(async(action,args)=>{data=await call(action,args);return data;},novelId,data),timeline=()=>all(ui.render()).find(e=>e.type?.name===(mode==='story'?'StoryTimeAxis':'UnifiedTimeline'));
+   assert.equal(await timeline().props.onDelete(ids.map(id=>'card:'+id)),true);assert.equal(timeline().props.canUndo,true);
+   const persisted=await call('story.get');for(const id of ids)assert.equal(persisted.state.cards[id],undefined);
+   await timeline().props.onUndo();const restored=(await call('story.get')).state;
+   assert.deepEqual(restored.cards,before.cards,'undo preserves card identities and all contents/time arrangements');assert.deepEqual(restored.placements,before.placements);assert.deepEqual(restored.pages,before.pages);
+  }
+ }finally{delete globalThis.testPlanningRelationClock;delete globalThis.testPlanningPreferenceHook;delete globalThis.testPlanningDialog;await rm(dir,{recursive:true,force:true});}
 });

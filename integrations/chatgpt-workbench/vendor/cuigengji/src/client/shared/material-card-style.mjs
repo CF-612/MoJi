@@ -4,6 +4,14 @@ export const materialCardStyle=`
 .cuigengji .material-canvas .relation-label .edge-label-content{min-width:0;overflow:hidden}
 
 .cuigengji .material-canvas .setting-card{box-sizing:border-box;padding:12px 14px;border:1px solid color-mix(in srgb,var(--graph-card-tone) 52%,var(--cg-line));border-left:4px solid var(--graph-card-tone);border-radius:12px;background:color-mix(in srgb,var(--graph-card-tone) 13%,var(--cg-paper));box-shadow:0 4px 14px #102c4310;display:grid;grid-template-rows:24px 45px 41px 20px;gap:2px}
+.cuigengji .material-canvas .material-card-avatar{grid-column:1;grid-row:1 / span 2;align-self:end;width:56px;height:56px;border-radius:50%;display:grid;place-items:center;overflow:hidden;pointer-events:none;user-select:none;background:#fff;color:#263445;font-size:26px;font-weight:600;border:1px solid #8492a6;box-sizing:border-box}
+.cuigengji .material-canvas .material-card-avatar img{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none}
+.cuigengji .material-canvas .material-card-identity{grid-row:1 / span 2;display:grid;grid-template-rows:18px auto;gap:2px 10px;align-content:start;min-width:0}
+.cuigengji .material-canvas .material-card-identity.with-avatar{grid-template-columns:56px minmax(0,1fr)}
+.cuigengji .material-canvas .material-card-identity.with-avatar .graph-card-kind,.cuigengji .material-canvas .material-card-identity.with-avatar .planning-title{grid-column:2}
+.cuigengji .material-canvas .material-card-identity .graph-card-kind{min-height:18px;padding-right:24px}
+.cuigengji .material-canvas .material-card-identity.with-avatar .planning-title{box-sizing:border-box;width:calc(100% - 32px);align-self:end;padding:3px 0;min-height:0;max-height:51px;border:0;border-radius:0;background:transparent;color:var(--cg-ink);text-align:left}
+.cuigengji .material-canvas.graph-overview .material-card-identity.with-avatar .planning-title{align-self:end;font-size:18px;line-height:1.25}
 .cuigengji .material-canvas .setting-card::before{display:none}
 .cuigengji .material-canvas .setting-card.selected{background:color-mix(in srgb,var(--graph-card-tone) 13%,var(--cg-paper));outline:2px solid var(--cg-accent);outline-offset:3px}
 .cuigengji .material-canvas .setting-card .graph-card-kind{font-size:10px;font-weight:400;min-height:24px;margin:0;color:var(--cg-muted);padding-right:32px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}

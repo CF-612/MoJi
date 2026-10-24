@@ -23,6 +23,24 @@ export function planningRoute(from,to,rectangles,axis='horizontal',sourceId,targ
  const source=ports?.source||(axis==='vertical'?{x:0,y:1}:{x:1,y:0}),target=ports?.target||(axis==='vertical'?{x:0,y:-1}:{x:-1,y:0});
  const dx=to.x-from.x,dy=to.y-from.y,distance=Math.hypot(dx,dy);
  const sourceGap=dx*source.x+dy*source.y,targetGap=-dx*target.x-dy*target.y;
+ // A reverse cross-row return gets circular, not pointed, turns. This is
+ // endpoint geometry only: other cards never choose or change its route.
+ const across={x:dx-source.x*sourceGap,y:dy-source.y*sourceGap},crossGap=Math.hypot(across.x,across.y);
+ if(sourceGap<0&&targetGap<0&&source.x*target.x+source.y*target.y<-.999&&crossGap>=Math.max(24,distance*.08)){
+  const radius=Math.min(120,crossGap/4,-sourceGap/2),half=crossGap/2,k=.5522847498307936,h=k*radius;
+  const point=(x,y)=>({x:from.x+source.x*x+across.x*y/crossGap,y:from.y+source.y*x+across.y*y/crossGap});
+  const segments=[];let cursor=point(0,0);
+  const curve=(a,b,end)=>{segments.push([cursor,a,b,end]);cursor=end;};
+  const straight=end=>{const dx=end.x-cursor.x,dy=end.y-cursor.y,len=Math.hypot(dx,dy);if(len<1e-8)return;const scale=Math.min(h,len/3)/len;curve({x:cursor.x+dx*scale,y:cursor.y+dy*scale},{x:end.x-dx*scale,y:end.y-dy*scale},end);};
+  curve(point(h,0),point(radius,radius-h),point(radius,radius));
+  straight(point(radius,half-radius));
+  curve(point(radius,half-radius+h),point(h,half),point(0,half));
+  straight(point(sourceGap,half));
+  curve(point(sourceGap-h,half),point(sourceGap-radius,half+radius-h),point(sourceGap-radius,half+radius));
+  straight(point(sourceGap-radius,crossGap-radius));
+  curve(point(sourceGap-radius,crossGap-radius+h),point(sourceGap-h,crossGap),to);
+  return curveResult(segments,true);
+ }
  // Keep the established ordinary curve; shorten only backward-facing handles.
  const handle=gap=>gap<0?Math.min(72,distance*.16):Math.min(240,distance*.42,Math.max(Math.min(28,distance*.28),gap*.5||distance*.28));
  const a={x:from.x+source.x*handle(sourceGap),y:from.y+source.y*handle(sourceGap)},b={x:to.x+target.x*handle(targetGap),y:to.y+target.y*handle(targetGap)};

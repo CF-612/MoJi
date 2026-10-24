@@ -22,17 +22,17 @@
 在项目目录使用 Node.js 24 或更新版本执行：
 
 ```powershell
-npm run package:plugin -- "https://你的实例.workers.dev" --app-id "asdk_app_0123456789abcdef0123456789abcdef"
+npm run package:plugin -- "https://你的实例.workers.dev" --app-id "YOUR_APP_ID"
 ```
 
-上面的 ID 是虚构示例，请换成本人刚创建的应用 ID。URL 可填 HTTPS 根地址或 `/mcp` 地址；只填 URL 会输出步骤说明，不生成包。
+`YOUR_APP_ID` 和网址均为占位符，不是作者实例或应用标识；执行前换成本人刚创建的应用 ID 和实例网址。URL 可填 HTTPS 根地址或 `/mcp` 地址；只填 URL 会输出步骤说明，不生成包。
 
 输出为 `integrations/chatgpt-workbench/cloud/plugin/moji-cloud-update.zip`。包包含品牌资料、原图标和当前应用关联，不包含 `mcp.json`、密钥、小说或旧作者应用 ID。URL 用于提醒核对；实际连接由所选应用 ID 决定，生成器不在线验证二者对应关系。
 
 生成器默认沿用本次实测自动创建的插件名 `dev-<应用ID后缀>`。为核对或兼容其他命名，可先在该插件详情“下载插件 ZIP”，查看 `plugin.json` 或 `.codex-plugin/plugin.json` 中的 `name`，然后显式传入：
 
 ```powershell
-npm run package:plugin -- "https://你的实例.workers.dev" --app-id "asdk_app_0123456789abcdef0123456789abcdef" --plugin-name "导出配置中的name"
+npm run package:plugin -- "https://你的实例.workers.dev" --app-id "YOUR_APP_ID" --plugin-name "导出配置中的name"
 ```
 
 不要用显示名称代替 `name`。更新前核对应用 ID，保留导出备份。包版本是品牌包版本，不是云端软件本体版本。

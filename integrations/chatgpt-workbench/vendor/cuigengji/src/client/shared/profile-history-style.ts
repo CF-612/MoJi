@@ -142,4 +142,10 @@ export const profileHistoryStyles = `
  .cuigengji .profile-fields-panel .savebar{margin:16px -12px -15px;padding:10px 12px}.cuigengji .profile-relation-card{padding:13px 12px}.cuigengji .profile-relation-person{gap:8px}
  .cuigengji .profile-relation-person>.cast-face{width:32px;height:32px}.cuigengji .profile-relation-name{gap:5px}.cuigengji .profile-event-item{padding-left:19px}.cuigengji .profile-event-card{padding:12px}
 }
+
+@container(max-width:600px){
+ .cuigengji .material-library-toolbar{padding:4px 8px;gap:4px}
+ .cuigengji .material-library-views button,.cuigengji .material-library-actions .tool-trigger{min-height:36px}
+ .cuigengji .material-library-query>select{height:36px;min-height:36px}
+}
 `;

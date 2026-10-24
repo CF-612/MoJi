@@ -23,12 +23,30 @@ test('实际卡片处理器：单击只选择、双击编辑、拖动后不误�
   const expressions=['onClick','onDoubleClick'].map(name=>{const match=cardSource.match(new RegExp(name+'=\\{([\\s\\S]*?)\\} (?=on[A-Z])'));assert.ok(match,name);return match[1];});
   const card={id:'c'},item={card,start:42},t={start:42},ref={current:false},calls=[];
   let selectionAllowed=true;
-  const scope={card,item,t,[refName]:ref,editor:null,marquee:{select:(id,add)=>{calls.push(['select',id,!!add]);return selectionAllowed;}},setCursor:value=>calls.push(['cursor',value]),open:value=>calls.push(['open',value.id])};
+  const scope={card,item,t,[refName]:ref,editor:null,multi:false,marquee:{select:(id,add)=>{calls.push(['select',id,!!add]);return selectionAllowed;}},setCursor:value=>calls.push(['cursor',value]),open:value=>calls.push(['open',value.id])};
   const [click,doubleClick]=expressions.map(expression=>new Function(...Object.keys(scope),'return ('+expression+');')(...Object.values(scope)));
   const event={shiftKey:false,ctrlKey:false,metaKey:false,target:{closest:()=>null}};
   click(event);assert.deepEqual(calls,[['select','c',false],['cursor',42]]);
   calls.length=0;doubleClick(event);assert.deepEqual(calls,[['open','c']]);
   calls.length=0;ref.current=true;click(event);doubleClick(event);assert.deepEqual(calls,[]);
   ref.current=false;selectionAllowed=false;click(event);assert.deepEqual(calls,[['select','c',false]],'edit-lock selection refusal cannot move cursor');
+  calls.length=0;selectionAllowed=true;scope.multi=true;
+  const [multiClick,multiDoubleClick]=expressions.map(expression=>new Function(...Object.keys(scope),'return ('+expression+');')(...Object.values(scope)));
+  multiClick(event);assert.deepEqual(calls,[['select','c',true],['cursor',42]],'touch multi mode toggles additive selection without modifier keys');
+  calls.length=0;multiDoubleClick(event);assert.deepEqual(calls,[],'double taps in multi mode cannot unexpectedly open editing');
+ }
+});
+
+test('多选键盘与长按不误开编辑，叙述跨度手柄在多选时停用',async()=>{
+ const base=new URL('../vendor/cuigengji/src/client/features/planning/',import.meta.url);
+ for(const [file,marker] of [['StoryTimeAxis.jsx','data-story-card='],['UnifiedTimeline.jsx','data-time-item=']]){
+  const source=await readFile(new URL(file,base),'utf8'),cardSource=source.slice(source.indexOf(marker)),calls=[];
+  const scope={multi:true,editor:null,card:{id:'c'},item:{card:{id:'c'},start:1},t:{start:1},marquee:{select:(...args)=>calls.push(args)},cancel:()=>calls.push('cancel'),setSelected:()=>calls.push('selected'),setCursor:()=>calls.push('cursor'),open:()=>calls.push('open')};
+  const key=cardSource.match(/onKeyDown=\{(e=>\{.*?\})\}>\s*</)[1],context=cardSource.match(/onContextMenu=\{([\s\S]*?)\} onKeyDown/)[1];
+  const build=expression=>new Function(...Object.keys(scope),'return ('+expression+');')(...Object.values(scope));
+  const target={};for(const name of ['Enter',' '])build(key)({key:name,target,currentTarget:target,preventDefault(){}});
+  assert.deepEqual(calls,[['c',true],['c',true]]);calls.length=0;
+  build(context)({preventDefault(){},stopPropagation(){}});assert.deepEqual(calls,[]);
+  if(file==='UnifiedTimeline.jsx')assert.equal((source.match(/className="u-span-handle (?:start|end)" disabled=\{multi\|\|!!editor\|\|unavailable\}/g)||[]).length,2);
  }
 });

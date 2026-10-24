@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp, mkdir, readFile, writeFile, readdir, rm, stat} from 'node:fs/promises';
+import {mkdtemp, mkdir, readFile, writeFile, readdir, rm, stat, rename} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join, dirname} from 'node:path';
 import {Store} from '../src/core/store.js';
 import {WorkData} from '../src/application/backup/workspace.js';
-import {bookPath, fileId, pageKey, splitWorkspace, readableFileName, validManagedFileName, namedChapterFiles, managedFileKey} from '../src/infrastructure/persistence/project-layout.ts';
+import {bookPath, fileId, pageKey, splitWorkspace, readableFileName, validManagedFileName, namedChapterFiles, managedFileKey, MANAGED_FILE_BYTE_LIMIT} from '../src/infrastructure/persistence/project-layout.ts';
 import {directorySnapshot} from '../src/domain/chapters/order.ts';
 import {storageSnapshot} from './helpers/storage-snapshot.js';
 
@@ -45,6 +45,8 @@ test('readable filenames are Windows-safe, distinct, bounded and retain collisio
   const titles = ['CON', 'NUL.txt', 'LPT¹', '码头/决战:第?一*部. ', '..', '😀'.repeat(200), 'ABC', 'abc'];
   const names = titles.map((title, i) => readableFileName(title, 'id-' + i));
   assert.ok(names.every(validManagedFileName)); assert.ok(names.every(name => name.length <= 120));
+  assert.ok(names.every(name => Buffer.byteLength(name, 'utf8') <= MANAGED_FILE_BYTE_LIMIT));
+  assert.ok(names.every(name => Buffer.byteLength('.'+name+'.stage-'+'0'.repeat(36), 'utf8') <= 255));
   assert.ok(names.every(name => !name.includes('\ufffd'))); assert.ok(names[0].startsWith('条目_CON--'));
   assert.ok(names[3].startsWith('码头_决战_第_一_部--')); assert.ok(names[4].startsWith('未命名--'));
   assert.equal(new Set(names.map(managedFileKey)).size, titles.length);
@@ -220,4 +222,37 @@ test('legacy deleted planning records retain their body when their historical pa
   assert.ok(validManagedFileName(index.planning.pageFiles[pageKey(plan.mapping.page)]));
   assert.equal((await migrated.dispatch('planning.get', {novelId:novel.id, nodeId:plan.mapping.scene})).node.content, '规划全文。');
   assert.deepEqual((await new WorkData(migrated).export()).payload.state, expected);
+});
+
+
+test('1000-character Unicode and ASCII setting names create, reopen, rename and delete without truncating stored text', async t => {
+ const {root,novel,run}=await fixture(t),content='完整正文\n不随文件名前缀截断。';
+ for(const name of ['长'.repeat(1000),'A'.repeat(1000),'😀'.repeat(1000)]){
+  const first=await run('graph.create',{type:'character_card',name,content});
+  let reopened=new Store(root),row=await reopened.dispatch('graph.get',{novelId:novel.id,nodeId:first.id});
+  assert.equal(row.name,name);assert.equal(row.content,content);
+  let index=await indexes(root,novel.id);const file=index.settings[row.id].file;
+  assert.ok(Buffer.byteLength(file,'utf8')<=MANAGED_FILE_BYTE_LIMIT);assert.ok(validManagedFileName(file));
+  const renamed=name+'/:?重命名';
+  row=await reopened.dispatch('graph.update',{novelId:novel.id,nodeId:row.id,expectedRevision:row.revision,name:renamed},{kind:'human'});
+  reopened=new Store(root);const saved=await reopened.dispatch('graph.get',{novelId:novel.id,nodeId:row.id});assert.equal(saved.name,renamed);assert.equal(saved.content,content);
+  index=await indexes(root,novel.id);assert.ok(Buffer.byteLength(index.settings[row.id].file,'utf8')<=MANAGED_FILE_BYTE_LIMIT);
+  const deleted=await reopened.dispatch('graph.delete',{novelId:novel.id,nodeId:row.id,expectedRevision:row.revision,confirm:true},{kind:'human'});assert.equal(deleted.deleted,true);
+  assert.equal((await new Store(root).load()).novels[novel.id].nodes[row.id].name,renamed);
+ }
+});
+
+test('existing readable Unicode files remain readable and only oversized writable names shorten on a normal save',async t=>{
+ const {root,novel,character}=await fixture(t),before=await indexes(root,novel.id),original=before.settings[character.id].file;
+ const legacy='旧'.repeat(70)+'--12345678.json';assert.equal(validManagedFileName(legacy),true);assert.ok(Buffer.byteLength(legacy)>MANAGED_FILE_BYTE_LIMIT);
+ await rename(join(root,before.base,'settings/entries',original),join(root,before.base,'settings/entries',legacy));
+ before.settings[character.id].file=legacy;await writeFile(join(root,before.base,'settings/index.json'),JSON.stringify(before.settings));
+ const reopened=new Store(root),row=await reopened.dispatch('graph.get',{novelId:novel.id,nodeId:character.id});assert.equal(row.name,character.name);assert.equal(row.content,character.content);
+ // Reading the old index does not migrate it or require a storage-version change.
+ assert.equal((await indexes(root,novel.id)).settings[character.id].file,legacy);
+ await reopened.dispatch('graph.update',{novelId:novel.id,nodeId:row.id,expectedRevision:row.revision,summary:'正常修改摘要'},{kind:'human'});
+ const after=await indexes(root,novel.id);assert.equal(after.library.storageVersion,before.library.storageVersion);assert.ok(Buffer.byteLength(after.settings[row.id].file)<=MANAGED_FILE_BYTE_LIMIT);
+ await assert.rejects(stat(join(root,before.base,'settings/entries',legacy)),{code:'ENOENT'});
+ assert.equal((await new Store(root).dispatch('graph.get',{novelId:novel.id,nodeId:row.id})).content,character.content);
+ for(const [id,entry] of Object.entries(before.settings))if(id!==row.id)assert.equal(after.settings[id].file,entry.file);
 });
