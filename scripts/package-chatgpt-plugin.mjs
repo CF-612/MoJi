@@ -72,7 +72,9 @@ export async function buildPlugin(input) {
   const plugin = JSON.parse(await readFile(new URL('plugin.json', template), 'utf8'));
   const mcp = JSON.parse(await readFile(new URL('mcp.json', template), 'utf8'));
   // Reconstruct the connection allowlist: never copy ambient env/config credentials.
-  mcp.mcpServers = { moji: { type: 'streamable-http', url, extensions: { 'com.openai': { auth: { type: 'oauth', client: { mode: 'dcr' } } } } } };
+  // Desktop 0.164.0-alpha.11.1 rejects MCP-level `extensions` before connecting.
+  // Keep OAuth discovery on the protected server; never embed auth credentials.
+  mcp.mcpServers = { moji: { type: 'streamable-http', url } };
   const entries = [['plugin.json', Buffer.from(JSON.stringify(plugin, null, 2) + '\n')],
     ['mcp.json', Buffer.from(JSON.stringify(mcp, null, 2) + '\n')],
     ['assets/icon.png', await readFile(new URL('assets/icon.png', template))]];

@@ -3,17 +3,7 @@
   "mcpServers": {
     "moji": {
       "type": "streamable-http",
-      "url": "https://your-instance.example/mcp",
-      "extensions": {
-        "com.openai": {
-          "auth": {
-            "type": "oauth",
-            "client": {
-              "mode": "dcr"
-            }
-          }
-        }
-      }
+      "url": "https://your-instance.example/mcp"
     }
   }
 }

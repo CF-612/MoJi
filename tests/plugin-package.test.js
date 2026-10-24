@@ -46,7 +46,7 @@ test('reject unsafe addresses and secrets without echoing input', () => {
   }
 });
 
-test('documented portable schema contract, original branding, remote OAuth only', async () => {
+test('desktop-compatible portable connection, original branding, no embedded credentials', async () => {
   const { entries, zip } = await buildPlugin(address);
   const unpacked = unzipStored(zip);
   assert.deepEqual([...unpacked.keys()], archivePaths);
@@ -63,7 +63,7 @@ test('documented portable schema contract, original branding, remote OAuth only'
   assert.equal(icon.readUInt32BE(16), 256); assert.equal(icon.readUInt32BE(20), 256); assert.equal(icon.length, 9484);
   assert.deepEqual(JSON.parse(unpacked.get('mcp.json')), {
     $schema: 'https://agent-plugins.org/schemas/1.0.0/mcp.schema.json',
-    mcpServers: { moji: { type: 'streamable-http', url: address + '/mcp', extensions: { 'com.openai': { auth: { type: 'oauth', client: { mode: 'dcr' } } } } } }
+    mcpServers: { moji: { type: 'streamable-http', url: address + '/mcp' } }
   });
   assert.equal(plugin.extensions['com.openai'].apps, undefined);
   assert.equal(plugin.extensions['com.openai'].hooks, undefined);

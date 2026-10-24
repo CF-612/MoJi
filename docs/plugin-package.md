@@ -33,7 +33,15 @@ mcp.json
 assets/icon.png
 ```
 
-没有外层套目录。根 `plugin.json` 是官方推荐的 portable 格式，`mcp.json` 声明远程 `streamable-http` 与 OAuth DCR；`.codex-plugin/plugin.json` 是另一套兼容入口，本模板不混用。`.app.json` 只用于已注册的应用映射，本模板不需要、也不伪造 `plugin_asdk_app…` ID。依据：[官方打包说明](https://developers.openai.com/plugins/build/plugins)。
+没有外层套目录。根 `plugin.json` 使用 portable 格式，`mcp.json` 只声明远程 `streamable-http` 和实例 URL，OAuth 由服务器发现流程处理；`.codex-plugin/plugin.json` 是另一套兼容入口，本模板不混用。`.app.json` 只用于已注册的应用映射，本模板不需要、也不伪造 `plugin_asdk_app…` ID。依据：[官方打包说明](https://developers.openai.com/plugins/build/plugins)。
+
+### 桌面端兼容修复（2026-10-24）
+
+桌面端内置的 `0.164.0-alpha.11.1` 解析器不接受 MCP 服务器条目中的 `extensions.com.openai.auth`，会报 `unknown field extensions, expected url or headers` 并跳过该服务器。因此可能出现插件名称和图标正常、能 @ 选中，但会话没有工具且未进入授权流程的现象。这不是安装了旧版本，也不能根据网页详情的“仅限桌面端”推断用户在网页端使用。
+
+模板和生成器均已移除这个不兼容字段；保留 `plugin.json` 中的展示信息扩展。此改动不关闭服务器 OAuth，不把服务改成匿名访问，也不把密钥写入 ZIP。已用同一桌面端解析器在隔离配置中复现原错误，并确认修正后不再出现该解析错误；完整授权、工具调用和工作台打开仍须在目标宿主验收，不能由解析通过代替。
+
+已上传旧包的用户可重新生成后使用“上传新版本”；若宿主不刷新工具，检查插件连接状态及授权提示。不要以清空作品数据或创建多个同名连接作为默认修复步骤。
 
 名称和完整简介沿用现有 `package.json` 的「墨叽 · 小说工作台」；短简介沿用现有简介中的「陪你写故事的烟灰蛸小说工作台」。图标原样复用已有发布资源 `distribution/moji-plugin-icon.png`（256 × 256 PNG，9484 bytes），不重新设计。模板版本与项目版本同步维护。
 
