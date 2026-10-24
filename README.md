@@ -20,6 +20,15 @@
 
 > **Gemini 网页端的边界：仅通过 MCP 读取与修改内容，没有可视化工作台；手机端目前不支持。** 不同宿主的聊天历史不会自动合并；多 Agent 协作也不等同于多人实时共同编辑。并行修改同一章时，应处理版本冲突后再保存。
 
+## 2 分钟了解墨叽
+
+<p align="center">
+  <a href="https://www.bilibili.com/video/BV13fHT6aEm8/">
+    <img src="docs/assets/readme/moji-icon.png" alt="点击观看墨叽介绍视频" width="120" />
+  </a><br />
+  <a href="https://www.bilibili.com/video/BV13fHT6aEm8/">▶ 在 B 站观看：【墨叽】给GPT和大肥鱼装一个内置小说工作台插件</a>
+</p>
+
 ## 一份作品，贯穿整个创作过程
 
 ### 先把想法连起来，再把故事写下去
