@@ -23,6 +23,39 @@ npm run package:plugin -- "https://你的实例.workers.dev" --app-id "plugin_as
 
 输出：`integrations/chatgpt-workbench/cloud/plugin/moji-personal.zip`。
 
+### 两个参数具体怎么填
+
+| 参数 | 从哪里取得 | 填什么 |
+| --- | --- | --- |
+| 第一个网址 | 自己的云端部署结果或应用连接设置 | 自己的 HTTPS 根地址，或同一地址的 `/mcp`；不是 GitHub 地址，也不是 ChatGPT 插件页面地址 |
+| `--app-id` | ChatGPT 已注册云端应用的详情页地址栏 | `plugin_asdk_app_` 开头的完整 ID，后面是 32 位十六进制字符；也接受去掉 `plugin_` 的形式 |
+
+例如，假设**你自己的**应用详情地址是：
+
+```text
+https://chatgpt.com/plugins/plugin_asdk_app_0123456789abcdef0123456789abcdef
+```
+
+只复制最后的 `plugin_asdk_app_0123456789abcdef0123456789abcdef`，不要复制整个网址、`?` 后面的参数，也不要只复制 32 位字符。以下是演示格式，地址和 ID 都必须替换成你本人的：
+
+```sh
+npm run package:plugin -- "https://my-moji.my-account.workers.dev" --app-id "plugin_asdk_app_0123456789abcdef0123456789abcdef"
+```
+
+若详情页的 ID 是 `Plugin_…`，你打开的是 ZIP 插件外壳。请进入它关联的云端应用详情，或回到已注册的自定义 MCP 应用查看。**应用 ID 不是工作台密钥，也不是 OAuth 客户端 ID。**不要复制作者或其他用户的私人应用 ID。
+
+### 想在手机 ChatGPT 应用里使用
+
+1. 先在电脑浏览器完成一次账号侧的云端连接设置。进入 ChatGPT 的“插件 → 添加 → 添加自定义 MCP 服务器”；**已有自己的连接就复用**。首次注册时填自己的 `https://实例域名/mcp`，选择 OAuth，按提示授权；工作台密钥只填在本人实例的授权页。
+2. 复制这条云端应用的 ID，按上面的 `--app-id` 命令生成统一包。不要使用 `--desktop-only`；电脑 Work 能运行直连包，不代表手机也能运行。
+3. 在 ChatGPT 上传统一包并完成其依赖应用的连接。已有墨叽 ZIP 插件时用“上传新版本”，不要再创建同名插件。不要删除它依赖的云端应用，否则统一包也会断开。
+4. 手机 ChatGPT 登录**同一账号、同一工作区**，刷新插件列表或重开应用，在聊天输入框用 `@` 查找墨叽；若手机支持 Work，也分别检查该模式。不要把 ZIP 当成手机安装包，也不需要在手机上再部署一套服务。
+5. 用测试作品确认手机能打开工作台，并能读到电脑保存的修改；再从手机保存一次，回电脑关闭重开核对。确认前不要宣称手机已通过。
+
+若手机仍找不到：先检查同账号／工作区、插件和依赖应用的安装与授权状态，再检查手机宿主是否提供该插件能力。若电脑网页没有“添加自定义 MCP 服务器”或上传入口，须先满足当前账号／工作区权限；仅生成 ZIP 不能绕过这些限制。移动端支持范围可能变化，应以当前宿主提示及实测为准。入口仍标记“仅限桌面端”时，检查上传的是否仍是旧直连包，不要反复清理作品或新建连接。
+
+注册和权限依据：[官方自定义 MCP 连接说明](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt)、[插件安装与应用授权说明](https://help.openai.com/en/articles/20001256-plugins-in-chatgpt)。首次注册安排在电脑网页完成；这不等于手机实机可用性已经验收。
+
 ```text
 plugin.json
 .app.json
