@@ -11,7 +11,7 @@
 
 已有[可复制部署提示词](cloud-agent-deployment.md#让当前-agent-帮忙已有部署提示词)，DSH 也可从「本地 / 云端 → 个人云端」交给当前 Agent。
 
-个人云端部署好后，运行 `npm run package:plugin -- "https://你的实例.workers.dev"` 生成自己的插件 ZIP；无须手填图标、名称、简介或 OAuth 客户端密钥。上传权限、授权与完整 GUI 验收见[插件打包指南](plugin-package.md)。
+个人云端部署好后，运行 `npm run package:plugin -- "https://你的实例.workers.dev" --app-id "plugin_asdk_app_本人应用ID"` 关联本人已注册的云端应用，生成统一插件 ZIP；无须手填图标、名称、简介或 OAuth 客户端密钥。上传权限、授权与完整 GUI 验收见[插件打包指南](plugin-package.md)。
 
 ## 先试用工作台
 

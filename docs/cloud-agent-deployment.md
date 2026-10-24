@@ -14,7 +14,7 @@
 
 **网页 GPT 的“上传插件压缩包”是实际的插件安装入口。** 它与“创建插件”“添加自定义 MCP 服务器”是不同入口；打包好的插件可以携带相应连接配置。拥有对应权限时，可以上传符合格式的插件 ZIP；上传后仍需满足其中应用的访问权限并完成授权，见 [OpenAI 插件 ZIP 上传说明](https://help.openai.com/en/articles/20001256-plugins-in-chatgpt)。这里的上传不是普通聊天附件，也不是 DSH `.tgz` 或 Windows 独立程序 ZIP。
 
-插件 ZIP 描述插件及其连接配置；**上传插件不会自动完成 Cloudflare 部署**。墨叽插件包应连接使用者自己的个人云端。现已提供按[官方打包说明](https://developers.openai.com/plugins/build/plugins)制作的公共源码模板与离线生成器：`npm run package:plugin -- "https://你的实例.workers.dev"`。若下载的是发布资产 `Moji-<版本>-plugin-generator.zip`，它是生成工具，**不能直接上传为插件**；应先生成自己的 `moji-personal.zip`。生成结构、上传步骤及验收边界见[个人插件 ZIP 指南](plugin-package.md)。
+插件 ZIP 描述插件及其连接配置；**上传插件不会自动完成 Cloudflare 部署**。墨叽插件包应连接使用者自己的个人云端。现已提供按[官方打包说明](https://developers.openai.com/plugins/build/plugins)制作的公共源码模板与离线生成器：`npm run package:plugin -- "https://你的实例.workers.dev" --app-id "plugin_asdk_app_本人应用ID"`。若下载的是发布资产 `Moji-<版本>-plugin-generator.zip`，它是生成工具，**不能直接上传为插件**；应先生成自己的 `moji-personal.zip`。生成结构、上传步骤及验收边界见[个人插件 ZIP 指南](plugin-package.md)。
 图标、名称和描述可以作为墨叽的通用模板共享；**服务器 URL 必须指向使用者自己的实例**（MCP 地址为 HTTPS 根地址加 `/mcp`），不能把作者的个人云端连接作为所有人的公共库。身份验证使用 OAuth，各使用者分别完成授权；工作台密钥、Cloudflare 凭据和 OAuth token 不放进共享 ZIP，也不在聊天里传递。部署与打包仍是两个明确步骤；生成器不会部署、上传或代替授权，真实账号导入与跨端 GUI 验收仍待完成。
 
 本文下方说明**如何部署墨叽个人云端后端**。已经通过插件 ZIP 安装的用户，应先核对插件实际连接的实例，不能为了照搬本文重新创建重复插件。若明确选择另建自定义远程 MCP 连接，则网页“添加自定义 MCP 服务器”使用公开 HTTPS `/mcp` 地址及 OAuth；这是另一条配置流程，账号／工作区权限以 [OpenAI 自定义 MCP 说明](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt) 为准。

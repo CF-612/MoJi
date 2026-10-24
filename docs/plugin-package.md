@@ -1,73 +1,68 @@
-# 墨叽个人云端插件 ZIP
+# 墨叽统一插件包
 
-墨叽继续通过 GitHub 分发，不走 OpenAI 官方目录上架。这里提供**公共源码模板 + 本地个人化打包工具**，不是作者实例的共享连接，也不是已上传验证的安装包。
+## 统一入口与电脑直连
 
-## 先分清下载的 ZIP
+统一包版本为 **0.11.2**，独立于工作台服务版本。它通过 `.app.json` 关联本人已经注册、授权的 ChatGPT 云端应用，供 Chat、Work、Codex 和手机端使用同一连接。包内不再同时放置直连 `mcp.json`，避免工具重复和仅电脑可用的接入分歧。具体可用性仍受宿主、账号和工作区权限限制，必须逐端验收。
 
-- `Moji-<版本>-plugin-generator.zip`：发布时提供的生成器工具包，**不是可直接上传的插件 ZIP**。解压后先阅读包内说明；只有含下述项目结构的源码根目录才使用本文的 npm 命令，不猜测工具包内部路径。
-- `moji-personal.zip`：填入你自己的云端实例地址后生成的个人插件包，才用于下方上传步骤。
-- 源码 ZIP、DSH `.tgz` 和 Windows 独立版 ZIP：不是这里的个人插件上传包。
+旧的 0.11.0／0.11.1 包只有 MCP 直连配置：电脑 Work／Codex 可以加载，不等于聊天和手机能发现它。0.11.0 还有桌面解析器拒绝 MCP `extensions` 的兼容问题。0.11.1 只修复解析，不是跨端修复。
 
-只使用已核实的发布资产，不猜测下载地址；生成器不会替你部署 Cloudflare。
+## 生成自己的包
 
-## 只填自己的实例地址
+需要 Node.js 24+。无需 npm install，生成器离线运行，不部署、不注册应用、不读取密钥或小说。
 
-先按[个人云端部署指南](cloud-agent-deployment.md)部署自己的实例，确认健康检查和 OAuth discovery 正常。需要 Node.js 24+；打包命令仅使用 Node 内置模块，**无需 npm install、联网、登录或创建资源**。
-
-在项目根目录运行（把示例地址替换成自己的实际地址）：
+1. 先部署自己的云端实例。
+2. 在 ChatGPT 中找到本人已有的自定义 MCP 应用，确认其 URL 指向该实例，并完成授权。已经有连接时直接复用，不再新建。仅首次完全没有连接时，通过“插件 → 添加自定义 MCP 服务器”注册一次。
+3. 从应用详情 URL 复制 `plugin_asdk_app_…` ID；也接受 `asdk_app_…`。上传 ZIP 产生的 `Plugin_…` 是另一种 ID，不能用来代替应用 ID。
+4. 在源码根目录运行：
 
 ```sh
-npm run package:plugin -- "https://你的实例.workers.dev"
-# 也接受同一实例的 https://你的实例.workers.dev/mcp
+npm run package:plugin -- "https://你的实例.workers.dev" --app-id "plugin_asdk_app_你的32位应用ID"
 ```
 
-输出：`integrations/chatgpt-workbench/cloud/plugin/moji-personal.zip`。重复执行会原子替换此普通文件；若输出路径是符号链接或目录等非普通文件则拒绝写入。ZIP 含个人实例地址，应由本人保管；它已被 Git 忽略，不要强制加入公共仓库。公开分享的是 `cloud/plugin/template/` 和生成器源码，不是替别人填好作者地址的 ZIP。
+示例 ID 是占位符，必须换成实际应用 ID。生成器会校验格式，但不能离线证明应用归属、访问权限、应用是否指向给定 URL，须在应用管理页核对。网址仅用于输入校验和提示；实际连接及 OAuth 由所关联的应用管理。不要输入工作台密钥、Cloudflare token 或 OAuth secret。
 
-命令只做离线打包，不测试 DNS、地址归属或线上服务；请自己核对实例归属。拒绝 HTTP、IP/本机地址、常见内部域名、用户名密码、查询串、片段、非默认端口及非根页／`/mcp` 路径。不要把密钥塞进 URL。样例 `your-instance.example` 是不可直接使用的占位符。
-
-## 包内内容与品牌
+输出：`integrations/chatgpt-workbench/cloud/plugin/moji-personal.zip`。
 
 ```text
 plugin.json
-mcp.json
+.app.json
 assets/icon.png
 ```
 
-没有外层套目录。根 `plugin.json` 使用 portable 格式，`mcp.json` 只声明远程 `streamable-http` 和实例 URL，OAuth 由服务器发现流程处理；`.codex-plugin/plugin.json` 是另一套兼容入口，本模板不混用。`.app.json` 只用于已注册的应用映射，本模板不需要、也不伪造 `plugin_asdk_app…` ID。依据：[官方打包说明](https://developers.openai.com/plugins/build/plugins)。
+名称沿用 `moji`，显示名和图标保持“墨叽 · 小说工作台”。manifest 的 `extensions.com.openai.apps` 指向 `./.app.json`，应用以 `required: true` 声明。公共模板只有占位符，个人应用 ID 由参数传入，不写进公共仓库。个人 ZIP 已被 Git 忽略，不应上传为公共 Release。
 
-### 桌面端兼容修复（2026-10-24）
+依据：[官方应用关联和打包说明](https://developers.openai.com/plugins/build/plugins)。`plugin.json` 中的展示信息扩展与曾导致错误的 MCP 条目 `extensions` 不是同一个字段。
 
-桌面端内置的 `0.164.0-alpha.11.1` 解析器不接受 MCP 服务器条目中的 `extensions.com.openai.auth`，会报 `unknown field extensions, expected url or headers` 并跳过该服务器。因此可能出现插件名称和图标正常、能 @ 选中，但会话没有工具且未进入授权流程的现象。这不是安装了旧版本，也不能根据网页详情的“仅限桌面端”推断用户在网页端使用。
+## 更新现有插件与验收
 
-模板和生成器均已移除这个不兼容字段；保留 `plugin.json` 中的展示信息扩展。此改动不关闭服务器 OAuth，不把服务改成匿名访问，也不把密钥写入 ZIP。已用同一桌面端解析器在隔离配置中复现原错误，并确认修正后不再出现该解析错误；完整授权、工具调用和工作台打开仍须在目标宿主验收，不能由解析通过代替。
+打开现有 ZIP 插件详情，选择 **上传新版本**，上传生成包；不要另点“添加插件”重复创建。应用本身是这个插件的依赖，不要删除或撤销它的授权。原来的独立应用入口是否仍显示由宿主决定，ZIP 无法自动合并、隐藏或删除账号里的条目。
 
-已上传旧包的用户可重新生成后使用“上传新版本”；若宿主不刷新工具，检查插件连接状态及授权提示。不要以清空作品数据或创建多个同名连接作为默认修复步骤。
+上传成功、包解析成功、完成 OAuth、真实打开界面是四个不同结果。验收时使用同一个测试作品，分别检查：
 
-名称和完整简介沿用现有 `package.json` 的「墨叽 · 小说工作台」；短简介沿用现有简介中的「陪你写故事的烟灰蛸小说工作台」。图标原样复用已有发布资源 `distribution/moji-plugin-icon.png`（256 × 256 PNG，9484 bytes），不重新设计。模板版本与项目版本同步维护。
+| 场景 | 验收标准 |
+| --- | --- |
+| 电脑 Chat | 能 @ 同一插件、调用 workbench_open 并打开界面 |
+| 电脑 Work | 能找到同一插件、没有两套重复工具 |
+| Codex | 解析应用关联且能调用同一云端服务 |
+| 手机 Chat／Work | 能找到入口、打开工作台；布局与交互正常 |
+| 数据一致性 | 测试作品编辑保存后，关闭重开及换端能读到相同结果 |
 
-OAuth 使用当前个人云端的 discovery 和动态客户端注册，省去手填客户端 ID/secret。包里没有工作台密钥、Cloudflare token、OAuth token、客户端 secret 或小说内容。工作台密钥**只在本人核对过的实例授权页输入**，不要发进聊天。旧 Auth0/自定义 OAuth 部署不在此单地址模板的保证范围内；先确认支持 DCR。依据：[官方认证说明](https://developers.openai.com/plugins/build/auth)。
+失败时记录“找不到入口／未授权／工具调用失败／界面失败”，不要清空作品库，也不要用关闭 OAuth 或重复创建连接来绕过。没有手机实机验收时，不得标记手机已通过。
 
-## 上传与验收
+## 仅电脑直连的开发选项
 
-1. 打开网页 ChatGPT 的插件上传入口；官方帮助列出的管理员路径是 **Admin console → 选择工作区 → Plugins → Add → Upload plugin**。只有具备对应权限且入口可见时才可用，不是普通聊天附件。没有权限时请核对账号/工作区设置，不要改走官方目录投稿。
-2. 选择生成的 `moji-personal.zip`，核对名称、图标、简介和**自己的** MCP 地址。按宿主提示连接并完成 OAuth。上传不会部署服务器，也不会代替授权。
-3. 如果已有墨叽插件，先检查其连接地址；适用时用详情中的 **Upload new version**，不要盲目创建重复连接。
-4. 授权后请求“打开墨叽小说工作台”。必须实际看到可视化编辑器，不能只以工具列表出现为通过；用测试作品完成编辑、保存、关闭重开。再在自己的 Codex、网页 GPT、手机 GPT 分别检查同一作品与界面。各端可用能力仍受账号、工作区和宿主支持限制。
+```sh
+npm run package:plugin -- "https://你的实例.workers.dev" --desktop-only
+```
 
-上传步骤和权限依据：[官方插件 ZIP 帮助](https://help.openai.com/en/articles/20001256-plugins-in-chatgpt)。这是私人/工作区安装，不是 [OpenAI 官方目录提交](https://developers.openai.com/plugins/deploy/submission)。
+输出 `moji-desktop-only.zip`，只含 `plugin.json`、`mcp.json`、图标；不会覆盖统一包，也不宣称支持聊天和手机。其 MCP 条目只含 transport 和 URL，兼容会拒绝 `extensions` 的桌面解析器，服务器仍保留 OAuth 保护。两种模式互斥，未指定模式会报错，不再默默生成电脑专用包。
 
-## 后续升级：GitHub、个人云端与 ZIP 分开
+## 发布与验证范围
 
-GitHub 源码更新不会自动更新任何人的个人实例。界面、工具或后端升级后，实例所有者仍须按[部署指南](cloud-agent-deployment.md)使用原部署清单执行 `npm run deploy:update`，保留原资源和数据，并重新验收保存/重开。**同一 MCP URL、OAuth 配置及包内品牌元数据不变时，通常不用重做 ZIP**；服务器继续返回更新后的 UI。名称、图标、简介、连接配置等包内容变动时，再生成 ZIP 并按宿主支持的版本更新流程处理。更换实例 URL 不等同于原插件的普通升级，应先核对宿主支持的连接变更流程，不能承诺直接上传覆盖即可换址。
-
-## GUI 来自服务器，不是 ZIP 静态页面
-
-当前 `cloud/worker.mjs` 的 `workbench_open` 返回 UI resource 元数据，`resources/read` 提供 `text/html;profile=mcp-app` 工作台。ZIP 不复制 HTML、构建产物或本机可执行文件，不使用 stdio/local command；部署后的服务器继续提供完整 GUI。根网址本身仍是连接说明页，不是独立浏览器编辑器。
-
-**验证边界：** 本地测试覆盖文档所用字段契约、ZIP 结构/CRC、原图标、URL 拒绝项、秘密排除及生成物忽略；它不是官方上传校验器。真实账号 ZIP 导入、OAuth 和三个宿主 GUI 的最终验收仍须按上面步骤完成，不能因本地测试通过就宣称跨端安装通过。
+GitHub 源码推送不会更新用户已下载的生成器 Release 资产，也不会部署云端服务。部署、发布生成器资产、上传个人插件包分别操作；本次为模板和生成器修复。下载的 `Moji-<版本>-plugin-generator.zip` 是生成工具，不是可以直接上传的个人包。
 
 ```sh
 npm run test:plugin-package
 ```
 
-官方来源核验日期：2026-10-23。格式可能演进；若宿主报字段/权限错误，保存去除个人地址和凭据后的原始错误，先核对文档，不要改成未验证的旧格式或填入他人的应用 ID。
+测试覆盖 ZIP 完整性、应用 ID 验证、两种模式互斥、原品牌保留、私密信息排除及输出文件保护。这些测试不是 ChatGPT 上传校验器，也不能代替上述各端真实使用验收。

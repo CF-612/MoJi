@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { crc32 } from 'node:zlib';
-import { buildPlugin, normalizeMcpUrl, archivePaths, writePluginZip } from '../scripts/package-chatgpt-plugin.mjs';
+import { buildPlugin, normalizeMcpUrl, normalizeAppId, parsePluginArgs, archivePaths, writePluginZip } from '../scripts/package-chatgpt-plugin.mjs';
 
 const address = 'https://my-moji.account.workers.dev'; // synthetic; never contacted
 function unzipStored(zip) {
@@ -47,14 +47,14 @@ test('reject unsafe addresses and secrets without echoing input', () => {
 });
 
 test('desktop-compatible portable connection, original branding, no embedded credentials', async () => {
-  const { entries, zip } = await buildPlugin(address);
+  const { entries, zip } = await buildPlugin(address, { desktopOnly: true });
   const unpacked = unzipStored(zip);
-  assert.deepEqual([...unpacked.keys()], archivePaths);
+  assert.deepEqual([...unpacked.keys()], archivePaths.filter(p => p !== '.app.json'));
   assert.deepEqual([...unpacked], entries);
   const plugin = JSON.parse(unpacked.get('plugin.json'));
   const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url)));
   assert.equal(plugin.$schema, 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json');
-  assert.equal(plugin.name, 'moji'); assert.equal(plugin.version, pkg.version); assert.equal(plugin.description, pkg.description);
+  assert.equal(plugin.name, 'moji'); assert.equal(plugin.version, '0.11.2'); assert.equal(plugin.description, pkg.description);
   const ui = plugin.extensions['com.openai'].interface;
   assert.equal(ui.displayName, pkg.displayName);
   assert.ok([...ui.shortDescription].length <= 30);
@@ -73,7 +73,7 @@ test('deterministic ZIP allowlist excludes local config, tokens, tools and novel
   const previous = process.env.MOJI_OWNER_KEY;
   process.env.MOJI_OWNER_KEY = 'SENTINEL_PRIVATE_OWNER_KEY_DO_NOT_PACKAGE';
   try {
-    const first = await buildPlugin(address), second = await buildPlugin(address + '/mcp');
+    const first = await buildPlugin(address, { desktopOnly: true }), second = await buildPlugin(address + '/mcp', { desktopOnly: true });
     assert.deepEqual(first.zip, second.zip);
     for (const text of ['SENTINEL_PRIVATE', 'clientSecret', 'client_secret', 'Authorization', 'plugin_asdk_app']) assert.equal(first.zip.includes(Buffer.from(text)), false);
     assert.throws(() => normalizeMcpUrl('https://owner:secret@public.workers.dev'));
@@ -87,15 +87,25 @@ test('personal output is ignored while template source is tracked-capable', () =
 });
 
 
-test('output rejects symlinks/nonregular files and atomically replaces only the ZIP', async () => {
+test('output rejects nonregular files and atomically replaces only the ZIP', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'moji-package-test-'));
   try {
     const output = join(directory, 'moji-personal.zip'), target = join(directory, 'unrelated.txt');
     await writeFile(target, 'KEEP_UNRELATED');
-    await symlink(target, output);
-    await assert.rejects(writePluginZip(output, Buffer.from('new zip')), /普通文件/);
-    assert.equal(await readFile(target, 'utf8'), 'KEEP_UNRELATED');
-    await rm(output); await mkdir(output);
+    await t.test('reject symlink without modifying its target', async subtest => {
+      try { await symlink(target, output); }
+      catch (error) {
+        if (process.platform === 'win32' && error.code === 'EPERM') {
+          subtest.skip('Windows account lacks symlink privilege; other output safety checks still run');
+          return;
+        }
+        throw error;
+      }
+      await assert.rejects(writePluginZip(output, Buffer.from('new zip')), /普通文件/);
+      assert.equal(await readFile(target, 'utf8'), 'KEEP_UNRELATED');
+      await rm(output);
+    });
+    await mkdir(output);
     await assert.rejects(writePluginZip(output, Buffer.from('new zip')), /普通文件/);
     await rm(output, { recursive: true });
     await writePluginZip(output, Buffer.from('first zip'));
@@ -104,4 +114,28 @@ test('output rejects symlinks/nonregular files and atomically replaces only the 
     assert.equal(await readFile(target, 'utf8'), 'KEEP_UNRELATED');
     assert.deepEqual((await readdir(directory)).sort(), ['moji-personal.zip', 'unrelated.txt']);
   } finally { await rm(directory, { recursive: true, force: true }); }
+});
+
+const appId = 'asdk_app_0123456789abcdef0123456789abcdef';
+test('unified package uses exactly one registered app and no desktop MCP', async () => {
+  const a = await buildPlugin(address, { appId });
+  const b = await buildPlugin(address, { appId: 'plugin_' + appId });
+  assert.deepEqual(a.zip, b.zip);
+  const files = unzipStored(a.zip);
+  assert.deepEqual([...files.keys()], ['plugin.json', '.app.json', 'assets/icon.png']);
+  assert.equal(JSON.parse(files.get('plugin.json')).extensions['com.openai'].apps, './.app.json');
+  assert.deepEqual(JSON.parse(files.get('.app.json')), { apps: { moji: { id: appId, required: true } } });
+  assert.equal(a.zip.includes(Buffer.from(address)), false);
+  assert.equal(a.zip.includes(Buffer.from('REPLACE_WITH')), false);
+});
+test('missing or invalid app mapping never silently creates desktop package', async () => {
+  await assert.rejects(buildPlugin(address), /应用/);
+  await assert.rejects(buildPlugin(address, { appId, desktopOnly: true }), /不能同时/);
+  for (const input of ['', 'Plugin_0123456789abcdef0123456789abcdef', 'asdk_app_bad', 'secret', appId + '/x']) {
+    assert.throws(() => normalizeAppId(input), /应用/);
+  }
+  assert.throws(() => parsePluginArgs([address]), /只填 URL/);
+  assert.throws(() => parsePluginArgs([address, '--app-id', appId, '--desktop-only']));
+  assert.deepEqual(parsePluginArgs([address, '--app-id', 'plugin_' + appId]), { input: address, appId });
+  assert.deepEqual(parsePluginArgs([address, '--desktop-only']), { input: address, desktopOnly: true });
 });
