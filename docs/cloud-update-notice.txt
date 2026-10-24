@@ -1,0 +1,10 @@
+墨叽：本地更新与个人云端更新是两回事
+
+云端用户每次升级墨叽云端功能后，都需要把新代码重新部署到自己的原实例。 只更新本地 DSH 安装包、下载源码或 Git push，不会更新个人云端的界面和后端；手机及连接同一实例的客户端仍会使用旧版。完成原实例部署并核验后，再刷新客户端。仅本地使用 DSH 的用户更新本地包即可；只改插件名称、图标等连接元数据，不等于需要重新部署后端。
+
+使用原账号、原 .moji-cloud 清单、原 Worker/D1/KV 与密钥，先备份，再按原清单部署更新：
+ npm run deploy:update -- --account YOUR_ACCOUNT_ID --manifest .moji-cloud/my-writing.json
+以上是示例占位，必须替换为本人原账号和原清单，不是创建新实例。
+旧部署没有 manifest 时先停止并核对已有私人配置与绑定；不能用新模板覆盖，不能改成 deploy:new。
+Git push 不是部署。原地址/应用身份未变时复用已有注册应用，不必再上传额外 ZIP。
+完整步骤：https://github.com/CF-612/MoJi/blob/moji-release/docs/cloud-agent-deployment.md#cloud-update

@@ -11,14 +11,14 @@
   <a href="https://github.com/CF-612/MoJi/releases">下载安装</a> ·
   <a href="docs/getting-started.md">开始使用</a> ·
   <a href="docs/cloud-agent-deployment.md">个人云端部署</a> ·
-  <a href="docs/plugin-package.md">制作自己的插件包</a>
+  <a href="docs/plugin-package.md">MCP 连接与插件更新</a>
 </p>
 
 **墨叽不是又一个只能粘贴正文的聊天框。** 它是一份你和 Agent 都能读写的小说工作台：正文、人物、世界设定、剧情卡与伏笔留在作品里，换设备、换聊天、换协作 Agent，也不必每次从头搬运设定。
 
 在电脑 Codex 里推敲剧情，用手机 ChatGPT 接着讨论，再回到工作台亲手写下正文。连接同一个个人云端的客户端共用已保存的作品；你决定故事如何发展，Agent 按需读取资料、整理规划、协助修改。
 
-> **Gemini 的边界：不支持工作台可视化，但支持内容读取与修改，可配合网页端使用。** 不同宿主的聊天历史不会自动合并；多 Agent 协作也不等同于多人实时共同编辑。并行修改同一章时，应处理版本冲突后再保存。
+> **Gemini 网页端的边界：仅通过 MCP 读取与修改内容，没有可视化工作台；手机端目前不支持。** 不同宿主的聊天历史不会自动合并；多 Agent 协作也不等同于多人实时共同编辑。并行修改同一章时，应处理版本冲突后再保存。
 
 ## 一份作品，贯穿整个创作过程
 
@@ -65,19 +65,19 @@
 
 | 你想怎么用 | 选择与存储方式 | 从这里开始 |
 | --- | --- | --- |
-| **电脑 Codex，主要创作入口** | 完整可视化插件连接自己的个人云端 | [部署与连接](docs/cloud-agent-deployment.md) → [生成并安装插件 ZIP](docs/plugin-package.md) |
+| **电脑 Codex，主要创作入口** | 完整可视化插件连接自己的个人云端 | [部署与连接](docs/cloud-agent-deployment.md) → [创建 MCP 后原位更新 ZIP](docs/plugin-package.md) |
 | **手机 ChatGPT / 网页 ChatGPT** | 使用个人云端，继续访问同一份作品；宿主需支持对应插件入口 | [跨端使用指南](docs/cloud-agent-deployment.md) |
 | **DSH 原生插件** | **本地或个人云端可选**，保留 DSH 原生入口与会话协作 | [DSH 安装、更新与连接](docs/agent-installation.md) |
-| **Gemini** | MCP 内容读取、修改；**没有可视化工作台**，可配合网页端使用 | [个人实例与 MCP 连接](docs/cloud-agent-deployment.md) |
+| **Gemini 网页端** | MCP 内容读取、修改；**没有可视化工作台**，手机端目前不支持 | [个人实例与 MCP 连接](docs/cloud-agent-deployment.md) |
 | **Windows 独立版 / 本机浏览器** | 独立本地写作入口，不是 Codex 插件的本地模式 | [安装与开始使用](docs/getting-started.md) |
 
 ### 关于云端，有三件事先说清楚
 
 1. **个人云端属于你。** 部署在你自己的 Cloudflare 账号，账号、用量和费用由你管理。墨叽不代付云端或模型费用。
 2. **连接同一实例，才是同一份作品。** DSH 的本地库与云端库不会自动同步；迁移请使用完整备份导入，切换连接不会自动上传正文。
-3. **更新源码、安装包与云端是三件事。** 下载新包不会自动升级个人云端；已有实例按[云端更新步骤](docs/cloud-agent-deployment.md)更新，保留原数据库和实例身份，不重复新建。
+3. **云端用户每次升级墨叽云端功能后，都需要把新代码重新部署到自己的原实例。** 只更新本地 DSH 安装包、下载源码或 Git push，不会更新个人云端的界面和后端；手机及连接同一实例的客户端仍会使用旧版。完成原实例部署并核验后，再刷新客户端。仅本地使用 DSH 的用户更新本地包即可；只改插件名称、图标等连接元数据，不等于需要重新部署后端。 详见[原实例更新第 6 节](docs/cloud-agent-deployment.md#cloud-update)。
 
-插件生成工具会填好墨叽的原版图标、名字与简介，你只需配置自己的实例。**DSH `.tgz`、Windows ZIP、插件生成器 ZIP 与最终上传的个人插件 ZIP 不是同一种包。** 具体下载、生成与授权步骤见[插件包指南](docs/plugin-package.md)。密钥只在可信的授权页或隐藏输入中填写，不要发进聊天。
+**官方流程：先创建自定义 MCP 并授权，再用 ZIP 在同一插件上“上传新版本”。** 生成器使用本人的实例地址和当前应用 ID，补齐墨叽原版图标、名称、简介和 GitHub 官网；不要把更新包另建为插件。**DSH `.tgz`、Windows ZIP、插件生成器 ZIP 与最终上传的个人插件 ZIP 不是同一种包。** 具体下载、生成与授权步骤见[插件包指南](docs/plugin-package.md)。密钥只在可信的授权页或隐藏输入中填写，不要发进聊天。
 
 ## 写作自由，也要保住原稿
 
@@ -102,3 +102,5 @@
 墨叽基于 [mistnest/dsh-cuigengji-plugin](https://github.com/mistnest/dsh-cuigengji-plugin) 的催更姬继续开发，保留上游作者 **mistnest** 的版权声明与 [MIT 许可证](LICENSE)。来源基线与后续采用记录见 [UPSTREAM.md](integrations/chatgpt-workbench/UPSTREAM.md)。感谢上游提供的小说工作台基础。
 
 MIT 许可适用于本仓库源码；小说、导入资料及第三方素材的权利归各自权利人，不因存放或导入墨叽而改变。
+
+> **网页入口说明：** Windows 独立版提供本机浏览器编辑器；个人云端根地址只是 MCP 连接说明页，不是可登录的独立网页编辑器。云端可视化界面由支持的宿主客户端承载。本机作品库与个人云端不会自动同步。

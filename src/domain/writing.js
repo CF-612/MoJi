@@ -181,7 +181,7 @@ export function writingAction(n,action,a,actor){
  }else if(action==='writing.link.create'){
   if(a.confirmed!==true)fail('出场、提及与资料关联需要作者确认','CONFIRM_REQUIRED');const node=get(n.nodes,a.nodeId,'资料'),ch=get(n.chapters,a.chapterId,'章节');if(node.deleted||ch.deleted)fail('不能关联已删除资料或章节');cas(ch,a.expectedChapterRevision);
   const manual=a.manual===true;if(manual&&actor.kind!=='human')fail('手动指定出场仅限作者操作','HUMAN_REQUIRED');const ref=manual?{evidence:''}:evidence(n,{chapterId:a.chapterId,revision:a.expectedChapterRevision,evidence:a.evidence}),linkKind=a.kind||'reference';if(!['appearance','mention','reference'].includes(linkKind))fail('关联类型无效');
-  if(node.type!=='character_card'&&linkKind!=='reference')fail('只有角色可记录出场或提及');
+  if(node.type!=='character_card'&&linkKind==='mention')fail('只有角色可记录仅被提及');
   const selection=a.selection?selectionProof(ch,a.selection):null;
   const repeated=active(draft.links).find(l=>l.nodeId===node.id&&l.chapterId===ch.id&&l.chapterRevision===ch.revision&&l.kind===linkKind&&l.evidence===ref.evidence&&(!selection||(l.selection?.start===selection.start&&l.selection?.end===selection.end)));if(repeated)return linkView(n,repeated);
   result=save(draft.links,randomUUID(),{nodeId:node.id,chapterId:ch.id,chapterRevision:ch.revision,kind:linkKind,evidence:ref.evidence,...(selection?{selection}:{}),...(manual?{manual:true}:{}),deleted:false},null,source,reason);

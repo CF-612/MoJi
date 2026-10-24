@@ -7,7 +7,33 @@ import { crc32 } from 'node:zlib';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const template = new URL('../integrations/chatgpt-workbench/cloud/plugin/template/', import.meta.url);
-export const archivePaths = Object.freeze(['plugin.json', 'mcp.json', 'assets/icon.png']);
+export const archivePaths = Object.freeze(['plugin.json', '.app.json', 'mcp.json', 'assets/icon.png']);
+
+export function normalizeAppId(input) {
+  if (typeof input !== 'string' || !/^(?:plugin_)?asdk_app_[a-f0-9]{32}$/.test(input)) {
+    throw new Error('请提供本人已注册应用的 asdk_app_… 或 plugin_asdk_app_… ID；不是 ZIP 插件的 Plugin_… ID，也不是密钥。');
+  }
+  return input.replace(/^plugin_/, '');
+}
+
+export function parsePluginArgs(args) {
+  if (args.length === 1) return { input: args[0], guideOnly: true };
+  if (args.length === 3 && args[1] === '--app-id') return { input: args[0], appId: normalizeAppId(args[2]) };
+  if (args.length === 5 && args[1] === '--app-id' && args[3] === '--plugin-name') return { input: args[0], appId: normalizeAppId(args[2]), pluginName: normalizePluginName(args[4]) };
+  if (args.length === 2 && args[1] === '--desktop-only') return { input: args[0], desktopOnly: true };
+  throw new Error('官方流程：先创建自定义 MCP，再用 URL --app-id 本人应用ID 生成原位更新包；可加 --plugin-name 导出包中的name。电脑测试：URL --desktop-only。');
+}
+
+export function normalizePluginName(input) {
+  if (typeof input !== 'string' || !/^[a-z0-9][a-z0-9_-]{0,127}$/.test(input)) throw new Error('插件名称必须是导出配置中的合法 name，不是显示名称。');
+  return input;
+}
+
+export async function buildConnectionGuide(input) {
+  const url = normalizeMcpUrl(input);
+  const settings = JSON.parse(await readFile(new URL('connection.json', template), 'utf8'));
+  return `${settings.displayName} — 官方安装流程\n1. 添加自定义 MCP：${url}，认证 ${settings.authentication}，完成授权。已有连接直接复用。\n2. 从应用设置复制 asdk_app_… ID，运行：npm run package:plugin -- "${url}" --app-id "本人应用ID"。\n3. 在同一插件详情选择“上传新版本”，上传 moji-cloud-update.zip；不要从目录新增上传。\n图标：${fileURLToPath(new URL(settings.icon, template))}\n更新后核对图标、GitHub 网站、应用 ID、授权和单一入口。手机使用相同账号和工作区。\nZIP 引用不能恢复已删除的应用。各端需要分别实测。本次只输出说明，不生成 ZIP。`;
+}
 
 export function normalizeMcpUrl(input) {
   const fail = () => { throw new Error('请输入自己的公开 HTTPS 根地址或 /mcp 地址；不接受凭据、查询串、片段、本机/IP 地址、特殊端口或其他路径。'); };
@@ -25,7 +51,7 @@ export function normalizeMcpUrl(input) {
   return `${url.origin}/mcp`;
 }
 
-// Minimal ZIP32 "stored" writer for three fixed files. UTF-8 names, fixed timestamp,
+// Minimal ZIP32 "stored" writer for allowlisted files. UTF-8 names, fixed timestamp,
 // no symlinks, recursion, shell invocation or dependency installation.
 export function createZip(entries) {
   const local = [], central = [];
@@ -67,31 +93,50 @@ export async function writePluginZip(output, bytes) {
   } finally { await rm(temporary, { recursive: true, force: true }); }
 }
 
-export async function buildPlugin(input) {
+export async function buildPlugin(input, { appId, desktopOnly = false, pluginName } = {}) {
   const url = normalizeMcpUrl(input);
+  if (typeof desktopOnly !== 'boolean' || (desktopOnly && (appId !== undefined || pluginName !== undefined))) throw new Error('应用关联与桌面直连不能同时启用。');
+  const registeredAppId = desktopOnly ? undefined : normalizeAppId(appId);
   const plugin = JSON.parse(await readFile(new URL('plugin.json', template), 'utf8'));
   const mcp = JSON.parse(await readFile(new URL('mcp.json', template), 'utf8'));
   // Reconstruct the connection allowlist: never copy ambient env/config credentials.
-  mcp.mcpServers = { moji: { type: 'streamable-http', url, extensions: { 'com.openai': { auth: { type: 'oauth', client: { mode: 'dcr' } } } } } };
-  const entries = [['plugin.json', Buffer.from(JSON.stringify(plugin, null, 2) + '\n')],
-    ['mcp.json', Buffer.from(JSON.stringify(mcp, null, 2) + '\n')],
+  // Desktop 0.164.0-alpha.11.1 rejects MCP-level `extensions` before connecting.
+  // Keep OAuth discovery on the protected server; never embed auth credentials.
+  mcp.mcpServers = { moji: { type: 'streamable-http', url } };
+  // App mappings reference existing registrations; they do not create or restore them.
+  // Host availability and permissions must be verified separately.
+  let connection;
+  if (registeredAppId) {
+    const apps = JSON.parse(await readFile(new URL('.app.json', template), 'utf8'));
+    // The auto-created cloud plugin uses dev-<app suffix>; an exported name can override it.
+    plugin.name = normalizePluginName(pluginName ?? registeredAppId.replace(/^asdk_app_/, 'dev-'));
+    apps.apps = { [plugin.name]: { id: registeredAppId } };
+    plugin.extensions['com.openai'].apps = './.app.json';
+    connection = ['.app.json', Buffer.from(JSON.stringify(apps, null, 2) + '\n')];
+  } else {
+    delete plugin.extensions['com.openai'].apps;
+    connection = ['mcp.json', Buffer.from(JSON.stringify(mcp, null, 2) + '\n')];
+  }
+  const entries = [['plugin.json', Buffer.from(JSON.stringify(plugin, null, 2) + '\n')], connection,
     ['assets/icon.png', await readFile(new URL('assets/icon.png', template))]];
-  return { url, entries, zip: createZip(entries) };
+  return { url, appId: registeredAppId, mode: desktopOnly ? 'desktop-only' : 'cloud-update', entries, zip: createZip(entries) };
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
   try {
     const args = process.argv.slice(2);
-    if (args.length !== 1 || args[0] === '--help') {
-      console.log('用法: npm run package:plugin -- "https://你的实例.workers.dev"\n只需公开根地址或 /mcp；不要输入密钥。离线生成，不部署、不上传。');
-      if (args[0] !== '--help') process.exitCode = 1;
+    if (args.length === 1 && args[0] === '--help') {
+      console.log('单入口：npm run package:plugin -- "https://你的实例.workers.dev"\n原位更新包：URL --app-id 本人应用ID [--plugin-name 导出配置name]\n电脑测试：URL --desktop-only\n先创建自定义 MCP，再在同一插件上传新版本；不要新增插件。');
     } else {
-      const result = await buildPlugin(args[0]);
-      const directory = resolve(root, 'integrations/chatgpt-workbench/cloud/plugin');
-      await mkdir(directory, { recursive: true });
-      const output = resolve(directory, 'moji-personal.zip');
-      await writePluginZip(output, result.zip);
-      console.log(`已生成: ${output}\nMCP: ${result.url}\n此包包含你的实例地址，请勿作为通用包发布。上传后仍须 OAuth 授权并验收可视化界面；本命令不验证线上服务。`);
+      const { input, ...options } = parsePluginArgs(args);
+      if (options.guideOnly) { console.log(await buildConnectionGuide(input)); } else {
+        const result = await buildPlugin(input, options);
+        const directory = resolve(root, 'integrations/chatgpt-workbench/cloud/plugin');
+        await mkdir(directory, { recursive: true });
+        const output = resolve(directory, options.desktopOnly ? 'moji-desktop-only.zip' : 'moji-cloud-update.zip');
+        await writePluginZip(output, result.zip);
+        console.log(`已生成: ${output}\n模式: ${result.mode}\n核对应用连接的 MCP: ${result.url}\n${result.appId ? `关联应用: ${result.appId}` : '仅供电脑直连，不保证聊天和手机可用。'}\n云端更新包只能在对应插件详情选择“上传新版本”；不要新增插件或删除云端应用。个人包请勿作为通用包发布。授权及各端可视化界面仍需验收；本命令不验证线上服务。`);
+      }
     }
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }

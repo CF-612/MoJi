@@ -1,5 +1,4 @@
 import {workbenchMenuStyles} from './workbench-menu-style.ts';
-import {CloudDeploymentGuide,DeploymentAgentContext} from './CloudDeploymentGuide.tsx';
 import {DshConnectionContext,DshConnectionCard} from './dsh-connection.tsx';
 import {ToolSheet} from './ToolSheet.tsx';
 import moji from '../assets/moji.png';
@@ -14,9 +13,9 @@ interface Props {
 }
 
 export function WorkbenchHeader({home, novelTitle, tab, busy, refreshing, onHome, onTab, onRefresh, onSettings, onAbout, onSearch}: Props) {
-  const modules=useModules(),dsh=useContext(DshConnectionContext),deploymentAgent=useContext(DeploymentAgentContext);
+  const modules=useModules(),dsh=useContext(DshConnectionContext);
   const menuItems=[
-    dsh?<DshConnectionCard key="connection"/>:deploymentAgent?<section key="connection" aria-label="连接与云端"><strong>连接与云端</strong><p>当前实例由所用插件及宿主配置管理。更换实例请按所用插件的配置入口接入；这里没有本机 / 云端切换开关，作品不会自动迁移。</p><CloudDeploymentGuide/></section>:null,
+    dsh?<DshConnectionCard key="connection"/>:null,
     novelTitle&&!home&&onSearch&&<MenuRow key="search" icon="search" title="搜索作品" note="查找正文、资料与规划" disabled={busy} onClick={onSearch}/>,
     <MenuRow key="refresh" icon="refresh" navigation={false} title="刷新当前页面" note="获取最新内容，保留当前草稿" disabled={busy||refreshing} onClick={onRefresh}/>,
     novelTitle&&!home&&<MenuRow key="preset" icon="edit" title="写作要求" note="管理这部作品的写作预设" onClick={()=>onTab('preset')}/>,

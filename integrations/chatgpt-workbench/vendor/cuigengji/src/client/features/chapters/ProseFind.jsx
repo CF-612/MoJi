@@ -1,3 +1,4 @@
+import {proseHighlightSegments,linkedHighlightStyle} from './linked-prose-highlights.mjs';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {Modal} from '../../shared/preferences.tsx';
 import {proseMatches,replaceMatch} from './editor-text.mjs';
@@ -25,9 +26,7 @@ export function ProseFind({call,novelId,chapterId,content,prepare,applied,replac
   {preview&&<Modal title={receipt?'核对同一次替换':'确认批量替换'} close={()=>{if(!busy&&!receipt)setPreview(null);}} className="prose-replace-confirm"><p><strong>{preview.scope==='book'?'全书':'本章'}：{preview.count} 处 · {preview.chapters.length} 章</strong></p><p className="muted">先保存了此设备的待同步草稿。版本发生变化会中止；每章保留历史，可逐章恢复，不提供一键整批撤销。</p><div className="prose-replace-preview">{preview.chapters.map(c=><details key={c.chapterId}><summary>{c.title} · {c.count} 处 · 替换前 v{c.revision}</summary>{c.snippets.map(s=><blockquote key={s.start}>{s.before}<mark>{s.match}</mark>{s.after}<br/>→ {replacement||'（删除）'}</blockquote>)}{c.count>c.snippets.length&&<small>只预览前 {c.snippets.length} 处；将替换全部 {c.count} 处。</small>}</details>)}</div>{error&&<p role="alert">{error}</p>}{receipt&&<p role="status">结果尚未确认。请重试同一次请求核对，不会重复创建替换；暂时保留此面板。</p>}<div className="row"><button disabled={busy||!!receipt} onClick={()=>setPreview(null)}>取消</button><button className="primary" disabled={busy||!preview.count} onClick={apply}>{busy?'处理中…':receipt?'重试同一次替换':'确认替换'}</button></div></Modal>}
  </section>;
 }
-export function ProseMatchLayer({content,state,appearance}){
- const parts=[];let end=0;
- for(const [i,match] of (state?.matches||[]).entries()){parts.push(content.slice(end,match.start));parts.push(<mark key={match.start} data-prose-match={i} data-current={i===state.current}>{content.slice(match.start,match.end)}</mark>);end=match.end;}
- parts.push(content.slice(end));
+export function ProseMatchLayer({content,state,appearance,linkedRanges=[]}){
+ const parts=proseHighlightSegments(content,state,linkedRanges).map(part=>part.matchIndex!==undefined||part.linked?<mark key={part.start} data-prose-match={part.matchIndex} data-current={part.matchIndex!==undefined&&part.current} data-linked={part.linked||undefined} data-linked-types={part.types.join(' ')||undefined} style={part.matchIndex===undefined?linkedHighlightStyle(part.types):undefined}>{part.text}</mark>:part.text);
  return <div className="prose-match-layer manuscript" aria-hidden="true" style={appearance}>{parts}{'\n'}</div>;
 }

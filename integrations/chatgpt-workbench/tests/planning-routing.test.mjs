@@ -44,3 +44,49 @@ test('one parent fans into distinct natural curves, not one shared trunk and fla
 test('export preserves blue solid sequence arrows and orange dashed containment with identical curves',()=>{const cards=[node('a',600,0),node('b',0,0)],{points}=geometry(cards),edges=[{from:'a',to:'b',type:'precedence'},{from:'a',to:'b',type:'contains'}],{svg}=planningSvg(cards,edges,points);for(const edge of edges)assert(svg.includes(`d="${planningConnection(edge,points,cards).path}"`));assert.match(svg,/<path data-relation="precedence"[^>]*stroke="#356dc4"[^>]*marker-end="url\(#planning-precedence-arrow\)"/);assert.match(svg,/<path data-relation="contains"[^>]*stroke="#b3651d"[^>]*stroke-dasharray="7 5"/);assert.doesNotMatch(svg,/<path data-relation="contains"[^>]*marker-end/);});
 
 test('reverse and acute geometry sweeps contain no sampled self-intersection loops',()=>{const cross=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x),intersects=(a,b,c,d)=>cross(a,b,c)*cross(a,b,d)<0&&cross(c,d,a)*cross(c,d,b)<0;for(const x of [-1000,-100,-10,0,10,100,1000])for(const y of [-100,-1,0,1,100]){if(x===0&&y===0)continue;const {samples}=planningRoute({x:0,y:0},{x,y},[]);for(let i=1;i<samples.length;i++)for(let j=i+2;j<samples.length;j++)assert(!intersects(samples[i-1],samples[i],samples[j-1],samples[j]),`loop at ${x},${y}`);}});
+
+test('README five-card cross-row return has one continuous natural curve and unchanged forward links',()=>{
+ const cards=[node('one',80,100),node('two',390,100),node('a',700,100),node('b',390,340),node('five',700,340)],{route,points}=geometry(cards);
+ assert.equal(route.corrected,true);assert.equal(route.waypoints.length,16);
+ assert.deepEqual(route.from,{x:948,y:204});assert.deepEqual(route.to,{x:390,y:444});
+ const p=route.waypoints;
+ assert.equal(route.path.match(/ C/g).length,5,'four circular quarters joined through the row gap');
+ for(const i of [3,6,9,12])for(const key of ['x','y'])assert(Math.abs((p[i][key]-p[i-1][key])-(p[i+1][key]-p[i][key]))<1e-8,'C1 tangent join');
+ // The old single cubic passed the no-fold test yet had a sub-pixel turning
+ // radius. Check curvature, not merely the presence of a C command.
+ for(const start of [0,3,9,12])for(let i=0;i<=200;i++){
+  const [a,b,c,d]=p.slice(start,start+4),t=i/200,u=1-t;
+  const v=k=>3*u*u*(b[k]-a[k])+6*u*t*(c[k]-b[k])+3*t*t*(d[k]-c[k]);
+  const acc=k=>6*u*(c[k]-2*b[k]+a[k])+6*t*(d[k]-2*c[k]+b[k]);
+  const radius=Math.hypot(v('x'),v('y'))**3/Math.abs(v('x')*acc('y')-v('y')*acc('x'));
+  assert(radius>=55&&radius<=65,`turn radius ${radius} must remain round, not pointed`);
+ }
+ for(let i=1;i<route.samples.length;i++)assert(route.samples[i].y>=route.samples[i-1].y,'no reverse hook or loop');
+ // This specific screenshot must read as one visible connection, not three
+ // fragments hidden behind its own endpoint cards. Not a general avoid-card rule.
+ for(const point of samples(route.path))for(const card of cards.filter(n=>['a','b'].includes(n.id)))assert(!(point.x>card.x&&point.x<card.x+card.width&&point.y>card.y&&point.y<card.y+card.height),'README return hidden behind endpoint card');
+ assert.equal(planningConnection({from:'one',to:'two'},points,cards).path,'M328 204 C354.04 204 363.96 204 390 204');
+ assert.equal(planningConnection({from:'b',to:'five'},points,cards).path,'M638 444 C664.04 444 673.96 444 700 444');
+ assert.equal(planningRoute(route.from,route.to,[]).path,route.path);
+ assert(planningSvg(cards,[{from:'a',to:'b'}],points).svg.includes(`d="${route.path}"`));
+});
+
+test('cross-row turns transpose and mirror for every opposing material port without loops or seams',()=>{
+ for(const source of [{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}])for(const sign of [-1,1]){
+  const target={x:-source.x,y:-source.y},normal={x:-source.y*sign,y:source.x*sign},from={x:123,y:-456},to={x:from.x-558*source.x+240*normal.x,y:from.y-558*source.y+240*normal.y};
+  const route=planningRoute(from,to,[],'horizontal','a','b',{source,target});assert.equal(route.waypoints.length,16);
+  assert.equal(route.path.match(/ C/g).length,5);
+  const a=route.waypoints[1],b=route.waypoints.at(-2);assert((a.x-from.x)*source.x+(a.y-from.y)*source.y>0);assert((b.x-to.x)*target.x+(b.y-to.y)*target.y>0);
+  for(let i=1;i<route.samples.length;i++){const a=route.samples[i-1],b=route.samples[i];assert((b.x-a.x)*normal.x+(b.y-a.y)*normal.y>=-1e-8,'monotone across rows prevents loops');}
+  assert.equal(planningRoute(from,to,[{id:'obstacle',x:-10000,y:-10000,width:20000,height:20000}],'horizontal','a','b',{source,target}).path,route.path);
+ }
+});
+
+test('moving endpoints across return thresholds, far tiny offsets and zero distance stay bounded and loop-free',()=>{
+ const cross=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x),intersects=(a,b,c,d)=>cross(a,b,c)*cross(a,b,d)<-1e-10&&cross(c,d,a)*cross(c,d,b)<-1e-10;
+ for(const x of [-10000,-558,-100,-1,0])for(const y of [0,.0001,23.999,24,24.001,44.7,44.8,44.9,240,-240,479.99,480,480.01,1000,20000]){
+  const route=planningRoute({x:0,y:0},{x,y},[]);assert.doesNotMatch(route.path,/NaN|Infinity|[LQ]/);
+  for(const p of route.samples){assert(p.x>=Math.min(0,x)-151&&p.x<=Math.max(0,x)+151);assert(p.y>=Math.min(0,y)-151&&p.y<=Math.max(0,y)+151);}
+  for(let i=1;i<route.samples.length;i++)for(let j=i+2;j<route.samples.length;j++)assert(!intersects(route.samples[i-1],route.samples[i],route.samples[j-1],route.samples[j]),`loop at ${x},${y}`);
+ }
+});

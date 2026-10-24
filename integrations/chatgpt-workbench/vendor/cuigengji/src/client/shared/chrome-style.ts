@@ -19,4 +19,21 @@ export const chromeStyles = `
 @container(max-width:900px) {
  .cuigengji .desktop-workspace-navigation {padding-right:0;border-right:0;}
 }
+
+/* One aligned graph control strip, shared by planning and material canvases. */
+.cuigengji .graph-controls{position:absolute;left:16px;right:16px;bottom:16px;display:flex;align-items:stretch;gap:4px;z-index:12;pointer-events:none}
+.cuigengji .graph-controls>.graph-view-controls{position:static;margin-left:auto;pointer-events:auto}
+.cuigengji .graph-controls>.graph-help{position:relative;left:auto;bottom:auto;order:-1;display:flex;pointer-events:auto}
+.cuigengji .graph-controls>.graph-help>summary{display:flex;align-items:center;justify-content:center;min-height:40px;box-sizing:border-box;border-radius:10px;padding:4px 10px}
+.cuigengji .graph-controls .graph-view-controls>button{min-height:32px}
+@container(max-width:600px){
+ .cuigengji .return-strip{padding:0 8px}
+ .cuigengji .return-strip button{min-height:36px;padding:6px 8px}
+ .cuigengji .graph-controls{left:8px;right:8px;bottom:8px;gap:0;border:1px solid var(--cg-line);border-radius:10px;background:var(--cg-paper);box-shadow:0 3px 10px color-mix(in srgb,var(--cg-ink) 5%,transparent)}
+ .cuigengji .graph-controls>.graph-view-controls{flex:1;min-width:0;max-width:none;margin:0;padding:0;gap:0;flex-wrap:nowrap;border:0;box-shadow:none;background:none;border-radius:0}
+ .cuigengji .graph-controls>.graph-help>summary{border:0;border-right:1px solid var(--cg-line);border-radius:0;background:none;padding:0 8px;min-width:48px;min-height:40px;font-size:11px}
+ .cuigengji .graph-controls .graph-view-controls>button{flex:1;min-width:0;min-height:40px;padding:4px;font-size:11px;white-space:nowrap}
+ .cuigengji .graph-controls .graph-control-divider{margin:0;width:1px;flex:none}
+ .cuigengji .graph-controls .graph-help>div{max-height:calc(100dvh - 180px);overflow:auto}
+}
 `;

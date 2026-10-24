@@ -12,7 +12,7 @@ export function selectionProof(chapter,selection,{historical=false}={}){
  if(typeof evidence!=='string'||!evidence.trim()||evidence.length>2000)fail('请选择 1—2000 个字符作为正文依据。');
  if(content.slice(start,end)!==evidence)fail('选中原文与已保存正文不一致，请返回正文重新选择。');
  if(selection.contentHash!==version.contentHash)fail('正文版本内容已变化，请重新选择。','CONFLICT');
- return {chapterId:chapter.id,revision:version.revision,evidence,start,end,coordinate:'lf-utf16',contentHash:version.contentHash};
+ return {chapterId:chapter.id,revision:version.revision,evidence,start,end,coordinate:'lf-utf16',contentLength:content.length,contentHash:version.contentHash};
 }
 
 // Invoked inside the Store transaction: creating a material and linking it either

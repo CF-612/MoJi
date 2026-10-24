@@ -48,8 +48,8 @@ test('non-DSH hosts keep Settings second after their first visible entry',()=>{
  assert.deepEqual(renderMenu({home:true}).labels,['刷新当前页面','设置','关于墨叽']);
  assert.deepEqual(renderMenu({onSearch:undefined}).labels,['刷新当前页面','设置','写作要求','作品与备份','关于墨叽']);
  assert.deepEqual(renderMenu({novelTitle:''}).labels,['刷新当前页面','设置','关于墨叽']);
- assert.deepEqual(renderMenu({deployment:true}).labels,['连接与云端','设置','搜索作品','刷新当前页面','写作要求','作品与备份','关于墨叽']);
- assert.deepEqual(renderMenu({deployment:true,home:true}).labels,['连接与云端','设置','刷新当前页面','关于墨叽']);
+ assert.deepEqual(renderMenu({deployment:true}).labels,['搜索作品','设置','刷新当前页面','写作要求','作品与备份','关于墨叽']);
+ assert.deepEqual(renderMenu({deployment:true,home:true}).labels,['刷新当前页面','设置','关于墨叽']);
 });
 
 test('reordered rows retain actions, dismiss behavior, disabled states and refresh without an arrow',()=>{
@@ -67,3 +67,9 @@ test('reordered rows retain actions, dismiss behavior, disabled states and refre
   assert.equal(current.find(item=>item.key==='search').props.disabled,!!state.busy);
  }
 });
+
+ test('embedded MCP hosts expose no cloud deployment controls and retain backups',()=>{
+ const {html,items}=renderMenu({deployment:true});
+ assert.doesNotMatch(html,/连接与云端|本地 \/ 云端|个人云端部署引导|发送部署提示词|复制部署提示词/);
+ assert.ok(items.find(item=>item.key==='manage'));
+ });

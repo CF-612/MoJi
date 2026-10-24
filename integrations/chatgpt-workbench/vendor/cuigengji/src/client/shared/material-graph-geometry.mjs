@@ -26,9 +26,9 @@ export function materialConnection(edge,points,nodes=Object.keys(points).map(id=
  const route=materialRoute(start,end,rectangles,edge.from,edge.to,from,to);
  return {...route,start,end,fromPort:from,toPort:to};
 }
-/** Compact text + edit affordance; a short name must fit the normal 84px card gap. */
+/** Compact directly editable text; a short name must fit the normal 84px card gap. */
 export function materialLabelSize(name,content,evolution=false,route){
- let width=(content?144:Math.max(32,Math.min(128,Array.from(name||'').length*12+16)))+(evolution?28:0);
+ let width=content?144:Math.max(32,Math.min(128,Array.from(name||'').length*12+16));
  // Keep long titles attached to the line in an ordinary facing-card gap;
  // the renderer ellipsizes the label while its tooltip/editor retains the full name.
  if(!content&&route?.kind==='bezier'&&Math.abs(route.start.y-route.end.y)<20){const room=Math.abs(route.start.x-route.end.x)-16;if(room>=52)width=Math.min(width,room);}

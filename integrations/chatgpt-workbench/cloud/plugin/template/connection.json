@@ -1,0 +1,7 @@
+{
+  "displayName": "墨叽 · 小说工作台",
+  "authentication": "OAuth",
+  "icon": "./assets/icon.png",
+  "purpose": "先创建自定义 MCP 并授权，再生成 ZIP，在同一插件上传新版本",
+  "websiteURL": "https://github.com/CF-612/MoJi"
+}

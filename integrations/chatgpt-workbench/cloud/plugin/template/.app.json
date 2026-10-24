@@ -1,0 +1,8 @@
+{
+  "apps": {
+    "moji": {
+      "id": "REPLACE_WITH_YOUR_REGISTERED_APP_ID",
+      "required": true
+    }
+  }
+}
