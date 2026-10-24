@@ -54,7 +54,7 @@ test('desktop-compatible portable connection, original branding, no embedded cre
   const plugin = JSON.parse(unpacked.get('plugin.json'));
   const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url)));
   assert.equal(plugin.$schema, 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json');
-  assert.equal(plugin.name, 'moji'); assert.equal(plugin.version, '0.11.3'); assert.equal(plugin.description, pkg.description);
+  assert.equal(plugin.name, 'moji'); assert.equal(plugin.version, '1.0.6'); assert.equal(plugin.description, pkg.description);
   const ui = plugin.extensions['com.openai'].interface;
   assert.equal(ui.displayName, pkg.displayName);
   assert.ok([...ui.shortDescription].length <= 30);
@@ -117,14 +117,14 @@ test('output rejects nonregular files and atomically replaces only the ZIP', asy
 });
 
 const appId = 'asdk_app_0123456789abcdef0123456789abcdef';
-test('explicit extra-entry wrapper references one app and no desktop MCP', async () => {
-  const a = await buildPlugin(address, { appId, allowExtraEntry: true });
-  const b = await buildPlugin(address, { appId: 'plugin_' + appId, allowExtraEntry: true });
+test('cloud update preserves auto-created plugin identity and has no desktop MCP', async () => {
+  const a = await buildPlugin(address, { appId });
+  const b = await buildPlugin(address, { appId: 'plugin_' + appId });
   assert.deepEqual(a.zip, b.zip);
   const files = unzipStored(a.zip);
   assert.deepEqual([...files.keys()], ['plugin.json', '.app.json', 'assets/icon.png']);
   assert.equal(JSON.parse(files.get('plugin.json')).extensions['com.openai'].apps, './.app.json');
-  assert.deepEqual(JSON.parse(files.get('.app.json')), { apps: { moji: { id: appId, required: true } } });
+  assert.deepEqual(JSON.parse(files.get('.app.json')), { apps: { ['dev-' + appId.slice('asdk_app_'.length)]: { id: appId } } });
   assert.equal(a.zip.includes(Buffer.from(address)), false);
   assert.equal(a.zip.includes(Buffer.from('REPLACE_WITH')), false);
 });
@@ -135,10 +135,9 @@ test('missing or invalid app mapping never silently creates desktop package', as
     assert.throws(() => normalizeAppId(input), /应用/);
   }
   assert.deepEqual(parsePluginArgs([address]), { input: address, guideOnly: true });
-  await assert.rejects(buildPlugin(address, { appId }), /增加入口/);
-  assert.throws(() => parsePluginArgs([address, '--app-id', appId]), /增加入口/);
+  assert.throws(() => parsePluginArgs([address, '--app-id', appId, '--allow-extra-entry']));
   assert.throws(() => parsePluginArgs([address, '--app-id', appId, '--desktop-only']));
-  assert.deepEqual(parsePluginArgs([address, '--app-id', 'plugin_' + appId, '--allow-extra-entry']), { input: address, appId, allowExtraEntry: true });
+  assert.deepEqual(parsePluginArgs([address, '--app-id', 'plugin_' + appId]), { input: address, appId });
   assert.deepEqual(parsePluginArgs([address, '--desktop-only']), { input: address, desktopOnly: true });
 });
 
@@ -151,5 +150,23 @@ test('single-entry guide preserves branding and does not generate a ZIP', async 
   assert.ok(guide.includes('分别实测'));
   assert.ok(guide.includes('icon.png'));
   assert.ok(guide.includes('不能恢复已删除的应用'));
-  assert.ok(guide.includes('不是可导入的云端应用定义'));
+  assert.ok(guide.includes('上传新版本'));
+  assert.ok(guide.includes('不要从目录新增上传'));
+});
+
+test('cloud update keeps branding and allows an exact exported plugin name', async () => {
+  const result = await buildPlugin(address, { appId, pluginName: 'existing-moji' });
+  const files = unzipStored(result.zip);
+  const manifest = JSON.parse(files.get('plugin.json'));
+  assert.equal(result.mode, 'cloud-update');
+  assert.equal(manifest.name, 'existing-moji');
+  assert.deepEqual(JSON.parse(files.get('.app.json')), { apps: { 'existing-moji': { id: appId } } });
+  const ui = manifest.extensions['com.openai'].interface;
+  assert.equal(ui.websiteURL, 'https://github.com/CF-612/MoJi');
+  assert.equal(ui.displayName, '墨叽 · 小说工作台');
+  assert.equal(ui.category, 'Productivity');
+  for (const key of ['logo', 'composerIcon']) assert.ok(files.has(ui[key].slice(2)));
+  assert.equal(files.has('mcp.json'), false);
+  assert.deepEqual(parsePluginArgs([address, '--app-id', appId, '--plugin-name', 'existing-moji']), { input: address, appId, pluginName: 'existing-moji' });
+  await assert.rejects(buildPlugin(address, { appId, pluginName: '../wrong' }), /name/);
 });

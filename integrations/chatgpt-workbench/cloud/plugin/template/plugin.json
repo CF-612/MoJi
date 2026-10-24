@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "moji",
-  "version": "0.11.3",
+  "version": "1.0.6",
   "description": "墨叽：陪你写故事的烟灰蛸小说工作台，支持正文、自由画布、情节连线与人物世界资料。",
   "author": {
     "name": "CF-612"
