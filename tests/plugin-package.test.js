@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { crc32 } from 'node:zlib';
-import { buildPlugin, normalizeMcpUrl, normalizeAppId, parsePluginArgs, archivePaths, writePluginZip } from '../scripts/package-chatgpt-plugin.mjs';
+import { buildConnectionGuide, buildPlugin, normalizeMcpUrl, normalizeAppId, parsePluginArgs, archivePaths, writePluginZip } from '../scripts/package-chatgpt-plugin.mjs';
 
 const address = 'https://my-moji.account.workers.dev'; // synthetic; never contacted
 function unzipStored(zip) {
@@ -54,7 +54,7 @@ test('desktop-compatible portable connection, original branding, no embedded cre
   const plugin = JSON.parse(unpacked.get('plugin.json'));
   const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url)));
   assert.equal(plugin.$schema, 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json');
-  assert.equal(plugin.name, 'moji'); assert.equal(plugin.version, '0.11.2'); assert.equal(plugin.description, pkg.description);
+  assert.equal(plugin.name, 'moji'); assert.equal(plugin.version, '0.11.3'); assert.equal(plugin.description, pkg.description);
   const ui = plugin.extensions['com.openai'].interface;
   assert.equal(ui.displayName, pkg.displayName);
   assert.ok([...ui.shortDescription].length <= 30);
@@ -117,9 +117,9 @@ test('output rejects nonregular files and atomically replaces only the ZIP', asy
 });
 
 const appId = 'asdk_app_0123456789abcdef0123456789abcdef';
-test('unified package uses exactly one registered app and no desktop MCP', async () => {
-  const a = await buildPlugin(address, { appId });
-  const b = await buildPlugin(address, { appId: 'plugin_' + appId });
+test('explicit extra-entry wrapper references one app and no desktop MCP', async () => {
+  const a = await buildPlugin(address, { appId, allowExtraEntry: true });
+  const b = await buildPlugin(address, { appId: 'plugin_' + appId, allowExtraEntry: true });
   assert.deepEqual(a.zip, b.zip);
   const files = unzipStored(a.zip);
   assert.deepEqual([...files.keys()], ['plugin.json', '.app.json', 'assets/icon.png']);
@@ -134,8 +134,19 @@ test('missing or invalid app mapping never silently creates desktop package', as
   for (const input of ['', 'Plugin_0123456789abcdef0123456789abcdef', 'asdk_app_bad', 'secret', appId + '/x']) {
     assert.throws(() => normalizeAppId(input), /应用/);
   }
-  assert.throws(() => parsePluginArgs([address]), /只填 URL/);
+  assert.deepEqual(parsePluginArgs([address]), { input: address, guideOnly: true });
+  await assert.rejects(buildPlugin(address, { appId }), /增加入口/);
+  assert.throws(() => parsePluginArgs([address, '--app-id', appId]), /增加入口/);
   assert.throws(() => parsePluginArgs([address, '--app-id', appId, '--desktop-only']));
-  assert.deepEqual(parsePluginArgs([address, '--app-id', 'plugin_' + appId]), { input: address, appId });
+  assert.deepEqual(parsePluginArgs([address, '--app-id', 'plugin_' + appId, '--allow-extra-entry']), { input: address, appId, allowExtraEntry: true });
   assert.deepEqual(parsePluginArgs([address, '--desktop-only']), { input: address, desktopOnly: true });
+});
+
+test('single-entry guide preserves branding and does not generate a ZIP', async () => {
+  const guide = await buildConnectionGuide(address);
+  assert.ok(guide.includes('墨叽 · 小说工作台'));
+  assert.ok(!guide.includes('（云端）'));
+  assert.ok(guide.includes(address + '/mcp'));
+  assert.ok(guide.includes('不生成 ZIP'));
+  assert.ok(guide.includes('分别实测'));
 });

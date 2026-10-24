@@ -17,9 +17,16 @@ export function normalizeAppId(input) {
 }
 
 export function parsePluginArgs(args) {
-  if (args.length === 3 && args[1] === '--app-id') return { input: args[0], appId: normalizeAppId(args[2]) };
+  if (args.length === 1) return { input: args[0], guideOnly: true };
+  if (args.length === 4 && args[1] === '--app-id' && args[3] === '--allow-extra-entry') return { input: args[0], appId: normalizeAppId(args[2]), allowExtraEntry: true };
   if (args.length === 2 && args[1] === '--desktop-only') return { input: args[0], desktopOnly: true };
-  throw new Error('统一包用法：URL --app-id 本人应用ID；仅电脑直连测试：URL --desktop-only。只填 URL 不会生成跨端包。');
+  throw new Error('单入口：只填 URL 查看连接说明。额外外壳：URL --app-id 本人应用ID --allow-extra-entry（增加入口）。电脑测试：URL --desktop-only。');
+}
+
+export async function buildConnectionGuide(input) {
+  const url = normalizeMcpUrl(input);
+  const settings = JSON.parse(await readFile(new URL('connection.json', template), 'utf8'));
+  return `${settings.displayName} — 单入口连接说明\nMCP：${url}\n认证：${settings.authentication}\n已有应用直接复用；首次使用注册一次并授权，不再上传 ZIP 外壳。手机使用相同账号和工作区。\n各端发现应用、调用工具、打开界面需要分别实测。本命令不部署、不注册、不生成 ZIP。`;
 }
 
 export function normalizeMcpUrl(input) {
@@ -80,9 +87,10 @@ export async function writePluginZip(output, bytes) {
   } finally { await rm(temporary, { recursive: true, force: true }); }
 }
 
-export async function buildPlugin(input, { appId, desktopOnly = false } = {}) {
+export async function buildPlugin(input, { appId, desktopOnly = false, allowExtraEntry = false } = {}) {
   const url = normalizeMcpUrl(input);
   if (typeof desktopOnly !== 'boolean' || (desktopOnly && appId !== undefined)) throw new Error('应用关联与桌面直连不能同时启用。');
+  if (!desktopOnly && allowExtraEntry !== true) throw new Error('单入口请直接使用已注册应用；额外应用外壳需要 --allow-extra-entry，会增加入口。');
   const registeredAppId = desktopOnly ? undefined : normalizeAppId(appId);
   const plugin = JSON.parse(await readFile(new URL('plugin.json', template), 'utf8'));
   const mcp = JSON.parse(await readFile(new URL('mcp.json', template), 'utf8'));
@@ -104,22 +112,24 @@ export async function buildPlugin(input, { appId, desktopOnly = false } = {}) {
   }
   const entries = [['plugin.json', Buffer.from(JSON.stringify(plugin, null, 2) + '\n')], connection,
     ['assets/icon.png', await readFile(new URL('assets/icon.png', template))]];
-  return { url, appId: registeredAppId, mode: desktopOnly ? 'desktop-only' : 'registered-app', entries, zip: createZip(entries) };
+  return { url, appId: registeredAppId, mode: desktopOnly ? 'desktop-only' : 'app-wrapper-extra-entry', entries, zip: createZip(entries) };
 }
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
   try {
     const args = process.argv.slice(2);
     if (args.length === 1 && args[0] === '--help') {
-      console.log('统一包：npm run package:plugin -- "https://你的实例.workers.dev" --app-id "plugin_asdk_app_…"\n仅电脑直连：URL --desktop-only\n复用本人已注册应用，不创建连接；不要输入密钥。离线生成，不部署、不上传，不验证应用与 URL 的归属和对应关系。');
+      console.log('单入口：npm run package:plugin -- "https://你的实例.workers.dev"\n高级外壳（增加入口）：URL --app-id 本人应用ID --allow-extra-entry\n电脑测试：URL --desktop-only\n单入口无需上传 ZIP；离线说明不代表各端通过验收。');
     } else {
       const { input, ...options } = parsePluginArgs(args);
+      if (options.guideOnly) { console.log(await buildConnectionGuide(input)); } else {
       const result = await buildPlugin(input, options);
       const directory = resolve(root, 'integrations/chatgpt-workbench/cloud/plugin');
       await mkdir(directory, { recursive: true });
-      const output = resolve(directory, options.desktopOnly ? 'moji-desktop-only.zip' : 'moji-personal.zip');
+      const output = resolve(directory, options.desktopOnly ? 'moji-desktop-only.zip' : 'moji-app-wrapper.zip');
       await writePluginZip(output, result.zip);
-      console.log(`已生成: ${output}\n模式: ${result.mode}\n核对应用连接的 MCP: ${result.url}\n${result.appId ? `关联应用: ${result.appId}` : '仅供电脑直连，不保证聊天和手机可用。'}\n个人包请勿作为通用包发布。请更新现有插件，不要重复创建。授权及各端可视化界面仍需验收；本命令不验证线上服务。`);
+      console.log(`已生成: ${output}\n模式: ${result.mode}\n核对应用连接的 MCP: ${result.url}\n${result.appId ? `关联应用: ${result.appId}` : '仅供电脑直连，不保证聊天和手机可用。'}\n只要一个入口时不要上传本包；直接使用已注册应用。个人包请勿作为通用包发布。授权及各端可视化界面仍需验收；本命令不验证线上服务。`);
+      }
     }
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }
