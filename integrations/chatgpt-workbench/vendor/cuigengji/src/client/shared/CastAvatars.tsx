@@ -1,3 +1,4 @@
+import {avatarSource} from './avatar-presets.js';
 import React from 'react';
 export type CastKind = 'appearance' | 'mention';
 export interface CastRef { nodeId: string; kind: CastKind }
@@ -9,7 +10,7 @@ export function castTone(name: string): number {
   return hash % toneCount;
 }
 export function castGlyph(person: CastPerson): React.ReactNode {
-  return person.avatarImage ? <img src={person.avatarImage} alt=""/> : person.name.trim().slice(0, 1) || '人';
+  return avatarSource(person.avatarImage) ? <img src={avatarSource(person.avatarImage)} alt=""/> : person.name.trim().slice(0, 1) || '人';
 }
 function toneClass(person: CastPerson): string { return `cast-tone tone-${castTone(person.name)}`; }
 export function CastFace({person, size = 'md'}: {person: CastPerson; size?: 'sm' | 'md'}) {

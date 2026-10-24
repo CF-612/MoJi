@@ -11,3 +11,6 @@ export function novelPresentation(value){
  for(const key of ['genre','workStatus'])if(value[key]!==undefined){if(typeof value[key]!=='string'||value[key].length>80)throw Object.assign(new Error('作品分类或状态过长'),{code:'INVALID_INPUT'});out[key]=value[key];}
  return out;
 }
+
+export const avatarPresetIds=['adult-male','adult-female','elder-male','elder-female','boy','girl','hood'].map(id=>'moji-avatar:v1:'+id);
+export function avatarData(value){return avatarPresetIds.includes(value)?value:typeof value==='string'&&value.startsWith('moji-avatar:')?null:imageData(value);}

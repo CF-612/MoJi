@@ -20,7 +20,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { previewTavern } from '../infrastructure/migrations/tavern.js';
 import { checkDirectorySnapshot, directorySnapshot, planChapterMove } from '../domain/chapters/order.ts';
 import { compilePreset, importPreset, validatePreset } from '../domain/preset/index.js';
-import {imageData,novelPresentation} from '../domain/presentation.js';
+import {imageData,avatarData,novelPresentation} from '../domain/presentation.js';
 
 export class StoreError extends Error {
   constructor(code, message) { super(message); this.name = 'StoreError'; this.code = code; }
@@ -401,7 +401,7 @@ export class Store extends ProjectStore {
     if (action === 'graph.create') {
       if (!kinds.has(a.type)) fail('INVALID_INPUT', '节点类型无效');
       const v = record({ type: a.type, groupId: groupId(n, a.groupId), ...memoryFields(a, n, true), ...nodePosition(a), deleted: false });
-      if(a.avatarImage!==undefined)v.avatarImage=imageData(a.avatarImage);
+      if(a.avatarImage!==undefined)v.avatarImage=avatarData(a.avatarImage);
       this.checkMemorySources(n, v);
       n.nodes[v.id] = v; touch(n); return v;
     }
@@ -419,7 +419,7 @@ export class Store extends ProjectStore {
         if (a.type !== undefined) { if (!kinds.has(a.type)) fail('INVALID_INPUT', '节点类型无效'); v.type = a.type; }
         if (a.groupId !== undefined) v.groupId = groupId(n, a.groupId);
         Object.assign(v, memoryFields(a, n), nodePosition(a));
-        if(a.avatarImage!==undefined)v.avatarImage=imageData(a.avatarImage);
+        if(a.avatarImage!==undefined)v.avatarImage=avatarData(a.avatarImage);
         this.checkMemorySources(n, v);
       }
       touch(v); touch(n); return v;
@@ -546,7 +546,7 @@ export class Store extends ProjectStore {
       const latest = c.versions.at(-1);
       if (latest.revision !== c.revision || latest.contentHash !== c.contentHash) fail('INVALID_BACKUP', '最新历史版本与正文不一致');
     }
-    for (const node of Object.values(n.nodes)) { if (!kinds.has(node.type)) fail('INVALID_BACKUP', '节点类型无效');if(node.avatarImage!==undefined)imageData(node.avatarImage); Object.assign(node, memoryFields(node, n, true), nodePosition(node)); }
+    for (const node of Object.values(n.nodes)) { if (!kinds.has(node.type)) fail('INVALID_BACKUP', '节点类型无效');if(node.avatarImage!==undefined)node.avatarImage=avatarData(node.avatarImage); Object.assign(node, memoryFields(node, n, true), nodePosition(node)); }
     for (const edge of Object.values(n.edges)) { if (!own(n.nodes, edge.from) || !own(n.nodes, edge.to)) fail('INVALID_BACKUP', '关系端点不存在'); Object.assign(edge, memoryFields(edge, n, true, true)); }
     if (n.plan && (typeof n.plan.content !== 'string' || !Number.isSafeInteger(n.plan.revision) || n.plan.revision < 1 || typeof n.plan.approved !== 'boolean')) fail('INVALID_BACKUP', '规划格式无效');
     validateMemoryGroups(n);

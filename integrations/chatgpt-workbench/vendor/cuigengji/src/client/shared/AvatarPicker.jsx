@@ -1,0 +1,10 @@
+import React,{useRef,useState} from 'react';
+import {Modal} from './preferences.tsx';
+import {ImageUpload} from './presentation.tsx';
+import {avatarPresets,avatarSource} from './avatar-presets.js';
+export function AvatarPicker({name,value,onSave,close}){
+ const [draft,setDraft]=useState(value||null),[busy,setBusy]=useState(false),[error,setError]=useState('');const locked=useRef(false);
+ const save=async()=>{if(locked.current)return;locked.current=true;setBusy(true);setError('');try{const result=await onSave(draft);if(result===false)throw new Error('保存未完成，请重试；所选头像仍保留。');close();}catch(e){setError(e.message||String(e));}finally{locked.current=false;setBusy(false);}};
+ const option=(id,label)=><button key={id||'initial'} type="button" aria-label={label} aria-pressed={draft===id} disabled={busy} onClick={()=>setDraft(id)}><span className="avatar-preset-face">{id?<img src={avatarSource(id)} alt=""/>:Array.from(name.trim())[0]||'人'}</span><small>{label}</small></button>;
+ return <Modal title="选择人物头像" close={()=>{if(!locked.current)close();}} className="avatar-picker-modal"><div className="avatar-picker"><p className="muted">选择默认头像，或上传自己的图片。保存后用于所有人物视图。</p><div className="avatar-picker-grid" role="group" aria-label="默认人物头像">{option(null,'姓名首字')}{avatarPresets.map(p=>option(p.id,p.label))}</div><div className="avatar-picker-custom"><ImageUpload label="上传自己的头像" disabled={busy} onChange={setDraft}><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M12 16V3m-4 4 4-4 4 4M4 15v6h16v-6"/></svg><span><strong>上传自己的头像</strong><small>PNG、JPG、WebP、GIF · 最大 1 MB</small></span></ImageUpload>{draft&&!avatarPresets.some(p=>p.id===draft)&&<span className="avatar-preset-face"><img src={avatarSource(draft)} alt="自定义头像预览"/></span>}</div>{error&&<p role="alert" className="notice error">{error}</p>}<div className="row"><button type="button" className="primary" disabled={busy} onClick={save}>{busy?'保存中…':'保存头像'}</button><button type="button" disabled={busy} onClick={close}>取消</button></div></div></Modal>;
+}
