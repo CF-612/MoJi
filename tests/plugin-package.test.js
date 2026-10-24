@@ -149,4 +149,7 @@ test('single-entry guide preserves branding and does not generate a ZIP', async 
   assert.ok(guide.includes(address + '/mcp'));
   assert.ok(guide.includes('不生成 ZIP'));
   assert.ok(guide.includes('分别实测'));
+  assert.ok(guide.includes('icon.png'));
+  assert.ok(guide.includes('不能恢复已删除的应用'));
+  assert.ok(guide.includes('不是可导入的云端应用定义'));
 });

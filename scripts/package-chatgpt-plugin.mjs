@@ -26,7 +26,7 @@ export function parsePluginArgs(args) {
 export async function buildConnectionGuide(input) {
   const url = normalizeMcpUrl(input);
   const settings = JSON.parse(await readFile(new URL('connection.json', template), 'utf8'));
-  return `${settings.displayName} — 单入口连接说明\nMCP：${url}\n认证：${settings.authentication}\n已有应用直接复用；首次使用注册一次并授权，不再上传 ZIP 外壳。手机使用相同账号和工作区。\n各端发现应用、调用工具、打开界面需要分别实测。本命令不部署、不注册、不生成 ZIP。`;
+  return `${settings.displayName} — 单入口连接说明\nMCP：${url}\n认证：${settings.authentication}\n创建表单图标：${fileURLToPath(new URL(settings.icon, template))}\n此说明不是可导入的云端应用定义；ZIP 引用不能恢复已删除的应用。\n已有应用直接复用；首次使用注册一次并授权，不再上传 ZIP 外壳。手机使用相同账号和工作区。\n各端发现应用、调用工具、打开界面需要分别实测。本命令不部署、不注册、不生成 ZIP。`;
 }
 
 export function normalizeMcpUrl(input) {
@@ -98,8 +98,8 @@ export async function buildPlugin(input, { appId, desktopOnly = false, allowExtr
   // Desktop 0.164.0-alpha.11.1 rejects MCP-level `extensions` before connecting.
   // Keep OAuth discovery on the protected server; never embed auth credentials.
   mcp.mcpServers = { moji: { type: 'streamable-http', url } };
-  // A registered app is the single tool source on every host. Bundling an MCP
-  // alongside it would reintroduce desktop-only routing and duplicate tools.
+  // App mappings reference existing registrations; they do not create or restore them.
+  // Host availability and permissions must be verified separately.
   let connection;
   if (registeredAppId) {
     const apps = JSON.parse(await readFile(new URL('.app.json', template), 'utf8'));

@@ -1,4 +1,6 @@
 {
   "displayName": "墨叽 · 小说工作台",
-  "authentication": "OAuth"
+  "authentication": "OAuth",
+  "icon": "./assets/icon.png",
+  "purpose": "仅供填写创建表单，不是 ChatGPT 可导入的云端应用定义"
 }
