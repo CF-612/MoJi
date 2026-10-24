@@ -1,3 +1,4 @@
+import {avatarSource} from '../../shared/avatar-presets.js';
 import {timelineMetrics,timelinePoint} from '../../../domain/timeline-view.mjs';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
@@ -105,7 +106,7 @@ export function CardTimeline({board,novelId,call,mode,current,choose,onPlan,onEv
   const ids=item.kind==='planning'?item.cast.filter(r=>r.kind==='appearance').map(r=>r.nodeId):item.related;
   const persons=ids.map(id=>people.find(p=>p.id===id)).filter(Boolean);if(!persons.length)return null;
   const description=item.kind==='planning'?'出场人物':'关联人物（不代表正文出场）';
-  return <div className="v23-avatars" role="group" aria-label={`${description}：${persons.map(p=>p.name).join('、')}`} title={description}>{persons.slice(0,3).map(p=><button key={p.id} type="button" aria-label={`查看人物 ${p.name}`} title={p.name} onClick={e=>{e.stopPropagation();onMemory?.(p.id);}}>{p.avatarImage?<img src={p.avatarImage} alt=""/>:<span>{p.name.slice(0,1)}</span>}</button>)}{persons.length>3&&<button aria-label={`展开全部 ${persons.length} 位人物`} onClick={e=>{e.stopPropagation();setCastList(persons);}}>+{persons.length-3}</button>}</div>;
+  return <div className="v23-avatars" role="group" aria-label={`${description}：${persons.map(p=>p.name).join('、')}`} title={description}>{persons.slice(0,3).map(p=><button key={p.id} type="button" aria-label={`查看人物 ${p.name}`} title={p.name} onClick={e=>{e.stopPropagation();onMemory?.(p.id);}}>{avatarSource(p.avatarImage)?<img src={avatarSource(p.avatarImage)} alt=""/>:<span>{p.name.slice(0,1)}</span>}</button>)}{persons.length>3&&<button aria-label={`展开全部 ${persons.length} 位人物`} onClick={e=>{e.stopPropagation();setCastList(persons);}}>+{persons.length-3}</button>}</div>;
  };
  const cardFace=(item,waiting=false)=><>
   <header><span className={`v23-kind kind-${item.kind}`}>{kindLabel[item.kind]}</span>{avatars(item)}</header>

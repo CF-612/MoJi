@@ -18,7 +18,7 @@ test('material exports honor cross-axis endpoints, no character arrows, and worl
 });
 test('export captures every rendered material palette and shares SVG with PNG without changing planning path',()=>{
  const src=readFileSync(new URL('../vendor/cuigengji/src/client/shared/CanvasExport.jsx',import.meta.url),'utf8');
- assert.match(src,/querySelectorAll\('\.setting-card\[data-node-id\]'/);assert.match(src,/legacyCanvasSvg\(currentMaterialPresentation\(nodes,element\),currentMaterialEdges\(edges,element\),points\)/);assert.match(src,/planningSvg\(currentCardPresentation\(nodes,element\)/);assert.match(src,/ctx.drawImage\(image/);
+ assert.match(src,/querySelectorAll\('\.setting-card\[data-node-id\]'/);assert.match(src,/legacyCanvasSvg\(currentMaterialPresentation\(nodes.map\(n=>\(\{\.\.\.n,avatarImage:avatarSource\(n.avatarImage\)\}\)\),element\),currentMaterialEdges\(edges,element\),points\)/);assert.match(src,/planningSvg\(currentCardPresentation\(nodes,element\)/);assert.match(src,/ctx.drawImage\(image/);
 });
 
 test('rendered routes and collision-adjusted label coordinates survive export-only snapshots',()=>{

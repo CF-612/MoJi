@@ -1,3 +1,4 @@
+import {avatarSource} from '../../shared/avatar-presets.js';
 import {RelationshipTypePicker} from '../../shared/RelationshipTypePicker.jsx';
 import {relationColor,relationName} from '../../shared/relation-color.mjs';
 import {useEventPlacement} from './useEventPlacement.js';
@@ -46,7 +47,7 @@ export function Timeline({integrated=false,call,novelId,tick,run,busy,onChapter,
 function PickReferences({label,items,value,change,name='name'}){
  const list=Array.isArray(items)?items:[],chosenIds=Array.isArray(value)?value:[],[query,setQuery]=useState('');
  const labelOf=item=>String(item?.[name]||'').trim()||'未命名';
- const face=item=><span className={`pick-ref-face cast-tone tone-${castTone(labelOf(item))}`}>{item.avatarImage?<img src={item.avatarImage} alt=""/>:labelOf(item).slice(0,1)}</span>;
+ const face=item=><span className={`pick-ref-face cast-tone tone-${castTone(labelOf(item))}`}>{avatarSource(item.avatarImage)?<img src={avatarSource(item.avatarImage)} alt=""/>:labelOf(item).slice(0,1)}</span>;
  const chosen=list.filter(item=>chosenIds.includes(item.id)),q=query.trim().toLowerCase();
  const available=list.filter(item=>!chosenIds.includes(item.id)&&(!q||labelOf(item).toLowerCase().includes(q)||String(item.summary||'').toLowerCase().includes(q))).slice(0,12);
  return <section className="pick-refs">

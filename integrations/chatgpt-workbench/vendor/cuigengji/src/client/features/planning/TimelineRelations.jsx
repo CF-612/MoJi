@@ -1,3 +1,4 @@
+import {avatarSource} from '../../shared/avatar-presets.js';
 import {RelationSidebarToggle} from './RelationSidebar.jsx';
 import {relationName} from '../../shared/relation-color.mjs';
 import {RelationChangeEditor,changeSource} from './RelationChangeEditor.jsx';
@@ -17,7 +18,7 @@ export function TimelineRelations({call,novelId,onCard,state,sources,people,rela
  const history=[...overview.changes,...overview.undated].filter(c=>!focusPair||pair(c.from,c.to)===focusPair),featured=overview.relations.find(r=>pair(r.from,r.to)===focusPair),endpoints=focusPair?characters.filter(p=>focusPair.split(':').includes(p.id)):[];
  const sourceRelation=focusPair?relations.find(r=>!r.deleted&&pair(r.from,r.to)===focusPair):null;
  const locate=change=>changeCursor(change.position-origin),labelAt=position=>mode==='narration'?(sources.chapters[Math.floor(position)]?.title||'未定位章节'):state.storyAxis?formatStoryDate(position,state.storyAxis.calendar):'故事时间 '+position.toFixed(1);
- const avatar=id=>{const p=person(id);return <button className="u-relation-person" onClick={()=>onMemory?.(id)}><span>{p?.avatarImage?<img src={p.avatarImage} alt=""/>:p?.name.slice(0,1)||'?'}</span><strong>{p?.name||'人物已删除'}</strong></button>;};
+ const avatar=id=>{const p=person(id);return <button className="u-relation-person" onClick={()=>onMemory?.(id)}><span>{avatarSource(p?.avatarImage)?<img src={avatarSource(p.avatarImage)} alt=""/>:p?.name.slice(0,1)||'?'}</span><strong>{p?.name||'人物已删除'}</strong></button>;};
  const selectPair=key=>{setFocusPair(key);setExpanded(false);};
  const networkProps={overview,focusPair,onPair:selectPair,onPerson:onMemory,query};
  const visibility=<div className="u-network-visibility"><div><button aria-pressed={!showAll} onClick={()=>setShowAll(false)}>随剧情出现</button><button aria-pressed={showAll} onClick={()=>setShowAll(true)}>全部人物</button></div><small>{overview.pending?overview.pending+' 人待出场／未安排':'人物均已出现'}</small></div>;

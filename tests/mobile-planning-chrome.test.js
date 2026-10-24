@@ -6,7 +6,8 @@ const{GraphControls}=await import('data:text/javascript;base64,'+Buffer.from(bui
 function text(node){if(node==null||typeof node==='boolean')return '';if(typeof node!=='object')return String(node);if(Array.isArray(node))return node.map(text).join('');return text(node.props?.children);}
 test('graph help describes actual distinct mouse/touch selection and only supported frame shortcut',()=>{
  const graph={zoom:1,fallback:{},canCreateFrame:false};const help=text(GraphControls({graph,busy:false,help:'上下连接包含 · 左右连接先后'}));
- for(const phrase of ['多选模式点卡片选择','长按卡片查看操作','右键拖动空白框选','双指平移缩放','双击打开内容','上下连接包含'])assert.ok(help.includes(phrase),phrase);
+ for(const phrase of ['长按卡片查看操作','右键拖动空白框选','双指平移缩放','双击打开内容','上下连接包含'])assert.ok(help.includes(phrase),phrase);
+ assert.ok(!help.includes('多选模式点卡片选择'));assert.ok(text(GraphControls({graph:{...graph,supportsMultiSelect:true},busy:false})).includes('多选模式点卡片选择'));
  assert.ok(!help.includes('C 创建讨论框'));assert.ok(text(GraphControls({graph:{...graph,canCreateFrame:true},busy:false})).includes('C 创建讨论框'));
 });
 test('planning removes duplicate upper instructions and keeps protected generation in existing more sheet',()=>{
