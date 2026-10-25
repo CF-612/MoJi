@@ -98,7 +98,7 @@ export function TransferPage({call, run, busy, novelId, initial, onOpen, onBack,
         </section><aside className="transfer-summary" aria-label="导入预览"><h3>准备导入</h3>{preview ? <>
           <ReportSummary report={preview} kind={importSelection.kind}/>
           {!!preview.skipped.length && <p className="management-hint">相同内容跳过：{preview.skipped.join('、')}</p>}
-          {!!preview.conflicts.length && <div className="transfer-conflicts" role="alert"><strong>这些内容有冲突，暂不能导入</strong><ul>{preview.conflicts.map((conflict, i) => <li key={i}>{conflict}</li>)}</ul><p>可选择“复用内容”，作为另一部作品保存。</p></div>}
+          {!!preview.conflicts.length && <div className="transfer-conflicts" role="alert"><strong>这些内容有冲突，暂不能导入</strong><ul>{preview.conflicts.map((conflict, i) => <li key={i}>{conflict}</li>)}</ul><p>{options.mode==='copy'?'此范围暂不能复用。请按上方原因调整；完整作品可改用恢复备份到独立工作库，不要反复尝试确认。':'请先核对冲突。只有确认该内容支持复用时，才可选择复用为另一部作品；不要覆盖尚未备份的现有作品。'}</p></div>}
           {!!preview.samples?.length && <details className="transfer-samples"><summary>看一下内容</summary>{preview.samples.map((sample, i) => <div key={i}><h4>{sample.title}</h4><pre>{sample.content || '暂时没有正文'}</pre></div>)}</details>}
         </> : <p className="management-hint" role={previewError ? 'alert' : 'status'}>{previewError || '正在核对范围与目标…'}</p>}<button className="quiet transfer-refresh" disabled={busy || previewPending} onClick={() => {setPreview(null); setPreviewVersion(v => v + 1);}}>刷新预览</button></aside></div>
       </>}

@@ -3,7 +3,7 @@ import {ensurePlanning} from '../../domain/planning/model.ts';
 import {sliceWriting} from '../../domain/writing.js';
 import {previewTavern} from '../../infrastructure/migrations/tavern.js';
 import type {Novel, Selection, PackagePayload, DataPackage, MemoryNode, MemoryEdge} from '../../contracts/transfer.ts';
-import {active, copy, fail, hash, checkSelection, own} from './model.ts';
+import {active, copy, fail, hash, checkSelection, own, legacyPlanningWarnings} from './model.ts';
 
 export interface Slice {projects: Novel[]; warnings: string[]; dependencies: {kind: string; title: string}[]}
 const pick = <T>(map: Record<string, T>, ids: Set<string>) => Object.fromEntries([...ids].map(id => [id, copy(map[id])]));
@@ -17,10 +17,10 @@ export function selectProjects(source: Novel[], selection: Selection): Slice {
     const ids = selection.novelIds ?? source.map(n => n.id);
     if (!ids.length) fail('请至少选择一部作品');
     const projects = ids.map(id => copy(source.find(n => n.id === id) ?? fail('所选作品已不存在')));
-    return {projects, warnings: [], dependencies: []};
+    return {projects, warnings: [...new Set(projects.flatMap(legacyPlanningWarnings))], dependencies: []};
   }
   const original = source.find(n => n.id === selection.novelId) ?? fail('请选择一部作品');
-  if(selection.kind==='planning'&&original.story)return selectStoryPackage(original,selection);
+  if(selection.kind==='planning'&&original.story){const selected=selectStoryPackage(original,selection);selected.warnings.push(...legacyPlanningWarnings(original));return selected;}
   const n = copy(original), board = ensurePlanning(n);
   const chapters = new Set<string>(), nodes = new Set<string>(), beats = new Set<string>();
   const pages = new Set<string | null>(), decorations = new Set<string>();

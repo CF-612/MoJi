@@ -4,7 +4,7 @@ import {randomUUID} from 'node:crypto';
 import {Store} from '../store.js';
 import {WorkData} from '../backup/workspace.js';
 import type {Catalog, Selection, ExportFormat, TransferFile, ImportOptions, TransferPreview, ImportResult, DownloadFile, Workspace, Novel} from '../../contracts/transfer.ts';
-import {catalog, copy, counts, fail, hash, checkIds, own} from './model.ts';
+import {catalog, copy, counts, fail, hash, checkIds, own, legacyPlanningWarnings} from './model.ts';
 import {dataPackage, selectProjects, type Slice} from './packages.ts';
 import {recognize, inspection, type Recognized} from './recognize.ts';
 import {copyInto, copyWork} from './copy.ts';
@@ -21,6 +21,10 @@ export class TransferService {
   async catalog(): Promise<Catalog> {return this.locked(state => ({...catalog(Object.values(state.novels)), dataRoot: this.store.root, bindings: Object.keys(state.bindings).length}));}
   private validate(value: Recognized) {
     if (value.workspace) this.workData.validate(value.workspace);
+    value.warnings=[...new Set([...value.warnings,...value.projects.flatMap(legacyPlanningWarnings)])];
+    if(value.projects.some(n=>Object.keys(n.memoryPages||{}).length || Object.values(n.memoryGroups||{}).some(g=>g.parentId) || Object.values(n.planning?.groups||{}).some(g=>g.parentId))) {
+      value.warnings=[...new Set([...value.warnings,'文件含资料画布或嵌套分组：完整恢复会保留原始结构，但当前墨叽界面不等同于上游的多资料画布／嵌套目录。请保留原始备份，勿把“复用内容”当作完整还原。'])];
+    }
     value.projects = value.projects.map(n => {
       checkIds(n);
       const validated: {novels: Record<string, Novel>} = {novels: {}};

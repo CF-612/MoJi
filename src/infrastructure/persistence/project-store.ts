@@ -51,6 +51,9 @@ export class ProjectStore extends AtomicStore<Workspace> {
 
   private checkLibrary(value: unknown): asserts value is Library | LegacyLibrary {
     if (!object(value)) return corrupt('不支持的小说存储格式');
+    if (value.format === 'cuigengji-library' && Number.isSafeInteger(value.storageVersion) && value.storageVersion > 4) {
+      throw Object.assign(new Error(`作品库目录布局 v${value.storageVersion} 比当前墨叽支持的 v4 更新，未读取或转换作品。请保留原库，用创建它的应用导出完整作品数据包，再在独立的墨叽工作库中预览导入；不要手改版本号或原地降级。参见 docs/cuigengji-migration.md。`), {code:'UNSUPPORTED_STORAGE_VERSION'});
+    }
     if (!object(value) || value.format !== 'cuigengji-library' || ![2, 3, 4].includes(value.storageVersion) || value.metadata?.schemaVersion !== 1 || !object(value.novels)) corrupt('不支持的小说存储格式');
     for (const [id, novel] of Object.entries(value.novels)) if (!object(novel) || novel.id !== id || typeof novel.title !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(id)) corrupt('作品索引无效');
     if (value.storageVersion >= 3) {

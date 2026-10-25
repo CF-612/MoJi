@@ -1,0 +1,32 @@
+{
+  "synthetic": true,
+  "upstreamRepository": "mistnest/dsh-cuigengji-plugin",
+  "upstreamCommit": "e9b78d065c0a681c6c516d7bb6f66ecb48108203",
+  "upstreamVersion": "0.5.0",
+  "sourceStorageVersion": 5,
+  "packageFormat": "cuigengji-package",
+  "packageVersion": 1,
+  "generatedVia": [
+    "Store.dispatch",
+    "TransferService.export"
+  ],
+  "fileSha256": "dd13d25c7db02f1af00ab8bff353cf86211dadf9f520cbfb8696dc4ec8a4ea4a",
+  "payloadSha256": "290e70820ea6426b5e3a16f550dfe73ac225f24e309baa570253de2e2f6412fa",
+  "ids": {
+    "novel": "738fe605-d2df-4385-8dbe-f5a1f72a22d3",
+    "page": "039bdad8-c708-4ee0-84de-f37d65b58714",
+    "emptyPage": "d5c577a4-61dd-4270-a4c0-ea47655677a2",
+    "group": "9d7601bd-39bc-407b-8dc4-8108ed264cec",
+    "childGroup": "3724938d-1d3a-4598-a277-b948bb653b7a",
+    "person": "20675063-f174-4c72-9ce5-2dc750c1358d",
+    "world": "a442a942-d7b7-4019-a323-0758918f412d",
+    "main": "58b0669d-2453-4748-b2a4-46efd894f9b8",
+    "edge": "f4416637-b20d-4dec-a8a6-c3a3282ae0c0",
+    "crossEdge": "31303200-56d2-4ebe-9681-d1dc9def2459"
+  },
+  "sourceSettingFiles": {
+    "20675063-f174-4c72-9ce5-2dc750c1358d": "合成港湾设定页--a7212bc9/合成页内根目录--325bfcd7/合成页内子目录--31ab4df8/合成页内人物--1352b094.json",
+    "a442a942-d7b7-4019-a323-0758918f412d": "合成港湾设定页--a7212bc9/合成页内根目录--325bfcd7/合成页内子目录--31ab4df8/合成页内地点--73f6282e.json",
+    "58b0669d-2453-4748-b2a4-46efd894f9b8": "设定总览--main/合成总览地点--1f4dda56.json"
+  }
+}

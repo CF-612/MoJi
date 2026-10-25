@@ -85,6 +85,8 @@ export function planningAction(novel:PlanningNovel,action:string,args:PlanningAr
       }else if(op.op==='group.update'||op.op==='group.delete'){
         const id=resolve(op.id),group=entity(draft.groups,id);check(group,op.expectedRevision);if(group.deleted)fail('DELETED','分组已删除');
         if(op.op==='group.delete'){
+          if(Object.values(draft.groups).some(child=>!child.deleted&&child.parentId===id))fail('UNSUPPORTED_STRUCTURE_EDIT','此导入规划分组含子分组，当前不支持删除上游嵌套父分组；原结构未更改。');
+          if(Object.values(draft.decorations||{}).some(item=>!item.deleted&&item.groupId===id))fail('UNSUPPORTED_STRUCTURE_EDIT','此导入规划分组含分组批注，当前不支持删除；原结构未更改。');
           if(op.confirm!==true)fail('CONFIRM_REQUIRED','删除分组需要确认');
           for(const node of Object.values(draft.nodes))if(node.groupId===id)update('nodes',node.id,{groupId:null});
           update('groups',id,{deleted:true});

@@ -1,0 +1,756 @@
+{
+  "format": "cuigengji-package",
+  "version": 1,
+  "exportedAt": "2026-10-25T06:42:43.266Z",
+  "sha256": "5b6b87fb4dc0d9e729de42724a2d95c6b975ad3257312e26b63bf43f5f9b7136",
+  "payload": {
+    "kind": "works",
+    "projects": [
+      {
+        "id": "f8e152f1-dcd5-40d1-b278-2e3808b8e6f5",
+        "revision": 15,
+        "createdAt": "2026-10-25T06:42:41.329Z",
+        "updatedAt": "2026-10-25T06:42:43.153Z",
+        "title": "合成迁移样本：灯塔来信",
+        "description": "自动生成的测试数据，不含真实用户作品。",
+        "archived": false,
+        "volumes": {
+          "42a6dfec-759d-4430-a909-58c385fd459c": {
+            "id": "42a6dfec-759d-4430-a909-58c385fd459c",
+            "revision": 1,
+            "createdAt": "2026-10-25T06:42:41.488Z",
+            "updatedAt": "2026-10-25T06:42:41.488Z",
+            "title": "第一卷 合成港湾",
+            "order": 0,
+            "deleted": false
+          }
+        },
+        "chapters": {
+          "e44f9866-9893-468f-916f-ac03b1a3cdcd": {
+            "id": "e44f9866-9893-468f-916f-ac03b1a3cdcd",
+            "revision": 2,
+            "createdAt": "2026-10-25T06:42:41.676Z",
+            "updatedAt": "2026-10-25T06:42:41.847Z",
+            "title": "第一章 测试来信",
+            "volumeId": "42a6dfec-759d-4430-a909-58c385fd459c",
+            "order": 0,
+            "content": "这是合成正文第二版。\n灯塔亮起。",
+            "deleted": false,
+            "contentHash": "90dfd7b3be6426c8c1dbf7dbdc5ec71189ac3fff0b7da4565594f5bea4a0f9de",
+            "versions": [
+              {
+                "revision": 1,
+                "content": "这是合成正文第一版。",
+                "contentHash": "2016661c6b85453462d116584dc1d9305c06157eeead1f01d3c1116ab41b56c9",
+                "title": "第一章 测试来信",
+                "volumeId": "42a6dfec-759d-4430-a909-58c385fd459c",
+                "order": 0,
+                "deleted": false,
+                "timestamp": "2026-10-25T06:42:41.676Z",
+                "actor": {
+                  "kind": "human",
+                  "sessionId": "synthetic-migration-fixture"
+                },
+                "reason": ""
+              },
+              {
+                "revision": 2,
+                "content": "这是合成正文第二版。\n灯塔亮起。",
+                "contentHash": "90dfd7b3be6426c8c1dbf7dbdc5ec71189ac3fff0b7da4565594f5bea4a0f9de",
+                "title": "第一章 测试来信",
+                "volumeId": "42a6dfec-759d-4430-a909-58c385fd459c",
+                "order": 0,
+                "deleted": false,
+                "timestamp": "2026-10-25T06:42:41.847Z",
+                "actor": {
+                  "kind": "human",
+                  "sessionId": "synthetic-migration-fixture"
+                },
+                "reason": ""
+              }
+            ]
+          },
+          "1ab26add-f432-4531-b06f-da56c7b0e48a": {
+            "id": "1ab26add-f432-4531-b06f-da56c7b0e48a",
+            "revision": 2,
+            "createdAt": "2026-10-25T06:42:41.934Z",
+            "updatedAt": "2026-10-25T06:42:42.087Z",
+            "title": "回收站合成章节",
+            "volumeId": null,
+            "order": 1,
+            "content": "回收站内容应随整本保存。",
+            "deleted": true,
+            "contentHash": "f3ccecd31084213084ceba5ef28b9ceb72a00018a32346e0444bf560ea22cb62",
+            "versions": [
+              {
+                "revision": 1,
+                "content": "回收站内容应随整本保存。",
+                "contentHash": "f3ccecd31084213084ceba5ef28b9ceb72a00018a32346e0444bf560ea22cb62",
+                "title": "回收站合成章节",
+                "volumeId": null,
+                "order": 1,
+                "deleted": false,
+                "timestamp": "2026-10-25T06:42:41.934Z",
+                "actor": {
+                  "kind": "human",
+                  "sessionId": "synthetic-migration-fixture"
+                },
+                "reason": ""
+              },
+              {
+                "revision": 2,
+                "content": "回收站内容应随整本保存。",
+                "contentHash": "f3ccecd31084213084ceba5ef28b9ceb72a00018a32346e0444bf560ea22cb62",
+                "title": "回收站合成章节",
+                "volumeId": null,
+                "order": 1,
+                "deleted": true,
+                "timestamp": "2026-10-25T06:42:42.087Z",
+                "actor": {
+                  "kind": "human",
+                  "sessionId": "synthetic-migration-fixture"
+                },
+                "reason": ""
+              }
+            ]
+          }
+        },
+        "nodes": {
+          "df9bff56-1f48-4d97-b80f-8595fa1e96a9": {
+            "id": "df9bff56-1f48-4d97-b80f-8595fa1e96a9",
+            "revision": 1,
+            "createdAt": "2026-10-25T06:42:42.442Z",
+            "updatedAt": "2026-10-25T06:42:42.442Z",
+            "type": "world_entry",
+            "pageId": null,
+            "groupId": "80348952-8a0e-4b93-a7fb-523ebc8e3ab0",
+            "name": "合成灯塔",
+            "summary": "",
+            "content": "虚构测试灯塔正文。",
+            "storyTime": "",
+            "status": "unconfirmed",
+            "factType": "unconfirmed",
+            "sources": [
+              {
+                "chapterId": "e44f9866-9893-468f-916f-ac03b1a3cdcd",
+                "revision": 1
+              }
+            ],
+            "aliases": [],
+            "knownBy": [],
+            "dependsOn": [],
+            "deleted": false,
+            "versions": [
+              {
+                "revision": 1,
+                "type": "world_entry",
+                "groupId": "80348952-8a0e-4b93-a7fb-523ebc8e3ab0",
+                "pageId": null,
+                "name": "合成灯塔",
+                "summary": "",
+                "content": "虚构测试灯塔正文。",
+                "storyTime": "",
+                "status": "unconfirmed",
+                "factType": "unconfirmed",
+                "sources": [
+                  {
+                    "chapterId": "e44f9866-9893-468f-916f-ac03b1a3cdcd",
+                    "revision": 1
+                  }
+                ],
+                "aliases": [],
+                "knownBy": [],
+                "dependsOn": [],
+                "deleted": false,
+                "contentHash": "183f5ce2360ef667aa3dd1c875d8c8608b5b6dbc67300a9bff07dc8c98d48f87",
+                "timestamp": "2026-10-25T06:42:42.442Z",
+                "actor": {
+                  "kind": "human",
+                  "sessionId": "synthetic-migration-fixture"
+                },
+                "reason": "创建设定"
+              }
+            ]
+          },
+          "0e4b1871-a3f0-460e-b3c2-e50988fe3e96": {
+            "id": "0e4b1871-a3f0-460e-b3c2-e50988fe3e96",
+            "revision": 2,
+            "createdAt": "2026-10-25T06:42:42.626Z",
+            "updatedAt": "2026-10-25T06:42:42.740Z",
+            "type": "character_card",
+            "pageId": null,
+            "groupId": "80348952-8a0e-4b93-a7fb-523ebc8e3ab0",
+            "name": "合成守塔人",
+            "summary": "更新摘要",
+            "content": "人物设定第二版。",
+            "storyTime": "",
+            "status": "unconfirmed",
+            "factType": "unconfirmed",
+            "sources": [
+              {
+                "chapterId": "e44f9866-9893-468f-916f-ac03b1a3cdcd",
+                "revision": 1
+              }
+            ],
+            "aliases": [],
+            "knownBy": [
+              "df9bff56-1f48-4d97-b80f-8595fa1e96a9"
+            ],
+            "dependsOn": [
+              "df9bff56-1f48-4d97-b80f-8595fa1e96a9"
+            ],
+            "deleted": false,
+            "versions": [
+              {
+                "revision": 1,
+                "type": "character_card",
+                "groupId": "80348952-8a0e-4b93-a7fb-523ebc8e3ab0",
+                "pageId": null,
+                "name": "合成守塔人",
+                "summary": "初始摘要",
+                "content": "人物设定第一版。",
+                "storyTime": "",
+                "status": "unconfirmed",
+                "factType": "unconfirmed",
+                "sources": [
+                  {
+                    "chapterId": "e44f9866-9893-468f-916f-ac03b1a3cdcd",
+                    "revision": 1
+                  }
+                ],
+                "aliases": [],
+                "knownBy": [
+                  "df9bff56-1f48-4d97-b80f-8595fa1e96a9"
+                ],
+                "dependsOn": [
+                  "df9bff56-1f48-4d97-b80f-8595fa1e96a9"
+                ],
+                "deleted": false,
+                "contentHash": "951f66a01b0caa55328811647f0c69ccf673b0836a3f8cdcf978912feb21e95f",
+                "timestamp": "2026-10-25T06:42:42.627Z",
+                "actor": {
+                  "kind": "human",
+                  "sessionId": "synthetic-migration-fixture"
+                },
+                "reason": "创建设定"
+              },
+              {
+                "revision": 2,
+                "type": "character_card",
+                "groupId": "80348952-8a0e-4b93-a7fb-523ebc8e3ab0",
+                "pageId": null,
+                "name": "合成守塔人",
+                "summary": "更新摘要",
+                "content": "人物设定第二版。",
+                "storyTime": "",
+                "status": "unconfirmed",
+                "factType": "unconfirmed",
+                "sources": [
+                  {
+                    "chapterId": "e44f9866-9893-468f-916f-ac03b1a3cdcd",
+                    "revision": 1
+                  }
+                ],
+                "aliases": [],
+                "knownBy": [
+                  "df9bff56-1f48-4d97-b80f-8595fa1e96a9"
+                ],
+                "dependsOn": [
+                  "df9bff56-1f48-4d97-b80f-8595fa1e96a9"
+                ],
+                "deleted": false,
+                "contentHash": "0cd4d7e947229dcb44dc01d8533716a89b545a17177075b3cae7c48861ad385c",
+                "timestamp": "2026-10-25T06:42:42.740Z",
+                "actor": {
+                  "kind": "human",
+                  "sessionId": "synthetic-migration-fixture"
+                },
+                "reason": "合成迁移历史测试"
+              }
+            ]
+          }
+        },
+        "edges": {
+          "b62a88c5-bef2-4944-a611-00c3c18dd4e1": {
+            "id": "b62a88c5-bef2-4944-a611-00c3c18dd4e1",
+            "revision": 1,
+            "createdAt": "2026-10-25T06:42:42.843Z",
+            "updatedAt": "2026-10-25T06:42:42.843Z",
+            "from": "0e4b1871-a3f0-460e-b3c2-e50988fe3e96",
+            "to": "df9bff56-1f48-4d97-b80f-8595fa1e96a9",
+            "name": "看守",
+            "summary": "",
+            "content": "合成关系正文。",
+            "storyTime": "",
+            "status": "unconfirmed",
+            "factType": "unconfirmed",
+            "sources": [
+              {
+                "chapterId": "e44f9866-9893-468f-916f-ac03b1a3cdcd",
+                "revision": 1
+              }
+            ],
+            "aliases": [],
+            "knownBy": [],
+            "dependsOn": [],
+            "deleted": false
+          }
+        },
+        "memoryGroups": {
+          "c7e6083c-e0b5-49f6-835d-e172808db5ba": {
+            "id": "c7e6083c-e0b5-49f6-835d-e172808db5ba",
+            "revision": 1,
+            "name": "合成设定根目录",
+            "summary": "",
+            "parentId": null,
+            "pageId": null,
+            "createdAt": "2026-10-25T06:42:42.197Z",
+            "updatedAt": "2026-10-25T06:42:42.197Z"
+          },
+          "80348952-8a0e-4b93-a7fb-523ebc8e3ab0": {
+            "id": "80348952-8a0e-4b93-a7fb-523ebc8e3ab0",
+            "revision": 1,
+            "name": "合成嵌套目录",
+            "summary": "",
+            "parentId": "c7e6083c-e0b5-49f6-835d-e172808db5ba",
+            "pageId": null,
+            "createdAt": "2026-10-25T06:42:42.326Z",
+            "updatedAt": "2026-10-25T06:42:42.326Z"
+          }
+        },
+        "planning": {
+          "formatVersion": 2,
+          "groups": {
+            "8e0979b5-fc4a-4f02-bffc-555c33313f3d": {
+              "name": "规划根分组",
+              "summary": "",
+              "parentId": null,
+              "pageId": "e2f97a52-8d2f-454b-a5b3-dbbd5a48cf63",
+              "deleted": false,
+              "id": "8e0979b5-fc4a-4f02-bffc-555c33313f3d",
+              "revision": 1,
+              "lastSequence": 2,
+              "updatedAt": "2026-10-25T06:42:43.013Z",
+              "actor": {
+                "kind": "human",
+                "sessionId": "synthetic-migration-fixture"
+              }
+            },
+            "dc4d2409-da39-49ae-9bf9-c720e2021ce2": {
+              "name": "规划嵌套分组",
+              "summary": "",
+              "parentId": "8e0979b5-fc4a-4f02-bffc-555c33313f3d",
+              "pageId": "e2f97a52-8d2f-454b-a5b3-dbbd5a48cf63",
+              "deleted": false,
+              "id": "dc4d2409-da39-49ae-9bf9-c720e2021ce2",
+              "revision": 1,
+              "lastSequence": 2,
+              "updatedAt": "2026-10-25T06:42:43.013Z",
+              "actor": {
+                "kind": "human",
+                "sessionId": "synthetic-migration-fixture"
+              }
+            }
+          },
+          "pages": {
+            "e2f97a52-8d2f-454b-a5b3-dbbd5a48cf63": {
+              "name": "合成规划画布",
+              "summary": "",
+              "deleted": false,
+              "id": "e2f97a52-8d2f-454b-a5b3-dbbd5a48cf63",
+              "revision": 1,
+              "lastSequence": 1,
+              "updatedAt": "2026-10-25T06:42:42.937Z",
+              "actor": {
+                "kind": "human",
+                "sessionId": "synthetic-migration-fixture"
+              }
+            }
+          },
+          "sequence": 2,
+          "nodes": {
+            "da0eeaaa-6a18-4524-aeac-a9790a5ba332": {
+              "title": "发现来信",
+              "summary": "合成节点摘要",
+              "content": "独立节点文件中的完整规划正文。",
+              "scope": "unspecified",
+              "status": "written",
+              "threads": [],
+              "chapterRefs": [
+                {
+                  "chapterId": "e44f9866-9893-468f-916f-ac03b1a3cdcd",
+                  "revision": 1
+                }
+              ],
+              "memoryRefs": [
+                "0e4b1871-a3f0-460e-b3c2-e50988fe3e96"
+              ],
+              "groupId": "dc4d2409-da39-49ae-9bf9-c720e2021ce2",
+              "pageId": "e2f97a52-8d2f-454b-a5b3-dbbd5a48cf63",
+              "position": {
+                "x": -220,
+                "y": 40
+              },
+              "parentId": null,
+              "deleted": false,
+              "id": "da0eeaaa-6a18-4524-aeac-a9790a5ba332",
+              "revision": 1,
+              "lastSequence": 2,
+              "updatedAt": "2026-10-25T06:42:43.014Z",
+              "actor": {
+                "kind": "human",
+                "sessionId": "synthetic-migration-fixture"
+              }
+            },
+            "301c2bcb-43ba-4359-8b93-c1a397813821": {
+              "title": "点亮灯塔",
+              "summary": "",
+              "content": "第二段合成规划。",
+              "scope": "unspecified",
+              "status": "idea",
+              "threads": [],
+              "chapterRefs": [],
+              "memoryRefs": [],
+              "groupId": "dc4d2409-da39-49ae-9bf9-c720e2021ce2",
+              "pageId": "e2f97a52-8d2f-454b-a5b3-dbbd5a48cf63",
+              "parentId": null,
+              "deleted": false,
+              "id": "301c2bcb-43ba-4359-8b93-c1a397813821",
+              "revision": 1,
+              "lastSequence": 2,
+              "updatedAt": "2026-10-25T06:42:43.014Z",
+              "actor": {
+                "kind": "human",
+                "sessionId": "synthetic-migration-fixture"
+              }
+            }
+          },
+          "edges": {
+            "a8f0c8c4-3105-42dd-8d1d-3fcff3db372a": {
+              "from": "da0eeaaa-6a18-4524-aeac-a9790a5ba332",
+              "to": "301c2bcb-43ba-4359-8b93-c1a397813821",
+              "type": "next",
+              "label": "",
+              "deleted": false,
+              "id": "a8f0c8c4-3105-42dd-8d1d-3fcff3db372a",
+              "revision": 1,
+              "lastSequence": 2,
+              "updatedAt": "2026-10-25T06:42:43.014Z",
+              "actor": {
+                "kind": "human",
+                "sessionId": "synthetic-migration-fixture"
+              }
+            }
+          },
+          "transactions": [
+            {
+              "id": "a8ae4f41-a60f-4e2e-97d3-be938144123c",
+              "sequence": 1,
+              "lastSequence": 1,
+              "updatedAt": "2026-10-25T06:42:42.939Z",
+              "actor": {
+                "kind": "human",
+                "sessionId": "synthetic-migration-fixture"
+              },
+              "reason": "调整规划",
+              "changes": [
+                {
+                  "collection": "pages",
+                  "id": "e2f97a52-8d2f-454b-a5b3-dbbd5a48cf63",
+                  "before": null,
+                  "after": {
+                    "name": "合成规划画布",
+                    "summary": "",
+                    "deleted": false,
+                    "id": "e2f97a52-8d2f-454b-a5b3-dbbd5a48cf63",
+                    "revision": 1,
+                    "lastSequence": 1,
+                    "updatedAt": "2026-10-25T06:42:42.937Z",
+                    "actor": {
+                      "kind": "human",
+                      "sessionId": "synthetic-migration-fixture"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "bdada529-8785-482f-a862-9c177f70e4f7",
+              "sequence": 2,
+              "lastSequence": 2,
+              "updatedAt": "2026-10-25T06:42:43.016Z",
+              "actor": {
+                "kind": "human",
+                "sessionId": "synthetic-migration-fixture"
+              },
+              "reason": "调整规划",
+              "changes": [
+                {
+                  "collection": "groups",
+                  "id": "8e0979b5-fc4a-4f02-bffc-555c33313f3d",
+                  "before": null,
+                  "after": {
+                    "name": "规划根分组",
+                    "summary": "",
+                    "parentId": null,
+                    "pageId": "e2f97a52-8d2f-454b-a5b3-dbbd5a48cf63",
+                    "deleted": false,
+                    "id": "8e0979b5-fc4a-4f02-bffc-555c33313f3d",
+                    "revision": 1,
+                    "lastSequence": 2,
+                    "updatedAt": "2026-10-25T06:42:43.013Z",
+                    "actor": {
+                      "kind": "human",
+                      "sessionId": "synthetic-migration-fixture"
+                    }
+                  }
+                },
+                {
+                  "collection": "groups",
+                  "id": "dc4d2409-da39-49ae-9bf9-c720e2021ce2",
+                  "before": null,
+                  "after": {
+                    "name": "规划嵌套分组",
+                    "summary": "",
+                    "parentId": "8e0979b5-fc4a-4f02-bffc-555c33313f3d",
+                    "pageId": "e2f97a52-8d2f-454b-a5b3-dbbd5a48cf63",
+                    "deleted": false,
+                    "id": "dc4d2409-da39-49ae-9bf9-c720e2021ce2",
+                    "revision": 1,
+                    "lastSequence": 2,
+                    "updatedAt": "2026-10-25T06:42:43.013Z",
+                    "actor": {
+                      "kind": "human",
+                      "sessionId": "synthetic-migration-fixture"
+                    }
+                  }
+                },
+                {
+                  "collection": "nodes",
+                  "id": "da0eeaaa-6a18-4524-aeac-a9790a5ba332",
+                  "before": null,
+                  "after": {
+                    "title": "发现来信",
+                    "summary": "合成节点摘要",
+                    "content": "独立节点文件中的完整规划正文。",
+                    "scope": "unspecified",
+                    "status": "written",
+                    "threads": [],
+                    "chapterRefs": [
+                      {
+                        "chapterId": "e44f9866-9893-468f-916f-ac03b1a3cdcd",
+                        "revision": 1
+                      }
+                    ],
+                    "memoryRefs": [
+                      "0e4b1871-a3f0-460e-b3c2-e50988fe3e96"
+                    ],
+                    "groupId": "dc4d2409-da39-49ae-9bf9-c720e2021ce2",
+                    "pageId": "e2f97a52-8d2f-454b-a5b3-dbbd5a48cf63",
+                    "position": {
+                      "x": -220,
+                      "y": 40
+                    },
+                    "parentId": null,
+                    "deleted": false,
+                    "id": "da0eeaaa-6a18-4524-aeac-a9790a5ba332",
+                    "revision": 1,
+                    "lastSequence": 2,
+                    "updatedAt": "2026-10-25T06:42:43.014Z",
+                    "actor": {
+                      "kind": "human",
+                      "sessionId": "synthetic-migration-fixture"
+                    }
+                  }
+                },
+                {
+                  "collection": "nodes",
+                  "id": "301c2bcb-43ba-4359-8b93-c1a397813821",
+                  "before": null,
+                  "after": {
+                    "title": "点亮灯塔",
+                    "summary": "",
+                    "content": "第二段合成规划。",
+                    "scope": "unspecified",
+                    "status": "idea",
+                    "threads": [],
+                    "chapterRefs": [],
+                    "memoryRefs": [],
+                    "groupId": "dc4d2409-da39-49ae-9bf9-c720e2021ce2",
+                    "pageId": "e2f97a52-8d2f-454b-a5b3-dbbd5a48cf63",
+                    "parentId": null,
+                    "deleted": false,
+                    "id": "301c2bcb-43ba-4359-8b93-c1a397813821",
+                    "revision": 1,
+                    "lastSequence": 2,
+                    "updatedAt": "2026-10-25T06:42:43.014Z",
+                    "actor": {
+                      "kind": "human",
+                      "sessionId": "synthetic-migration-fixture"
+                    }
+                  }
+                },
+                {
+                  "collection": "edges",
+                  "id": "a8f0c8c4-3105-42dd-8d1d-3fcff3db372a",
+                  "before": null,
+                  "after": {
+                    "from": "da0eeaaa-6a18-4524-aeac-a9790a5ba332",
+                    "to": "301c2bcb-43ba-4359-8b93-c1a397813821",
+                    "type": "next",
+                    "label": "",
+                    "deleted": false,
+                    "id": "a8f0c8c4-3105-42dd-8d1d-3fcff3db372a",
+                    "revision": 1,
+                    "lastSequence": 2,
+                    "updatedAt": "2026-10-25T06:42:43.014Z",
+                    "actor": {
+                      "kind": "human",
+                      "sessionId": "synthetic-migration-fixture"
+                    }
+                  }
+                },
+                {
+                  "collection": "decorations",
+                  "id": "6adc546d-97f0-4645-a843-5363ac29a3d2",
+                  "before": null,
+                  "after": {
+                    "kind": "frame",
+                    "title": "合成讨论框",
+                    "content": "讨论框正文不能丢失。",
+                    "position": {
+                      "x": 40,
+                      "y": 60
+                    },
+                    "width": 280,
+                    "height": 160,
+                    "color": "sand",
+                    "fontSize": 18,
+                    "fontFamily": "sans",
+                    "pageId": "e2f97a52-8d2f-454b-a5b3-dbbd5a48cf63",
+                    "layoutPending": true,
+                    "groupId": null,
+                    "deleted": false,
+                    "id": "6adc546d-97f0-4645-a843-5363ac29a3d2",
+                    "revision": 1,
+                    "lastSequence": 2,
+                    "updatedAt": "2026-10-25T06:42:43.015Z",
+                    "actor": {
+                      "kind": "human",
+                      "sessionId": "synthetic-migration-fixture"
+                    }
+                  }
+                },
+                {
+                  "collection": "decorations",
+                  "id": "c7140eae-5ee4-44c6-a9d9-055769f15588",
+                  "before": null,
+                  "after": {
+                    "kind": "note",
+                    "title": "",
+                    "content": "合成便签正文不能丢失。",
+                    "position": {
+                      "x": 40,
+                      "y": 60
+                    },
+                    "width": 280,
+                    "height": 160,
+                    "color": "sand",
+                    "fontSize": 18,
+                    "fontFamily": "sans",
+                    "pageId": "e2f97a52-8d2f-454b-a5b3-dbbd5a48cf63",
+                    "layoutPending": true,
+                    "groupId": null,
+                    "deleted": false,
+                    "id": "c7140eae-5ee4-44c6-a9d9-055769f15588",
+                    "revision": 1,
+                    "lastSequence": 2,
+                    "updatedAt": "2026-10-25T06:42:43.015Z",
+                    "actor": {
+                      "kind": "human",
+                      "sessionId": "synthetic-migration-fixture"
+                    }
+                  }
+                }
+              ]
+            }
+          ],
+          "decorations": {
+            "6adc546d-97f0-4645-a843-5363ac29a3d2": {
+              "kind": "frame",
+              "title": "合成讨论框",
+              "content": "讨论框正文不能丢失。",
+              "position": {
+                "x": 40,
+                "y": 60
+              },
+              "width": 280,
+              "height": 160,
+              "color": "sand",
+              "fontSize": 18,
+              "fontFamily": "sans",
+              "pageId": "e2f97a52-8d2f-454b-a5b3-dbbd5a48cf63",
+              "layoutPending": true,
+              "groupId": null,
+              "deleted": false,
+              "id": "6adc546d-97f0-4645-a843-5363ac29a3d2",
+              "revision": 1,
+              "lastSequence": 2,
+              "updatedAt": "2026-10-25T06:42:43.015Z",
+              "actor": {
+                "kind": "human",
+                "sessionId": "synthetic-migration-fixture"
+              }
+            },
+            "c7140eae-5ee4-44c6-a9d9-055769f15588": {
+              "kind": "note",
+              "title": "",
+              "content": "合成便签正文不能丢失。",
+              "position": {
+                "x": 40,
+                "y": 60
+              },
+              "width": 280,
+              "height": 160,
+              "color": "sand",
+              "fontSize": 18,
+              "fontFamily": "sans",
+              "pageId": "e2f97a52-8d2f-454b-a5b3-dbbd5a48cf63",
+              "layoutPending": true,
+              "groupId": null,
+              "deleted": false,
+              "id": "c7140eae-5ee4-44c6-a9d9-055769f15588",
+              "revision": 1,
+              "lastSequence": 2,
+              "updatedAt": "2026-10-25T06:42:43.015Z",
+              "actor": {
+                "kind": "human",
+                "sessionId": "synthetic-migration-fixture"
+              }
+            }
+          }
+        },
+        "preset": {
+          "id": "9a3874fd-be56-4605-8998-908ccb5a5f7c",
+          "revision": 1,
+          "createdAt": "2026-10-25T06:42:43.153Z",
+          "updatedAt": "2026-10-25T06:42:43.153Z",
+          "name": "合成写作要求",
+          "enabled": true,
+          "blocks": [
+            {
+              "identifier": "synthetic-voice",
+              "name": "声音",
+              "content": "仅用于合成测试的写作要求。",
+              "enabled": true
+            }
+          ],
+          "raw": null,
+          "warnings": []
+        },
+        "plan": null
+      }
+    ],
+    "warnings": []
+  }
+}

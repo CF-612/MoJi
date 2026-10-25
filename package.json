@@ -1,6 +1,6 @@
 {
   "name": "dsh-moji",
-  "version": "0.11.4",
+  "version": "0.11.5",
   "description": "墨叽：陪你写故事的烟灰蛸小说工作台，支持正文、自由画布、情节连线与人物世界资料。",
   "type": "module",
   "main": "runtime/index.js",
@@ -17,7 +17,10 @@
     "cordis.patch.yml",
     "README.md",
     "docs",
-    "runtime"
+    "runtime",
+    "!docs/moji-v3.1-astra-handoff-2026-10-22.md",
+    "!docs/test-report.md",
+    "scripts/update-dsh-github.mjs"
   ],
   "dsh": {
     "bundle": {
@@ -71,7 +74,7 @@
   },
   "engines": {
     "node": ">=24",
-    "dsh": "0.2.0-rc.2 || 0.2.1-rc.2"
+    "dsh": "0.2.0-rc.2 || 0.2.1-rc.2 || 0.2.1-rc.3"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",

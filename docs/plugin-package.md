@@ -64,3 +64,22 @@ npm run package:plugin -- "https://你的实例.workers.dev" --app-id "YOUR_APP_
 推送源码不会自动替换 GitHub Release 中已有的生成器附件或用户已下载的旧包。发布生成器时应从当前源码重新打包，并附本说明。
 
 参考：[官方打包格式](https://developers.openai.com/plugins/build/plugins)、[应用引用校验](https://developers.openai.com/plugins/deploy/submission-errors)。
+
+
+## 后续更新：让 Agent 自动生成新 ZIP
+
+已有个人插件 ZIP（原来生成的包或受支持的导出包）时，在**最新正式版本源码/生成器**目录运行：
+
+```sh
+npm run package:plugin -- --update-from "./原插件.zip"
+```
+
+此命令实际生成新 ZIP，不是只输出提示词。它只读旧 ZIP，保留准确的插件 `name`、原应用 ID 和可选 `required` 设置；电脑直连包保留原 MCP 地址。原文件保留作恢复备份，输入与输出为同一文件时会拒绝。模板版本落后于原包时拒绝降级。
+
+- 原应用关联包输出 `integrations/chatgpt-workbench/cloud/plugin/moji-cloud-update.zip`。OAuth、认证与端点仍由**同一个已注册应用**管理，生成器不读取或改动它们，也不创建新应用。
+- 电脑直连包输出同目录 `moji-desktop-only.zip`；它不会被自动转成云端应用包。
+- 支持根目录配置的 ZIP32 stored/deflate、总包不超过 4 MiB；不解压到磁盘，不执行包内容。未知文件、额外 MCP、认证 headers、秘密配置、重复/危险路径、CRC 错误或不支持的导出格式会拒绝，不猜测身份。拒绝后可核对原应用 ID/name，使用上面的显式参数流程。
+
+生成完成后，Agent 可继续用可用且已授权的内置浏览器，在**原插件详情 → 上传新版本**上传实际新 ZIP；也可由用户手动上传，两种方式均可。无需公开安装 API 才能进行已授权的浏览器操作。不要无故停在生成阶段或强制用户手动上传；只有实际登录、权限或确认阻塞时才交接，不能绕过。不能把“已生成”说成“已安装”。上传后核验应用 ID、授权、单一入口与实际界面；不要删除原应用。包里的模板版本和墨叽云端服务版本是两套版本。
+
+**此命令不部署个人云端，也不更新作品数据。** 手机使用原云端时，须另行对原实例执行经授权的 `deploy:update`，验证服务版本及手机连接。Git push 或上传插件 ZIP 均不等于原云端已更新。

@@ -1,0 +1,42 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile,mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {Store} from '../src/application/store.js';
+import {createTransfer} from '../integrations/chatgpt-workbench/server/transfer-service.mjs';
+import {attachWorkbench} from '../integrations/chatgpt-workbench/server/workbench-service.mjs';
+import {readLegacyPlanning} from '../integrations/chatgpt-workbench/vendor/cuigengji/src/client/features/planning/legacy-planning-reader.mjs';
+test('legacy archive reads retained nodes, pages, links and annotations without mutating them',async t=>{
+ const root=await mkdtemp(join(tmpdir(),'moji-legacy-view-'));t.after(()=>rm(root,{recursive:true,force:true}));
+ const packet=JSON.parse(await readFile(new URL('./fixtures/upstream-050/wholebook.json',import.meta.url),'utf8')),source=packet.payload.projects[0];
+ const store=new Store(root),transfer=createTransfer(store),actor={kind:'human',sessionId:'synthetic-legacy-view'},file={name:'synthetic.json',json:packet},options={mode:'restore'};
+ const preview=await transfer.preview({file,options});await transfer.import({file,options,proof:preview.proof,requestId:crypto.randomUUID()},actor);
+ await store.dispatch('story.get',{novelId:source.id},actor);
+ const before=await store.load(),actions=[];
+ const host=attachWorkbench({store});
+ const call=(action,args)=>{actions.push(action);return host.rpc(action,args,'synthetic-legacy-view','human');};
+ const archive=await readLegacyPlanning(call,source.id);
+ assert.equal(archive.items.length,2);assert.equal(archive.edges.length,1);assert.equal(archive.pages.length,2);assert.equal(archive.decorations.length,2);
+ assert.ok(archive.decorations.some(d=>d.content==='讨论框正文不能丢失。'));
+ const node=await call('planning.get',{novelId:source.id,nodeId:archive.items.find(n=>n.title==='发现来信').id});assert.equal(node.node.content,'独立节点文件中的完整规划正文。');
+ assert.deepEqual(await store.load(),before);assert.ok(actions.every(a=>['planning.list','planning.pages','planning.groups','planning.decorations','planning.get'].includes(a)));
+ await assert.rejects(host.rpc('planning.list',{novelId:source.id},'synthetic-legacy-view','agent'),{code:'NOT_ALLOWED'});
+ await assert.rejects(host.rpc('planning.apply',{novelId:source.id},'synthetic-legacy-view','human'),{code:'NOT_ALLOWED'});
+ const history=await store.dispatch('graph.history',{novelId:source.id,nodeId:Object.values(source.nodes).find(n=>n.name==='合成守塔人').id},actor);
+ assert.equal(history.versions[0].value.content,'人物设定第一版。');
+});
+test('legacy viewer rejects a changing board instead of mixing snapshots',async()=>{
+ let reads=0;const call=async action=>action==='planning.list'?{items:[],edges:[],nextOffset:null,sequence:++reads}:action==='planning.decorations'?{items:[],nextOffset:null,sequence:1}:[];
+ await assert.rejects(readLegacyPlanning(call,'synthetic'),/读取期间旧规划发生变化/);
+});
+test('visible legacy access, history path and mode-specific conflict guidance remain wired',async()=>{
+ const base='../integrations/chatgpt-workbench/vendor/cuigengji/src/client/';
+ const read=path=>readFile(new URL(base+path,import.meta.url),'utf8');
+ assert.match(await read('features/planning/index.jsx'),/<LegacyPlanningArchive/);
+ assert.match(await read('features/planning/LegacyPlanningArchive.jsx'),/查看导入的旧规划/);
+ assert.match(await read('features/planning/LegacyPlanningArchive.jsx'),/导出包含旧规划的完整作品/);
+ assert.match(await read('features/memory/index.jsx'),/id:'history',label:'故事历程'/);
+ assert.match(await read('shared/StructuredCard.jsx'),/MaterialPanel id="history"[^\n]+MaterialHistory/);
+ const transfer=await read('features/transfer/index.tsx');assert.match(transfer,/options.mode==='copy'\?'此范围暂不能复用/);assert.doesNotMatch(transfer,/<p>可选择“复用内容”，作为另一部作品保存。<\/p>/);
+});

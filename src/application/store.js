@@ -1,4 +1,5 @@
 import {checkedTypeId,relationView} from '../domain/relationship-types.js';
+import {memoryVersionValue} from '../domain/memory/history-value.js';
 import {storyAction,validateStory} from '../domain/story-v31.js';
 import {proseFind,replaceProse} from '../domain/prose-find.js';
 import {applySelection} from '../domain/selection-proof.js';
@@ -392,6 +393,7 @@ export class Store extends ProjectStore {
     }
     if (action === 'graph.continue') {
       const source = get(n.nodes, a.nodeId, '节点'); cas(source, a);
+      if(source.pageId)fail('UNSUPPORTED_STRUCTURE_EDIT','暂不支持在上游独立资料画布续建设定；请保留原结构。');
       if (source.deleted) fail('DELETED', '起点已删除');
       if (!['in','out'].includes(a.side ?? 'out')) fail('INVALID_INPUT', '连接方向无效');
       const node = this.execute(state, 'graph.create', {...a.value,novelId:n.id,groupId:a.value?.groupId===undefined?source.groupId ?? null:a.value.groupId}, actor);
@@ -400,16 +402,20 @@ export class Store extends ProjectStore {
     }
     if (action === 'graph.create') {
       if (!kinds.has(a.type)) fail('INVALID_INPUT', '节点类型无效');
+      if(a.pageId||n.memoryGroups?.[a.groupId]?.pageId)fail('UNSUPPORTED_STRUCTURE_EDIT','暂不支持在上游独立资料画布新增设定；请使用总览或保留原结构。');
       const v = record({ type: a.type, groupId: groupId(n, a.groupId), ...memoryFields(a, n, true), ...nodePosition(a), deleted: false });
       if(a.avatarImage!==undefined)v.avatarImage=avatarData(a.avatarImage);
       this.checkMemorySources(n, v);
       n.nodes[v.id] = v; touch(n); return v;
     }
-    if(action==='graph.history'){const v=get(n.nodes,a.nodeId,'资料');return {revision:v.revision,versions:v.versions||[]};}
-    if(action==='graph.restore'){if(actor.kind!=='human')fail('HUMAN_REQUIRED','资料恢复仅限作者');const v=get(n.nodes,a.nodeId,'资料');cas(v,a);const old=v.versions?.find(h=>h.revision===a.targetRevision);if(!old)fail('NOT_FOUND','资料历史不存在');return this.execute(state,'graph.update',{...old.value,novelId:n.id,nodeId:v.id,expectedRevision:v.revision,reason:'恢复资料版本 '+a.targetRevision},actor);}
+    if(action==='graph.history'){const v=get(n.nodes,a.nodeId,'资料');return {revision:v.revision,versions:(v.versions||[]).map(h=>({...h,value:memoryVersionValue(h,v.id)}))};}
+    if(action==='graph.restore'){if(actor.kind!=='human')fail('HUMAN_REQUIRED','资料恢复仅限作者');const v=get(n.nodes,a.nodeId,'资料');cas(v,a);const old=v.versions?.find(h=>h.revision===a.targetRevision);if(!old)fail('NOT_FOUND','资料历史不存在');return this.execute(state,'graph.update',{...memoryVersionValue(old,v.id),novelId:n.id,nodeId:v.id,expectedRevision:v.revision,reason:'恢复资料版本 '+a.targetRevision},actor);}
     if (action === 'graph.update' || action === 'graph.delete') {
       const v = get(n.nodes, a.nodeId, '节点'); cas(v, a);
-      const {versions,...snapshot}=clone(v);v.versions=[...(versions||[]),{revision:v.revision,value:snapshot,timestamp:now(),actor:source(actor),reason:a.reason||'作者修改资料'}].slice(-100);
+      const {versions,...snapshot}=clone(v);
+      // Upstream flat histories already include the current revision. Keep it
+      // rather than introducing two entries with the same revision on editing.
+      v.versions=(versions||[]).some(h=>h.revision===v.revision)?versions:[...(versions||[]),{revision:v.revision,value:snapshot,timestamp:now(),actor:source(actor),reason:a.reason||'作者修改资料'}].slice(-100);
       if (action === 'graph.delete') {
         if (a.confirm !== true) fail('CONFIRM_REQUIRED', '删除需要 confirm:true');
         v.deleted = true;
@@ -417,7 +423,14 @@ export class Store extends ProjectStore {
       } else {
         if (v.deleted) fail('DELETED', '节点已删除');
         if (a.type !== undefined) { if (!kinds.has(a.type)) fail('INVALID_INPUT', '节点类型无效'); v.type = a.type; }
-        if (a.groupId !== undefined) v.groupId = groupId(n, a.groupId);
+        if (a.groupId !== undefined) {
+          const nextGroup=groupId(n,a.groupId),nextPage=a.pageId===undefined?v.pageId:a.pageId;
+          if(nextGroup&&(nextPage??null)!==(n.memoryGroups[nextGroup].pageId??null))fail('UNSUPPORTED_STRUCTURE_EDIT','导入资料属于不同画布，当前不支持跨画布移动分组；原资料未更改。');
+          v.groupId=nextGroup;
+        }
+        // Retained upstream setting-page IDs are metadata, not new UI pages.
+        // History restore must still restore their original assignment safely.
+        if(a.pageId!==undefined){if(a.pageId!==null&&(typeof a.pageId!=='string'||!own(n.memoryPages||{},a.pageId)))fail('INVALID_INPUT','导入资料的原画布不存在');v.pageId=a.pageId;}
         Object.assign(v, memoryFields(a, n), nodePosition(a));
         if(a.avatarImage!==undefined)v.avatarImage=avatarData(a.avatarImage);
         this.checkMemorySources(n, v);
@@ -546,7 +559,7 @@ export class Store extends ProjectStore {
       const latest = c.versions.at(-1);
       if (latest.revision !== c.revision || latest.contentHash !== c.contentHash) fail('INVALID_BACKUP', '最新历史版本与正文不一致');
     }
-    for (const node of Object.values(n.nodes)) { if (!kinds.has(node.type)) fail('INVALID_BACKUP', '节点类型无效');if(node.avatarImage!==undefined)node.avatarImage=avatarData(node.avatarImage); Object.assign(node, memoryFields(node, n, true), nodePosition(node)); }
+    for (const node of Object.values(n.nodes)) { if (!kinds.has(node.type)) fail('INVALID_BACKUP', '节点类型无效');if(node.avatarImage!==undefined)node.avatarImage=avatarData(node.avatarImage); if(node.versions!==undefined){if(!Array.isArray(node.versions))fail('INVALID_BACKUP','资料历史格式无效');for(const version of node.versions)memoryVersionValue(version,node.id);} Object.assign(node, memoryFields(node, n, true), nodePosition(node)); }
     for (const edge of Object.values(n.edges)) { if (!own(n.nodes, edge.from) || !own(n.nodes, edge.to)) fail('INVALID_BACKUP', '关系端点不存在'); Object.assign(edge, memoryFields(edge, n, true, true)); }
     if (n.plan && (typeof n.plan.content !== 'string' || !Number.isSafeInteger(n.plan.revision) || n.plan.revision < 1 || typeof n.plan.approved !== 'boolean')) fail('INVALID_BACKUP', '规划格式无效');
     validateMemoryGroups(n);

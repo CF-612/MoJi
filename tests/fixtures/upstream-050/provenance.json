@@ -1,0 +1,45 @@
+{
+  "synthetic": true,
+  "upstreamRepository": "mistnest/dsh-cuigengji-plugin",
+  "upstreamCommit": "e9b78d065c0a681c6c516d7bb6f66ecb48108203",
+  "upstreamVersion": "0.5.0",
+  "sourceStorageVersion": 5,
+  "packageFormat": "cuigengji-package",
+  "packageVersion": 1,
+  "generatedVia": [
+    "Store.dispatch",
+    "TransferService.export"
+  ],
+  "fileSha256": "d6172c73774abff1cf96462ccc7ecc61d151b5352e44aecfc3fc7f0df2c26bb5",
+  "payloadSha256": "5b6b87fb4dc0d9e729de42724a2d95c6b975ad3257312e26b63bf43f5f9b7136",
+  "ids": {
+    "novel": "f8e152f1-dcd5-40d1-b278-2e3808b8e6f5",
+    "volume": "42a6dfec-759d-4430-a909-58c385fd459c",
+    "chapter": "e44f9866-9893-468f-916f-ac03b1a3cdcd",
+    "trash": "1ab26add-f432-4531-b06f-da56c7b0e48a",
+    "world": "df9bff56-1f48-4d97-b80f-8595fa1e96a9",
+    "person": "0e4b1871-a3f0-460e-b3c2-e50988fe3e96",
+    "relation": "b62a88c5-bef2-4944-a611-00c3c18dd4e1",
+    "group": "c7e6083c-e0b5-49f6-835d-e172808db5ba",
+    "childGroup": "80348952-8a0e-4b93-a7fb-523ebc8e3ab0",
+    "page": "e2f97a52-8d2f-454b-a5b3-dbbd5a48cf63",
+    "root": "8e0979b5-fc4a-4f02-bffc-555c33313f3d",
+    "child": "dc4d2409-da39-49ae-9bf9-c720e2021ce2",
+    "a": "da0eeaaa-6a18-4524-aeac-a9790a5ba332",
+    "b": "301c2bcb-43ba-4359-8b93-c1a397813821"
+  },
+  "sourcePlanningFileMaps": {
+    "pageFiles": {
+      "~main": "主线总览--main/画布--4cbdc60b.json",
+      "e2f97a52-8d2f-454b-a5b3-dbbd5a48cf63": "合成规划画布--a3fd7941/画布--a3fd7941.json"
+    },
+    "nodeFiles": {
+      "da0eeaaa-6a18-4524-aeac-a9790a5ba332": "合成规划画布--a3fd7941/规划根分组--47932222/规划嵌套分组--96d258d5/发现来信--97e97589.json",
+      "301c2bcb-43ba-4359-8b93-c1a397813821": "合成规划画布--a3fd7941/规划根分组--47932222/规划嵌套分组--96d258d5/点亮灯塔--c4363f28.json"
+    },
+    "decorationFiles": {
+      "6adc546d-97f0-4645-a843-5363ac29a3d2": "合成规划画布--a3fd7941/合成讨论框--84456f7e.json",
+      "c7140eae-5ee4-44c6-a9d9-055769f15588": "合成规划画布--a3fd7941/文字批注--1f3d1b0a.json"
+    }
+  }
+}

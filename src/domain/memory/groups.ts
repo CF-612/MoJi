@@ -5,10 +5,13 @@ export interface Group {
   revision: number;
   name: string;
   summary: string;
+  /** Imported upstream hierarchy; retained even when the UI lists flat groups. */
+  parentId?: string | null;
+  pageId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
-interface Member { id: string; revision: number; updatedAt: string; groupId?: string | null; deleted?: boolean }
+interface Member { id: string; revision: number; updatedAt: string; groupId?: string | null; pageId?: string | null; deleted?: boolean }
 interface GroupedNovel { memoryGroups?: Record<string, Group>; nodes: Record<string, Member>; revision: number; updatedAt: string }
 const fail = (code: string, message: string): never => { throw Object.assign(new Error(message), { code }); };
 const isRecord = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -41,6 +44,7 @@ export function memoryGroupAction(novel: GroupedNovel, action: string, args: Rec
       if (!isRecord(input) || typeof input.id !== 'string' || !Object.hasOwn(novel.nodes, input.id)) return fail('NOT_FOUND', '资料不存在');
       const member = novel.nodes[input.id];
       if (member.deleted) fail('DELETED', '资料已删除');
+      if(target && (member.pageId??null)!==(groups[target].pageId??null)) fail('UNSUPPORTED_STRUCTURE_EDIT','导入资料属于不同画布，当前不支持跨画布移动分组；原资料未更改。');
       check(member, input.expectedRevision);
       return member;
     });
@@ -62,6 +66,7 @@ export function memoryGroupAction(novel: GroupedNovel, action: string, args: Rec
     Object.assign(group, { name, summary }); touch(group); touch(novel); return group;
   }
   if (action === 'graph.group.delete') {
+    if(Object.values(groups).some(child=>child.parentId===group.id))fail('UNSUPPORTED_STRUCTURE_EDIT','此导入分组含子分组，当前不支持删除上游嵌套父分组；原结构未更改。');
     if (args.confirm !== true) fail('CONFIRM_REQUIRED', '删除分组需要确认；资料将保留在未分组');
     for (const member of Object.values(novel.nodes)) if (member.groupId === group.id) { member.groupId = null; touch(member); }
     delete groups[group.id]; touch(novel); return group;

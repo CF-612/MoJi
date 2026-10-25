@@ -1,0 +1,320 @@
+{
+  "format": "cuigengji-package",
+  "version": 1,
+  "exportedAt": "2026-10-25T06:47:37.264Z",
+  "sha256": "290e70820ea6426b5e3a16f550dfe73ac225f24e309baa570253de2e2f6412fa",
+  "payload": {
+    "kind": "works",
+    "projects": [
+      {
+        "id": "738fe605-d2df-4385-8dbe-f5a1f72a22d3",
+        "revision": 13,
+        "createdAt": "2026-10-25T06:47:34.564Z",
+        "updatedAt": "2026-10-25T06:47:36.774Z",
+        "title": "合成迁移样本：独立设定画布",
+        "description": "",
+        "archived": false,
+        "volumes": {},
+        "memoryPages": {
+          "039bdad8-c708-4ee0-84de-f37d65b58714": {
+            "id": "039bdad8-c708-4ee0-84de-f37d65b58714",
+            "revision": 1,
+            "name": "合成港湾设定页",
+            "summary": "",
+            "createdAt": "2026-10-25T06:47:34.735Z",
+            "updatedAt": "2026-10-25T06:47:34.735Z"
+          },
+          "d5c577a4-61dd-4270-a4c0-ea47655677a2": {
+            "id": "d5c577a4-61dd-4270-a4c0-ea47655677a2",
+            "revision": 1,
+            "name": "合成空设定页",
+            "summary": "",
+            "createdAt": "2026-10-25T06:47:34.850Z",
+            "updatedAt": "2026-10-25T06:47:34.850Z"
+          }
+        },
+        "chapters": {},
+        "nodes": {
+          "20675063-f174-4c72-9ce5-2dc750c1358d": {
+            "id": "20675063-f174-4c72-9ce5-2dc750c1358d",
+            "revision": 4,
+            "createdAt": "2026-10-25T06:47:35.319Z",
+            "updatedAt": "2026-10-25T06:47:36.774Z",
+            "type": "character_card",
+            "pageId": "039bdad8-c708-4ee0-84de-f37d65b58714",
+            "groupId": "3724938d-1d3a-4598-a277-b948bb653b7a",
+            "name": "合成页内人物",
+            "summary": "",
+            "content": "页内人物更新正文。",
+            "storyTime": "",
+            "status": "active",
+            "factType": "unconfirmed",
+            "sources": [],
+            "aliases": [],
+            "knownBy": [],
+            "dependsOn": [],
+            "position": {
+              "x": 40,
+              "y": 90
+            },
+            "deleted": false,
+            "versions": [
+              {
+                "revision": 1,
+                "type": "character_card",
+                "groupId": "3724938d-1d3a-4598-a277-b948bb653b7a",
+                "pageId": "039bdad8-c708-4ee0-84de-f37d65b58714",
+                "name": "合成页内人物",
+                "summary": "",
+                "content": "页内人物最初正文。",
+                "storyTime": "",
+                "status": "active",
+                "factType": "unconfirmed",
+                "sources": [],
+                "aliases": [],
+                "knownBy": [],
+                "dependsOn": [],
+                "deleted": false,
+                "contentHash": "27010d308fbf6a3278cbb4c027e0294e231274e10b03d99f684b2387a78f33ac",
+                "timestamp": "2026-10-25T06:47:35.319Z",
+                "actor": {
+                  "kind": "human",
+                  "sessionId": "synthetic-memory-pages"
+                },
+                "reason": "创建设定"
+              },
+              {
+                "revision": 2,
+                "type": "character_card",
+                "groupId": "3724938d-1d3a-4598-a277-b948bb653b7a",
+                "pageId": "039bdad8-c708-4ee0-84de-f37d65b58714",
+                "name": "合成页内人物",
+                "summary": "",
+                "content": "页内人物更新正文。",
+                "storyTime": "",
+                "status": "active",
+                "factType": "unconfirmed",
+                "sources": [],
+                "aliases": [],
+                "knownBy": [],
+                "dependsOn": [],
+                "deleted": false,
+                "contentHash": "a1a6fff30e52989b02dc0cfc9d846b54651f8ee0da1dd42d863391c3383e8f49",
+                "timestamp": "2026-10-25T06:47:36.391Z",
+                "actor": {
+                  "kind": "human",
+                  "sessionId": "synthetic-memory-pages"
+                },
+                "reason": "更新设定"
+              },
+              {
+                "revision": 3,
+                "type": "character_card",
+                "groupId": null,
+                "pageId": null,
+                "name": "合成页内人物",
+                "summary": "",
+                "content": "页内人物更新正文。",
+                "storyTime": "",
+                "status": "active",
+                "factType": "unconfirmed",
+                "sources": [],
+                "aliases": [],
+                "knownBy": [],
+                "dependsOn": [],
+                "deleted": false,
+                "contentHash": "a1a6fff30e52989b02dc0cfc9d846b54651f8ee0da1dd42d863391c3383e8f49",
+                "timestamp": "2026-10-25T06:47:36.571Z",
+                "actor": {
+                  "kind": "human",
+                  "sessionId": "synthetic-memory-pages"
+                },
+                "reason": "调整设定归属"
+              },
+              {
+                "revision": 4,
+                "type": "character_card",
+                "groupId": "3724938d-1d3a-4598-a277-b948bb653b7a",
+                "pageId": "039bdad8-c708-4ee0-84de-f37d65b58714",
+                "name": "合成页内人物",
+                "summary": "",
+                "content": "页内人物更新正文。",
+                "storyTime": "",
+                "status": "active",
+                "factType": "unconfirmed",
+                "sources": [],
+                "aliases": [],
+                "knownBy": [],
+                "dependsOn": [],
+                "deleted": false,
+                "contentHash": "a1a6fff30e52989b02dc0cfc9d846b54651f8ee0da1dd42d863391c3383e8f49",
+                "timestamp": "2026-10-25T06:47:36.774Z",
+                "actor": {
+                  "kind": "human",
+                  "sessionId": "synthetic-memory-pages"
+                },
+                "reason": "恢复设定 v2"
+              }
+            ]
+          },
+          "a442a942-d7b7-4019-a323-0758918f412d": {
+            "id": "a442a942-d7b7-4019-a323-0758918f412d",
+            "revision": 1,
+            "createdAt": "2026-10-25T06:47:35.601Z",
+            "updatedAt": "2026-10-25T06:47:35.601Z",
+            "type": "world_entry",
+            "pageId": "039bdad8-c708-4ee0-84de-f37d65b58714",
+            "groupId": "3724938d-1d3a-4598-a277-b948bb653b7a",
+            "name": "合成页内地点",
+            "summary": "",
+            "content": "页内地点正文。",
+            "storyTime": "",
+            "status": "active",
+            "factType": "unconfirmed",
+            "sources": [],
+            "aliases": [],
+            "knownBy": [],
+            "dependsOn": [],
+            "deleted": false,
+            "versions": [
+              {
+                "revision": 1,
+                "type": "world_entry",
+                "groupId": "3724938d-1d3a-4598-a277-b948bb653b7a",
+                "pageId": "039bdad8-c708-4ee0-84de-f37d65b58714",
+                "name": "合成页内地点",
+                "summary": "",
+                "content": "页内地点正文。",
+                "storyTime": "",
+                "status": "active",
+                "factType": "unconfirmed",
+                "sources": [],
+                "aliases": [],
+                "knownBy": [],
+                "dependsOn": [],
+                "deleted": false,
+                "contentHash": "b2ea6e7cec451a5565ef35eede51a8987cefcaa34a5637a03557537fb5caf9d9",
+                "timestamp": "2026-10-25T06:47:35.601Z",
+                "actor": {
+                  "kind": "human",
+                  "sessionId": "synthetic-memory-pages"
+                },
+                "reason": "创建设定"
+              }
+            ]
+          },
+          "58b0669d-2453-4748-b2a4-46efd894f9b8": {
+            "id": "58b0669d-2453-4748-b2a4-46efd894f9b8",
+            "revision": 1,
+            "createdAt": "2026-10-25T06:47:35.754Z",
+            "updatedAt": "2026-10-25T06:47:35.754Z",
+            "type": "world_entry",
+            "pageId": null,
+            "groupId": null,
+            "name": "合成总览地点",
+            "summary": "",
+            "content": "总览页面正文。",
+            "storyTime": "",
+            "status": "active",
+            "factType": "unconfirmed",
+            "sources": [],
+            "aliases": [],
+            "knownBy": [],
+            "dependsOn": [],
+            "deleted": false,
+            "versions": [
+              {
+                "revision": 1,
+                "type": "world_entry",
+                "groupId": null,
+                "pageId": null,
+                "name": "合成总览地点",
+                "summary": "",
+                "content": "总览页面正文。",
+                "storyTime": "",
+                "status": "active",
+                "factType": "unconfirmed",
+                "sources": [],
+                "aliases": [],
+                "knownBy": [],
+                "dependsOn": [],
+                "deleted": false,
+                "contentHash": "14edf4e7097e25d7386a973ca4c1f4fd03e134ef3dec31ffab134107b546136d",
+                "timestamp": "2026-10-25T06:47:35.754Z",
+                "actor": {
+                  "kind": "human",
+                  "sessionId": "synthetic-memory-pages"
+                },
+                "reason": "创建设定"
+              }
+            ]
+          }
+        },
+        "edges": {
+          "f4416637-b20d-4dec-a8a6-c3a3282ae0c0": {
+            "id": "f4416637-b20d-4dec-a8a6-c3a3282ae0c0",
+            "revision": 1,
+            "createdAt": "2026-10-25T06:47:36.126Z",
+            "updatedAt": "2026-10-25T06:47:36.126Z",
+            "from": "20675063-f174-4c72-9ce5-2dc750c1358d",
+            "to": "a442a942-d7b7-4019-a323-0758918f412d",
+            "name": "居住于",
+            "summary": "",
+            "content": "",
+            "storyTime": "",
+            "status": "active",
+            "factType": "unconfirmed",
+            "sources": [],
+            "aliases": [],
+            "knownBy": [],
+            "dependsOn": [],
+            "deleted": false
+          },
+          "31303200-56d2-4ebe-9681-d1dc9def2459": {
+            "id": "31303200-56d2-4ebe-9681-d1dc9def2459",
+            "revision": 1,
+            "createdAt": "2026-10-25T06:47:36.315Z",
+            "updatedAt": "2026-10-25T06:47:36.317Z",
+            "from": "20675063-f174-4c72-9ce5-2dc750c1358d",
+            "to": "58b0669d-2453-4748-b2a4-46efd894f9b8",
+            "name": "曾到访",
+            "summary": "",
+            "content": "",
+            "storyTime": "",
+            "status": "active",
+            "factType": "unconfirmed",
+            "sources": [],
+            "aliases": [],
+            "knownBy": [],
+            "dependsOn": [],
+            "deleted": false
+          }
+        },
+        "memoryGroups": {
+          "9d7601bd-39bc-407b-8dc4-8108ed264cec": {
+            "id": "9d7601bd-39bc-407b-8dc4-8108ed264cec",
+            "revision": 1,
+            "name": "合成页内根目录",
+            "summary": "",
+            "parentId": null,
+            "pageId": "039bdad8-c708-4ee0-84de-f37d65b58714",
+            "createdAt": "2026-10-25T06:47:35.060Z",
+            "updatedAt": "2026-10-25T06:47:35.060Z"
+          },
+          "3724938d-1d3a-4598-a277-b948bb653b7a": {
+            "id": "3724938d-1d3a-4598-a277-b948bb653b7a",
+            "revision": 1,
+            "name": "合成页内子目录",
+            "summary": "",
+            "parentId": "9d7601bd-39bc-407b-8dc4-8108ed264cec",
+            "pageId": "039bdad8-c708-4ee0-84de-f37d65b58714",
+            "createdAt": "2026-10-25T06:47:35.153Z",
+            "updatedAt": "2026-10-25T06:47:35.153Z"
+          }
+        },
+        "plan": null
+      }
+    ],
+    "warnings": []
+  }
+}

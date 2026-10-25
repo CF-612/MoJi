@@ -1,3 +1,4 @@
+import {memoryVersionValue} from './memory/history-value.js';
 import {narrationTrackCatalog,storyTrackCatalog} from './story-tracks.mjs';
 import {randomUUID} from 'node:crypto';import {emptyWorkspace,reconcile,clone} from './story-workspace.mjs';import {storySources} from './story-v31.js';
 const canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(k=>[k,canonical(value[k])])):value;
@@ -36,4 +37,19 @@ export function copyStory(source,target,maps){if(!source.story)return;
  if(s.groups?.length){out.groups??=[];out.groups.push(...s.groups.map(group=>({...clone(group),id:randomUUID(),refs:group.refs.map(ref)})));}
  out.precedence.push(...s.precedence.map(e=>({...e,id:randomUUID(),from:ref(e.from),to:ref(e.to)})));reconcile(out,storySources(target));out.revision++;data.history.push({state:before,at:new Date().toISOString(),reason:'导入统一剧情卡'});data.history=data.history.slice(-30);data.redo=[];
 }
-export function copyAppearance(node,maps){const remap=p=>p?{...p,chapterId:maps.chapters.get(p.chapterId)||null}:p;node.appearancePlan=remap(node.appearancePlan);node.versions=(node.versions||[]).map(v=>({...v,value:{...v.value,appearancePlan:remap(v.value.appearancePlan),sources:(v.value.sources||[]).map(e=>({...e,chapterId:maps.chapters.get(e.chapterId)})).filter(e=>e.chapterId)}}));}
+export function copyAppearance(node,maps){
+ const remap=p=>p?{...p,chapterId:maps.chapters.get(p.chapterId)||null}:p;
+ const references=value=>({...value,...(value.id?{id:node.id}:{}),
+  ...(value.groupId!==undefined?{groupId:maps.groups?.get(value.groupId)||null}:{}),
+  ...(value.appearancePlan!==undefined?{appearancePlan:remap(value.appearancePlan)}:{}),
+  sources:(value.sources||[]).map(e=>({...e,chapterId:maps.chapters.get(e.chapterId)})).filter(e=>e.chapterId),
+  ...(value.dependsOn?{dependsOn:value.dependsOn.map(id=>maps.nodes.get(id)).filter(Boolean)}:{}),
+  ...(value.knownBy?{knownBy:value.knownBy.map(id=>maps.nodes.get(id)||id)}:{})});
+ node.appearancePlan=remap(node.appearancePlan);
+ node.versions=(node.versions||[]).map(v=>{
+  const value=references(memoryVersionValue(v,node.id));
+  if(v.value)return {...v,value};
+  // Preserve the upstream flat encoding; history UI/restore understands both.
+  const {id,...flat}=value;return {...v,...flat};
+ });
+}

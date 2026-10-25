@@ -15,9 +15,10 @@ export interface PlanningNode {
   actor?: { kind: string; sessionId?: string | null };
 }
 export interface PlanningEdge { id: string; revision: number; from: string; to: string; type: 'next' | 'requires' | 'alternative'; label: string; deleted: boolean }
-export interface PlanningGroup { id: string; revision: number; name: string; summary: string; deleted?: boolean }
+export interface PlanningGroup { id: string; revision: number; name: string; summary: string; deleted?: boolean; parentId?: string | null; pageId?: string | null }
 export interface PlanningPage extends PlanningGroup {}
 export interface Decoration {
+  groupId?: string | null;
   id:string; revision:number; pageId:string|null; kind:'note'|'frame'; title:string; content:string;
   position:Point; width:number; height:number; color:'neutral'|'sand'|'sage'|'sky'|'rose';
   fontSize:number; fontFamily:'sans'|'serif'; moveContents?:boolean; deleted:boolean;

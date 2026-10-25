@@ -40,7 +40,7 @@ export function createCloudService(db,owner){
     if(!args||typeof args!=='object'||Array.isArray(args)||typeof sessionId!=='string'||!sessionId||sessionId.length>512)fail('INVALID_INPUT','工作台参数无效');
     if(!(kind==='human'?[...HUMAN_ACTIONS,'transfer.snapshots','transfer.snapshot.get']:[...QUERY_ACTIONS,...EDIT_ACTIONS]).includes(action))fail('NOT_ALLOWED','不允许此操作');
     if(kind==='agent'&&!['novel.list','novel.create','settings.get'].includes(action)&&!action.startsWith('transfer.')&&!args.novelId)fail('NOVEL_REQUIRED','请明确提供作品 ID');
-    if(action==='settings.get')return {dataRoot:'私有云端 D1',pluginVersion:'0.11.4',host:'ChatGPT MCP Apps'};
+    if(action==='settings.get')return {dataRoot:'私有云端 D1',pluginVersion:'0.11.5',host:'ChatGPT MCP Apps'};
     const row=await read(),state=structuredClone(row.state),actor={kind,sessionId:`cloud:${sessionId}`};
     if(action==='workspace.status')return {dataRoot:'D1',novels:Object.keys(state.novels).length,books:Object.values(state.novels),included:['演示作品与完整版本'],excluded:['本地小说','浏览器未保存草稿']};
     if(action==='workspace.export'){

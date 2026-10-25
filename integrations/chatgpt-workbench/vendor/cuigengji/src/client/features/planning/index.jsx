@@ -1,2 +1,4 @@
-// V3.1 隔离阶段：三视图只使用统一剧情工作区。
-export {UnifiedPlanning as Planning} from './UnifiedPlanning.jsx';
+import React from 'react';
+import {UnifiedPlanning} from './UnifiedPlanning.jsx';
+import {LegacyPlanningArchive} from './LegacyPlanningArchive.jsx';
+export function Planning(props){return <><LegacyPlanningArchive {...props}/><UnifiedPlanning {...props}/></>;}

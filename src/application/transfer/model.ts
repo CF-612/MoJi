@@ -13,6 +13,30 @@ export function newNovel(title: string, id: string = randomUUID()): Novel {
   const time = new Date().toISOString();
   return {id, revision: 1, title, description: '', archived: false, createdAt: time, updatedAt: time, volumes: {}, chapters: {}, nodes: {}, edges: {}, plan: null};
 }
+/** A retained legacy board and the unified story workspace are independent.
+ * Whole-work totals must not make either disappear merely because both exist. */
+export function hasRetainedLegacyPlanning(n: Novel): boolean {
+  const board = n.planning || (n.plan ? ensurePlanning(copy(n)) : null);
+  return !!board && !!(active(board.nodes).length || active(board.pages).length || active(board.decorations).length || active(board.groups).length);
+}
+export function legacyPlanningWarnings(n: Novel): string[] {
+  return n.story && hasRetainedLegacyPlanning(n)
+    ? ['作品同时保留旧规划与统一剧情工作区。整本作品包包含两者；规划范围选择仅对应统一剧情页面，不包含旧规划。备份旧规划请导出完整作品。'] : [];
+}
+function planningCounts(n: Novel): Pick<Counts, 'pages' | 'beats' | 'decorations'> {
+  const board = n.planning || (n.plan ? ensurePlanning(copy(n)) : null);
+  const legacy = !!board && (!n.story || hasRetainedLegacyPlanning(n));
+  const storyPages = n.story?.state.pages || [];
+  // Opening the unified UI creates this empty default; it is not another
+  // imported legacy canvas and must not inflate an unchanged book's totals.
+  const emptyDefault = legacy && n.story && !Object.keys(n.story.state.cards).length && storyPages.length === 1 &&
+    storyPages[0].id === 'main' && storyPages[0].name === '自由构思' && !Object.keys(storyPages[0].instances || {}).length;
+  return {
+    pages: (emptyDefault ? 0 : storyPages.length) + (legacy ? active(board!.pages).length + ((n.transferScope?.mainPage ?? true) ? 1 : 0) : 0),
+    beats: (n.story ? Object.keys(n.story.state.cards).length : 0) + (legacy ? active(board!.nodes).length : 0),
+    decorations: legacy ? active(board!.decorations).length : 0,
+  };
+}
 export function catalogBook(novel: Novel): CatalogBook {
   // Catalog reads never migrate or mutate the source work.
   const n = copy(novel), board = ensurePlanning(n);
@@ -23,8 +47,10 @@ export function catalogBook(novel: Novel): CatalogBook {
     beats: active(board.nodes).filter(node => (node.pageId ?? null) === page.id).length,
     decorations: active(board.decorations).filter(node => (node.pageId ?? null) === page.id).length}));
   return {id: n.id, title: n.title, revision: n.revision, archived: n.archived,
-    counts: {works: 1, chapters: chapters.length, memory: active(n.nodes).length, pages: pages.length,
-      beats: n.story?Object.keys(n.story.state.cards).length:active(board.nodes).length, decorations: active(board.decorations).length, presets: n.preset ? 1 : 0},
+    // pages below is a selection catalog, not an inventory: do not mix legacy
+    // IDs into the unified story parser's selectable namespace.
+    counts: {works: 1, chapters: chapters.length, memory: active(n.nodes).length,
+      ...planningCounts(novel), presets: n.preset ? 1 : 0},
     volumes: volumes.map(({id, title}) => ({id, title})),
     chapters: chapters.map(ch => ({id: ch.id, title: ch.title, volumeId: ch.volumeId, words: chapterCounts(ch).textCount})),
     groups: Object.values(n.memoryGroups || {}).map(({id, name}) => ({id, name})),
@@ -36,10 +62,8 @@ export function counts(projects: Novel[]): Counts {
   const result = emptyCounts();
   for (const n of projects) {
     result.works++; result.chapters += active(n.chapters).length; result.memory += active(n.nodes).length;
-    const board = n.planning || (n.plan ? ensurePlanning(copy(n)) : null);
-    if(n.story){result.pages+=n.story.state.pages.length;result.beats+=Object.keys(n.story.state.cards).length;}
-    else if (board) {result.pages += active(board.pages).length + ((n.transferScope?.mainPage ?? true) ? 1 : 0);
-      result.beats += active(board.nodes).length; result.decorations += active(board.decorations).length;}
+    const planning = planningCounts(n);
+    result.pages += planning.pages; result.beats += planning.beats; result.decorations += planning.decorations;
     result.presets += n.preset ? 1 : 0;
   }
   return result;

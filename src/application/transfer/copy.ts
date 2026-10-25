@@ -21,6 +21,8 @@ function uniqueName(name: string, items: {name: string}[]) {
 /** Share/copy never aliases source IDs or treats imported settings as confirmed facts.
  * Version numbers remain meaningful inside the copied chapters and their references. */
 export function copyInto(source: Novel, target: Novel, options: ImportOptions): void {
+  if(Object.keys(source.memoryPages||{}).length)
+    throw Object.assign(new Error('这份资料包含上游的多资料画布，暂不支持复用合并；请改用完整作品“恢复备份”到独立墨叽工作库，原始画布数据会保留。'),{code:'UNSUPPORTED_COPY_STRUCTURE'});
   if (!storyAxisCompatible(source.story?.state?.storyAxis, target.story?.state?.storyAxis))
     throw Object.assign(new Error('两部作品的故事时间坐标系不同；请分别导入，或先由作者明确统一历法与锚点。'), {code: 'STORY_AXIS_INCOMPATIBLE'});
   const n = copy(source), time = new Date().toISOString();
@@ -40,7 +42,7 @@ export function copyInto(source: Novel, target: Novel, options: ImportOptions): 
       versions: c.versions.map(v => ({...copy(v), volumeId: remap(volumeIds, v.volumeId), order, actor: {kind: 'human', sessionId: null}}))};
   }
   target.memoryGroups ??= {};
-  for (const g of Object.values(n.memoryGroups || {})) {const id = groupIds.get(g.id)!; target.memoryGroups[id] = {...copy(g), id, name: uniqueName(g.name, Object.values(target.memoryGroups)), updatedAt: time};}
+  for (const g of Object.values(n.memoryGroups || {})) {const id = groupIds.get(g.id)!; target.memoryGroups[id] = {...copy(g), id, ...(g.parentId!==undefined?{parentId:remap(groupIds,g.parentId as string|null)}:{}), name: uniqueName(g.name, Object.values(target.memoryGroups)), updatedAt: time};}
   const references = (m: {sources: {chapterId: string; revision: number}[]; dependsOn: string[]; knownBy: string[]}) => ({
     sources: m.sources.map(ref => ({...ref, chapterId: chapterIds.get(ref.chapterId)!})),
     dependsOn: m.dependsOn.map(id => nodeIds.get(id)!), knownBy: m.knownBy.map(id => nodeIds.get(id) ?? id)});
@@ -71,17 +73,17 @@ export function copyInto(source: Novel, target: Novel, options: ImportOptions): 
     if (n.transferScope?.mainPage ?? true)
       put('pages', {id: mainPage, revision: 1, name: uniqueName(`${source.title} · 主线规划`, Object.values(draft.pages)), summary: '导入的独立规划页', deleted: false, ...stamp});
     for (const p of Object.values(board.pages || {})) put('pages', {...copy(p), id: ids.pages.get(p.id)!, name: uniqueName(p.name, Object.values(draft.pages)), ...stamp});
-    for (const g of Object.values(board.groups)) put('groups', {...copy(g), id: ids.groups.get(g.id)!, name: uniqueName(g.name, Object.values(draft.groups)), ...stamp});
+    for (const g of Object.values(board.groups)) put('groups', {...copy(g), id: ids.groups.get(g.id)!, ...(g.parentId!==undefined?{parentId:remap(ids.groups,g.parentId)}:{}), ...(g.pageId!==undefined?{pageId:remap(ids.pages,g.pageId)??mainPage}:{}), name: uniqueName(g.name, Object.values(draft.groups)), ...stamp});
     for (const b of Object.values(board.nodes)) put('nodes', {...copy(b), id: ids.nodes.get(b.id)!,
       parentId: remap(ids.nodes, b.parentId), groupId: remap(ids.groups, b.groupId), pageId: remap(ids.pages, b.pageId) ?? mainPage,
       chapterRefs: b.chapterRefs.map(ref => ({...ref, chapterId: chapterIds.get(ref.chapterId)!})),
       memoryRefs: b.memoryRefs.map(id => nodeIds.get(id)!), ...stamp});
     for (const e of Object.values(board.edges)) put('edges', {...copy(e), id: ids.edges.get(e.id)!, from: ids.nodes.get(e.from)!, to: ids.nodes.get(e.to)!, ...stamp});
-    for (const d of Object.values(board.decorations || {})) put('decorations', {...copy(d), id: ids.decorations.get(d.id)!, pageId: remap(ids.pages, d.pageId) ?? mainPage, ...stamp});
+    for (const d of Object.values(board.decorations || {})) put('decorations', {...copy(d), id: ids.decorations.get(d.id)!, pageId: remap(ids.pages, d.pageId) ?? mainPage, ...(d.groupId!==undefined?{groupId:remap(ids.groups,d.groupId)}:{}), ...stamp});
     draft.sequence++;
     draft.transactions.push({id: randomUUID(), sequence: draft.sequence, ...stamp, reason: `导入“${source.title}”的规划`, changes});
   }
-  const maps={nodes:nodeIds,chapters:chapterIds,volumes:volumeIds,edges:edgeIds,planning:planningIds,story:idMap(n.story?.state?.cards)};
+  const maps={groups:groupIds,nodes:nodeIds,chapters:chapterIds,volumes:volumeIds,edges:edgeIds,planning:planningIds,story:idMap(n.story?.state?.cards)};
   copyWriting(n,target,maps);copyStory(n,target,maps);for(const id of nodeIds.values())copyAppearance(target.nodes[id],maps);
   target.revision++; target.updatedAt = time;
 }

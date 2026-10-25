@@ -16,6 +16,8 @@ export const HUMAN_ACTIONS = Object.freeze([...new Set([
   ...Object.values(TOOL_ACTIONS).flat(), 'novel.list','novel.create','novel.import',
   'novel.export','novel.update','novel.archive','binding.set','settings.get','legacy.preview','tavern.preview','tavern.import',
   'preset.get','preset.preview','preset.set',
+  // Author-only, read-only access to retained upstream planning archives.
+  'planning.list','planning.get','planning.pages','planning.groups','planning.decorations',
   'story.selection.apply','story.foreshadow.save','story.backup','story.restore','story.undo','story.redo','graph.history','graph.restore','writing.prose.search','writing.prose.replace','writing.selection.apply','chapter.move','timeline.layout.get','timeline.layout.save',
   'workspace.status','workspace.export','workspace.preview','workspace.import',
   'transfer.catalog','transfer.inspect','transfer.preview','transfer.import','transfer.exportPreview','transfer.export',
