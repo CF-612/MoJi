@@ -2,7 +2,7 @@ import {readFile, readdir, mkdir, writeFile} from 'node:fs/promises';
 import {join} from 'node:path';
 import {createHash, randomUUID} from 'node:crypto';
 import {isDeepStrictEqual} from 'node:util';
-import {STORAGE_VERSION} from '../../infrastructure/persistence/project-layout.ts';
+import {STORAGE_VERSION, STORAGE_FORMAT} from '../../infrastructure/persistence/project-layout.ts';
 
 const hash=value=>createHash('sha256').update(value).digest('hex');
 const fail=message=>{throw Object.assign(new Error(message),{code:'INVALID_WORKSPACE_BACKUP'});};
@@ -24,7 +24,7 @@ export class WorkData {
   }
   return result.sort((a,b)=>a.path.localeCompare(b.path));
  }
- async status(){return this.locked(async state=>({dataRoot:this.store.root,storageVersion:STORAGE_VERSION,storageLayout:'named-project-files',...counts(state),books:Object.values(state.novels).map(n=>({id:n.id,title:n.title,archived:n.archived})),included:['所有作品（含归档）、正文与历史版本、预设、规划与变更、人物世界资料','按书名目录存放；章节、设定、规划页使用名称与稳定短 ID 命名','会话绑定、请求记录、操作日志和规划迁移备份'],excluded:['DSH 聊天记录、附件、API 密钥','浏览器未保存草稿和界面偏好']}));}
+ async status(){return this.locked(async state=>({dataRoot:this.store.root,storageVersion:STORAGE_VERSION,storageFormat:STORAGE_FORMAT,storageLayout:'moji-granular-story-files',...counts(state),books:Object.values(state.novels).map(n=>({id:n.id,title:n.title,archived:n.archived})),included:['所有作品（含归档）、正文与历史版本、预设、规划与变更、人物世界资料','按书名目录存放；章节、设定、规划页使用名称与稳定短 ID 命名','会话绑定、请求记录、操作日志和规划迁移备份'],excluded:['DSH 聊天记录、附件、API 密钥','浏览器未保存草稿和界面偏好']}));}
  archive(state,files){const payload={state,files};return {format:'cuigengji-workspace',version:1,exportedAt:new Date().toISOString(),summary:counts(state),sha256:hash(JSON.stringify(payload)),payload};}
  async export(){return this.locked(async state=>this.archive(state,await this.files()));}
  validate(backup){

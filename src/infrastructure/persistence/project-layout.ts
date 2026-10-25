@@ -1,3 +1,4 @@
+import {encodeExtension} from './story-fragments.ts';
 import { createHash } from 'node:crypto';
 import { chapterCounts, CHAPTER_COUNTS } from '../../domain/chapters/metadata.ts';
 import { planProjectDirectories, type ProjectDirectories } from './project-directories.ts';
@@ -6,10 +7,11 @@ import { planProjectDirectories, type ProjectDirectories } from './project-direc
 // Their semantic validation belongs to Store/domain; this layer partitions them.
 export type Row = Record<string, any>;
 export type Workspace = { schemaVersion: number; novels: Record<string, Row>; bindings: Record<string, Row>; requests: Record<string, Row>; [key: string]: any };
-export type StorageVersion = 2 | 3 | 4;
-export const STORAGE_VERSION = 4;
+export type StorageVersion = 2 | 3 | 4 | 5;
+export const STORAGE_VERSION = 5;
+export const STORAGE_FORMAT = 'moji-library';
 export type OccupiedProjectFiles = {chapters?: string[]; settings?: string[]; planning?: string[]};
-export type Library = { format: 'cuigengji-library'; storageVersion: 3 | 4; metadata: Row; novels: Record<string, Row>; directories: ProjectDirectories };
+export type Library = { format: 'cuigengji-library' | 'moji-library'; storageVersion: 3 | 4 | 5; metadata: Row; novels: Record<string, Row>; directories: ProjectDirectories };
 export type LegacyLibrary = Omit<Library, 'storageVersion' | 'directories'> & {storageVersion: 2};
 export type Project = { novel: Row; sections: string[]; preview: Row };
 export type ChapterIndex = { metadata: Row; charCount: number; textCount: number; versions: Row[]; file?: string };
@@ -72,7 +74,7 @@ export const legacyBookPath = (id: string) => 'novels/' + fileId(id);
 export const pageKey = (id: string | null) => id === null ? '~main' : fileId(id);
 export const sections = ['chapters', 'nodes', 'edges', 'memoryGroups', 'planning', 'preset', 'plan', 'tavernSources'] as const;
 export const libraryRow = (novel: Row) => Object.fromEntries(['id', 'title', 'description', 'coverImage','coverMode','genre','workStatus','revision', 'archived', 'createdAt', 'updatedAt'].filter(key => own(novel, key)).map(key => [key, novel[key]]));
-export const projectRecord = (novel: Row): Project => ({ novel: without(novel, [...sections]), sections: sections.filter(key => own(novel, key)), preview: {
+export const projectRecord = (novel: Row, version: StorageVersion = STORAGE_VERSION): Project => ({ novel: without(novel, [...sections, ...(version >= 5 ? ['story','writing'] : [])]), sections: [...sections, ...(version >= 5 ? ['story','writing'] : [])].filter(key => own(novel, key)), preview: {
   ...(novel.preset ? { preset: without(novel.preset, ['blocks', 'raw', 'warnings']) } : {}),
   ...(novel.plan ? { plan: without(novel.plan, ['content']) } : {}),
 } });
@@ -182,7 +184,12 @@ export function splitNovel(id: string, novel: Row, directories: ProjectDirectori
   const base = bookPath(id, directories), files = new Map<string, string>();
   const put = (path: string, value: unknown) => files.set(base + '/' + path, JSON.stringify(value));
   const readable = storageVersion >= 4;
-  put('project.json', projectRecord(novel));
+  put('project.json', projectRecord(novel, storageVersion));
+  if (storageVersion >= 5) for (const kind of ['story','writing'] as const) if (own(novel,kind)) {
+    const {index,blobs}=encodeExtension(kind,novel[kind]);
+    for(const [hash,text] of blobs) files.set(`${base}/${kind}/fragments/${hash}.json`,text);
+    put(`${kind}/index.json`,index);
+  }
 
   const chapterIndex: Record<string, ChapterIndex> = {};
   const chapterNames = readable ? namedChapterFiles(novel.chapters || {}, {}, occupied.chapters) : {};
@@ -217,12 +224,12 @@ export function splitNovel(id: string, novel: Row, directories: ProjectDirectori
   for (const [field, path] of [['preset', 'preset.json'], ['plan', 'planning/legacy.json'], ['tavernSources', 'imports/originals.json']]) if (own(novel, field)) put(path, novel[field]);
   return files;
 }
-export function splitWorkspace(state: Workspace, directories = planProjectDirectories(state.novels).directories, storageVersion: 3 | 4 = STORAGE_VERSION, occupied: Record<string, OccupiedProjectFiles> = {}): Map<string, string> {
+export function splitWorkspace(state: Workspace, directories = planProjectDirectories(state.novels).directories, storageVersion: 3 | 4 | 5 = STORAGE_VERSION, occupied: Record<string, OccupiedProjectFiles> = {}): Map<string, string> {
   const files = new Map<string, string>();
   for (const [id, novel] of Object.entries(state.novels)) for (const [path, text] of splitNovel(id, novel, directories, storageVersion, occupied[id])) files.set(path, text);
   files.set('runtime/bindings.json', JSON.stringify(state.bindings));
   for (const [id, value] of Object.entries(state.requests)) files.set('runtime/requests/' + fileId(id) + '.json', JSON.stringify(value));
   // Publishing the library last marks a fully staged initial migration.
-  files.set('library.json', JSON.stringify({ format: 'cuigengji-library', storageVersion, metadata: without(state, ['novels', 'bindings', 'requests']), novels: Object.fromEntries(Object.entries(state.novels).map(([id, novel]) => [id, libraryRow(novel)])), directories } satisfies Library));
+  files.set('library.json', JSON.stringify({ format: storageVersion >= 5 ? STORAGE_FORMAT : 'cuigengji-library', storageVersion, metadata: without(state, ['novels', 'bindings', 'requests']), novels: Object.fromEntries(Object.entries(state.novels).map(([id, novel]) => [id, libraryRow(novel)])), directories } satisfies Library));
   return files;
 }

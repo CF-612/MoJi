@@ -9,7 +9,7 @@ import {createHash} from 'node:crypto';
 import {Store} from '../src/core/store.js';
 import {UpgradeCoordinator} from '../src/application/maintenance/upgrade.ts';
 import {backupParent, verifyUpgradeBackup} from '../src/infrastructure/persistence/upgrade-backup.ts';
-import {splitWorkspace, fileId} from '../src/infrastructure/persistence/project-layout.ts';
+import {splitWorkspace, fileId, STORAGE_FORMAT, STORAGE_VERSION} from '../src/infrastructure/persistence/project-layout.ts';
 import {apply} from '../src/index.js';
 
 async function temporary(t) {
@@ -34,6 +34,10 @@ test('startup upgrade backs up current data, verifies the logical state, and is 
   const result = await coordinator.start();
   assert.equal(result.status, 'ready');
   assert.equal(result.migrated, false);
+  assert.equal(result.fromStorageFormat, STORAGE_FORMAT);
+  assert.equal(result.fromStorageVersion, STORAGE_VERSION);
+  assert.equal(result.toStorageFormat, STORAGE_FORMAT);
+  assert.equal(result.toStorageVersion, STORAGE_VERSION);
   assert.deepEqual(result.summary.counts, {novels:1, chapters:1, chapterVersions:2, recycledChapters:0, settings:1, planningNodes:0, bindings:0, requests:0});
   assert.equal(result.beforeStateDigest, result.afterStateDigest);
   assert.ok(result.backupPath);
@@ -55,6 +59,7 @@ test('legacy store data is migrated as one logical workspace and retains a raw b
   const coordinator = new UpgradeCoordinator(new Store(legacy)), result = await coordinator.start();
   assert.equal(result.status, 'ready');
   assert.equal(result.fromStorageVersion, 1);
+  assert.equal(result.fromStorageFormat, 'legacy-store-json');
   assert.equal(result.migrated, true);
   assert.equal((await new Store(legacy).load()).novels[Object.keys(state.novels)[0]].chapters[Object.keys(Object.values(state.novels)[0].chapters)[0]].content, '正文的第二个版本。');
   assert.equal(await readFile(join(result.backupPath, 'data', 'store.json'), 'utf8'), JSON.stringify(state));
@@ -91,6 +96,9 @@ for (const version of [1,2,3,4]) test(`public 0.3.13 data and physical v${versio
   await writeFile(join(root,'extra-file.txt'),'作者额外记录');
   const store = new Store(root), upgrade = new UpgradeCoordinator(store), result = await upgrade.start();
   assert.equal(result.status,'ready',JSON.stringify(result.error)); assert.equal(result.fromStorageVersion,version);
+  assert.equal(result.fromStorageFormat,version === 1 ? 'legacy-store-json' : 'cuigengji-library');
+  assert.equal(result.toStorageFormat,STORAGE_FORMAT); assert.equal(result.toStorageVersion,STORAGE_VERSION);
+  assert.equal(result.migrated,true);
   assert.deepEqual(await store.readStoredWorkspace(),state);
   assert.equal((await upgrade.verify({expectedVersion:manifest.version,expectedDataRoot:root,expectedNovelIds:Object.keys(state.novels)})).verified,true);
   const backup = await verifyUpgradeBackup(root,result.backupPath);
@@ -199,4 +207,87 @@ test('a formerly populated library losing all indexes is never mistaken for a fi
   const result = await new UpgradeCoordinator(new Store(root)).start();
   assert.equal(result.status,'failed'); assert.equal(result.error.code,'UPGRADE_SOURCE_MISSING');
   await assert.rejects(stat(join(root,'library.json')),{code:'ENOENT'});
+});
+
+test('same application version does not reuse a legacy completed v4 report as MoJi-layout evidence',async t => {
+  const state = await publicState(), root = await temporary(t); await seed(root,state,4);
+  const originalLibraryText = await readFile(join(root,'library.json'),'utf8');
+  await mkdir(join(root,'runtime'),{recursive:true});
+  const oldReport = {format:'cuigengji-upgrade',version:1,pluginVersion:manifest.version,dataRoot:root,
+    status:'ready',stage:'complete',startedAt:new Date().toISOString(),fromStorageVersion:4,toStorageVersion:4,
+    migrated:false,backupPath:null,backupComplete:false,beforeStateDigest:null};
+  await writeFile(join(root,'runtime/upgrade.json'),JSON.stringify(oldReport));
+  const coordinator = new UpgradeCoordinator(new Store(root)), result = await coordinator.start();
+  assert.equal(result.status,'ready',JSON.stringify(result.error));
+  assert.equal(result.fromStorageFormat,'cuigengji-library'); assert.equal(result.fromStorageVersion,4);
+  assert.equal(result.toStorageFormat,STORAGE_FORMAT); assert.equal(result.toStorageVersion,STORAGE_VERSION);
+  assert.equal(result.migrated,true); assert.ok(result.backupComplete);
+  assert.equal(await readFile(join(result.backupPath,'data/library.json'),'utf8'),originalLibraryText);
+  const originalLibrary = JSON.parse(await readFile(join(result.backupPath,'data/library.json'),'utf8'));
+  assert.equal(originalLibrary.format,'cuigengji-library'); assert.equal(originalLibrary.storageVersion,4);
+  assert.deepEqual(await new Store(root).readStoredWorkspace(),state);
+  assert.equal((await new UpgradeCoordinator(new Store(root)).start()).backupPath,result.backupPath);
+});
+
+test('an interrupted legacy report resumes its original backup without confusing the new format identity',async t => {
+  const state = await publicState(), root = await temporary(t); await seed(root,state,4);
+  const store = new Store(root); store.load = async () => {throw new Error('simulate old coordinator interruption before migration');};
+  const failed = await new UpgradeCoordinator(store).start();
+  assert.equal(failed.status,'failed'); assert.equal(failed.fromStorageVersion,4);
+  const oldReport = {...failed,toStorageVersion:4}; delete oldReport.fromStorageFormat; delete oldReport.toStorageFormat;
+  await writeFile(join(root,'runtime/upgrade.json'),JSON.stringify(oldReport));
+  const resumed = await new UpgradeCoordinator(new Store(root)).start();
+  assert.equal(resumed.status,'ready',JSON.stringify(resumed.error));
+  assert.equal(resumed.fromStorageFormat,'cuigengji-library'); assert.equal(resumed.fromStorageVersion,4);
+  assert.equal(resumed.toStorageFormat,STORAGE_FORMAT); assert.equal(resumed.toStorageVersion,STORAGE_VERSION);
+  assert.equal(resumed.backupPath,failed.backupPath); assert.equal(resumed.beforeStateDigest,failed.beforeStateDigest);
+  assert.deepEqual(await new Store(root).readStoredWorkspace(),state);
+  assert.equal((await readdir(backupParent(root))).length,1);
+});
+
+for (const [format,storageVersion] of [['cuigengji-library',5],['cuigengji-library',999],['moji-library',4],['moji-library',999]]) {
+  test(`maintenance refuses unsupported ${format} v${storageVersion} before replaying a journal`,async t => {
+    const root = await temporary(t), original = JSON.stringify({format,storageVersion,metadata:{schemaVersion:1},novels:{},directories:{}});
+    await writeFile(join(root,'library.json'),original);
+    const store = new Store(root); let recoveries = 0, loads = 0;
+    store.transaction.recover = async () => {recoveries++;};
+    store.load = async () => {loads++; throw new Error('must not load unsupported format');};
+    const result = await new UpgradeCoordinator(store).start();
+    assert.equal(result.status,'failed'); assert.equal(result.error.code,'UNSUPPORTED_STORAGE_VERSION');
+    assert.equal(recoveries,0); assert.equal(loads,0);
+    assert.equal(await readFile(join(root,'library.json'),'utf8'),original);
+    assert.equal(result.backupPath,null); assert.equal(result.backupComplete,false);
+    assert.deepEqual(await readdir(root),['library.json']);
+    await assert.rejects(stat(backupParent(root)),{code:'ENOENT'});
+  });
+}
+
+test('unsupported identity preserves an existing runtime report and pending journal without durable writes',async t => {
+  const root = await temporary(t), library = JSON.stringify({format:'cuigengji-library',storageVersion:5});
+  const report = JSON.stringify({format:'cuigengji-upgrade',version:1,status:'ready',pluginVersion:manifest.version,dataRoot:root});
+  const journal = 'unread and untouched foreign journal';
+  await mkdir(join(root,'runtime')); await writeFile(join(root,'runtime/upgrade.json'),report);
+  await writeFile(join(root,'library.json'),library); await writeFile(join(root,'transaction.pending.json'),journal);
+  const coordinator = new UpgradeCoordinator(new Store(root)), result = await coordinator.start();
+  assert.equal(result.status,'failed'); assert.equal(result.error.code,'UNSUPPORTED_STORAGE_VERSION');
+  assert.equal(result.backupPath,null); assert.equal((await coordinator.status()).status,'failed');
+  assert.equal(await readFile(join(root,'library.json'),'utf8'),library);
+  assert.equal(await readFile(join(root,'runtime/upgrade.json'),'utf8'),report);
+  assert.equal(await readFile(join(root,'transaction.pending.json'),'utf8'),journal);
+  assert.deepEqual((await readdir(root)).sort(),['library.json','runtime','transaction.pending.json']);
+  assert.deepEqual(await readdir(join(root,'runtime')),['upgrade.json']);
+  await assert.rejects(stat(backupParent(root)),{code:'ENOENT'});
+});
+
+test('verification distinguishes upstream v5 from MoJi v5 even after a successful startup',async t => {
+  const {root,store} = await currentRoot(t), coordinator = new UpgradeCoordinator(store);
+  assert.equal((await coordinator.start()).status,'ready');
+  const library = JSON.parse(await readFile(join(root,'library.json'),'utf8'));
+  assert.equal(library.format,STORAGE_FORMAT); assert.equal(library.storageVersion,STORAGE_VERSION);
+  library.format = 'cuigengji-library';
+  const changed = JSON.stringify(library); await writeFile(join(root,'library.json'),changed);
+  let recoveries = 0; store.transaction.recover = async () => {recoveries++;};
+  const result = await coordinator.verify();
+  assert.equal(result.verified,false); assert.equal(result.error.code,'UNSUPPORTED_STORAGE_VERSION');
+  assert.equal(recoveries,0); assert.equal(await readFile(join(root,'library.json'),'utf8'),changed);
 });

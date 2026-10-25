@@ -1,3 +1,5 @@
+import {emptyLibraryStyles} from './empty-style.ts';
+
 export const welcomeStyles = `
 .cuigengji .welcome-scroll {flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable;}
 .cuigengji .welcome-document {max-width:940px;margin:auto;padding:clamp(28px,6cqw,64px) clamp(24px,6cqw,64px) 32px;animation:cg-arrive 180ms ease-out;}
@@ -54,4 +56,4 @@ export const welcomeStyles = `
  .cuigengji .welcome-library input {width:140px;}
  .cuigengji .welcome-footer small {flex-basis:100%;margin:2px 0 0;}
 }
-`;
+` + emptyLibraryStyles;

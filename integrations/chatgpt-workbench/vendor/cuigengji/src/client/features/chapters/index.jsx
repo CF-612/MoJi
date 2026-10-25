@@ -1,3 +1,5 @@
+import {EmptyEditor} from './EmptyEditor.tsx';
+import {EmptyDirectory} from './EmptyDirectory.tsx';
 import {linkedProseRanges} from './linked-prose-highlights.mjs';
 import {useStoryLinks} from '../../shared/useStoryLinks.js';
 import {chapterDisplayTitle,chapterOrdinalInVolume} from './chapter-display-title.mjs';
@@ -28,7 +30,7 @@ import {CreateDocument} from '../../shared/creation.tsx';
 import {useWorkbenchPreferences} from '../../shared/preferences.tsx';
 import React, { useEffect, useState, useRef, useLayoutEffect, useContext, useMemo } from 'react';
 import { useDialog } from '../../dialog.tsx';
-import { SessionScope, usePreference, useResource, useScrollPosition } from '../../shared/state.js';
+import { SessionScope, TransientViewContext, usePreference, useResource, useScrollPosition } from '../../shared/state.js';
 import { InlineTitle } from '../../shared/InlineTitle.tsx';
 import { DirectoryRow } from './DirectoryRow.tsx';
 import { ResourceState, saveShortcut } from '../../shared/ui.jsx';
@@ -54,6 +56,7 @@ async function readChapter(call, novelId, chapterId) {
 const chaptersVolume=(chapters,id)=>chapters.find(c=>c.id===id)?.volumeId||null;
 export function Chapters({ call, novelId, novelTitle, tick, run, busy, onTransfer, onMemory, onEvent, onForeshadow, onStoryCard, proseRequest, onProseLocated }) {
   const scope=useContext(SessionScope);
+  const tourPreview=useContext(TransientViewContext);
   const [contextId,setContextId]=useState(null),[historyRequest,setHistoryRequest]=useState(null);
   const [undo,setUndo]=useState(null),[volumeSummary,setVolumeSummary]=useState(null);
   const {preferences}=useWorkbenchPreferences();
@@ -61,7 +64,7 @@ export function Chapters({ call, novelId, novelTitle, tick, run, busy, onTransfe
   const workspace=useRef(null),[narrow,setNarrow]=useState(false);
   useEffect(()=>{const el=workspace.current;if(!el)return;const resize=new ResizeObserver(([entry])=>setNarrow(entry.contentRect.width<760));resize.observe(el);return()=>resize.disconnect();},[creating]);
   const [id,setId] = usePreference(`${novelId}:chapter`, '');
-  const [directory,setDirectory] = useState(!id), [query,setQuery] = useState(''), [deleted,setDeleted] = useState(false);
+  const [directory,setDirectory] = useState(!tourPreview&&!id), [query,setQuery] = useState(''), [deleted,setDeleted] = useState(false);
   const [directoryCollapsed,setDirectoryCollapsed] = useState(!preferences.directory);
   const [collapsed,setCollapsed]=usePreference(`${novelId}:collapsed-volumes`,{});
   const [poll,setPoll] = useState(0);
@@ -105,7 +108,7 @@ export function Chapters({ call, novelId, novelTitle, tick, run, busy, onTransfe
       {!deleted&&<div className="directory-create-actions"><button className="primary" onClick={create} disabled={busy||!resource.value}><Icon name="plus"/>新建章节</button><button className="directory-new-volume" disabled={busy||!resource.value} aria-label="新建卷" onClick={async()=>{const title=await ask('新卷名称',displayNumberedTitle(nextNumberedTitle(savedVolumes,'卷'),preferences.numbering));if(title)run(()=>call('volume.create',{novelId,title}));}}><Icon name="folder"/>新增卷</button></div>}
       <div className="directory-search"><input className="search" aria-label="搜索章节" placeholder="搜索章节名称" value={query} onChange={e=>setQuery(e.target.value)}/></div>
       <ResourceState resource={resource}>
-        {!(deleted?trash:live).length && <p className="empty">{deleted?'回收站是空的':'还没有章节。新建一章，开始你的故事。'}</p>}
+        {!(deleted?trash:live).length && !query && (deleted?<p className="empty">回收站是空的</p>:<EmptyDirectory/>)}
         {query && !(deleted?trash:live).some(c=>(c.title.includes(query)||displayNumberedTitle(c.title,preferences.numbering).includes(query))) && <p className="empty">没有匹配的章节</p>}
         {deleted?trash.filter(c=>(c.title.includes(query)||displayNumberedTitle(c.title,preferences.numbering).includes(query))).map(c=><DirectoryRow key={c.id} chapter={{...c,title:displayNumberedTitle(c.title,preferences.numbering)}} selected={c.id===id} disabled={busy} open={()=>select(c)} menu={()=>setContextId(c.id)}/>):groups.map(v=>{const items=live.filter(c=>(c.volumeId||null)===v.id && (c.title.includes(query)||displayNumberedTitle(c.title,preferences.numbering).includes(query))),folded=collapsed[v.id||'none']&&!query,endDrop=reorder.drag?.target?.volumeId===v.id&&reorder.drag.target.beforeChapterId===null;if(!items.length&&!v.id&&!reorder.drag)return null;return <section className={`volume-group ${endDrop&&folded?'chapter-drop-group':''}`} data-chapter-volume={v.id||''} key={v.id||'none'}>
           <div className="row compact"><button className="volume-toggle grow" aria-expanded={!collapsed[v.id||'none']||!!query} onClick={()=>setCollapsed(old=>({...old,[v.id||'none']:!old[v.id||'none']}))}><span className="volume-chevron"><Icon name="chevron"/></span>{displayNumberedTitle(v.title,preferences.numbering)} <small>{items.length}</small></button>{v.id&&<details className="menu"><summary aria-label={`${v.title}设置`}>···</summary><div className="menu-panel">
@@ -128,7 +131,7 @@ export function Chapters({ call, novelId, novelTitle, tick, run, busy, onTransfe
     {narrow ? directory&&<DirectoryDrawer close={()=>setDirectory(false)}>{directoryContent}</DirectoryDrawer> : directoryContent}
     {contextChapter&&<Modal title="章节操作" className="tool-sheet chapter-actions-menu" close={()=>setContextId(null)}><div className="sheet-actions"><p className="chapter-menu-title">{displayNumberedTitle(contextChapter.title,preferences.numbering)}</p><ChapterOperations chapter={contextChapter} busy={busy||reorder.saving} volumes={volumes.map(v=>({...v,title:displayNumberedTitle(v.title,preferences.numbering)}))} onRename={title=>{setContextId(null);updateMetadata(contextChapter,{title});}} onVolume={volumeId=>{setContextId(null);updateMetadata(contextChapter,{volumeId});}} onMove={{up:contextIndex>0?()=>{setContextId(null);reorder.nudge(contextChapter,'up');}:null,down:contextIndex<peers.length-1?()=>{setContextId(null);reorder.nudge(contextChapter,'down');}:null}} onExport={()=>{setContextId(null);run(async()=>{await prepare(contextChapter);onTransfer({mode:'export',selection:{kind:'chapters',novelId,chapterIds:[contextChapter.id]}});});}} onHistory={()=>showHistory(contextChapter)} onRemove={()=>{setContextId(null);remove(contextChapter);}} onRestore={()=>{setContextId(null);restore(contextChapter);}}/></div></Modal>}
     <main className="chapter-main">
-      {id ? <ChapterLoader key={id} novelTitle={novelTitle} chapterOrdinal={chapterOrdinalInVolume(live,id)} {...{call,novelId,tick,run,busy,volumes,onTransfer,onMemory,onEvent,onForeshadow,onStoryCard,proseRequest,onProseLocated}} historyRequest={historyRequest} onHistoryConsumed={()=>setHistoryRequest(null)} onRemove={remove} onSaved={()=>setPoll(n=>n+1)} chapterId={id} latest={chapters.find(c=>c.id===id)} back={()=>{setDirectory(true);setDirectoryCollapsed(false);}}/> : <div className="empty"><h2>选择一章，继续写作</h2><p>从目录打开章节，或新建一章。</p><button onClick={()=>setDirectory(true)}>打开目录</button></div>}
+      {id ? <ChapterLoader key={id} novelTitle={novelTitle} chapterOrdinal={chapterOrdinalInVolume(live,id)} {...{call,novelId,tick,run,busy,volumes,onTransfer,onMemory,onEvent,onForeshadow,onStoryCard,proseRequest,onProseLocated}} historyRequest={historyRequest} onHistoryConsumed={()=>setHistoryRequest(null)} onRemove={remove} onSaved={()=>setPoll(n=>n+1)} chapterId={id} latest={chapters.find(c=>c.id===id)} back={()=>{setDirectory(true);setDirectoryCollapsed(false);}}/> : <ResourceState resource={resource}><EmptyEditor hasChapters={live.length>0} onDirectory={()=>setDirectory(true)}/></ResourceState>}
     </main>
   </div>;
 }

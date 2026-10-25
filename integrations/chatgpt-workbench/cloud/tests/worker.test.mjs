@@ -24,12 +24,13 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
     const initialized=await call('initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'qa',version:'1'}});
     assert.ok(initialized.capabilities.tools);
     assert.equal(initialized.serverInfo.name,'Moji');
-    assert.deepEqual((await call('resources/list')).resources.map(resource=>resource.uri),['ui://moji/cloud-v0102']);
+    assert.deepEqual((await call('resources/list')).resources.map(resource=>resource.uri),['ui://moji/cloud-v0120']);
+    assert.match((await call('resources/read',{uri:'ui://moji/cloud-v0102'})).contents[0].text,/data-mcp-app="true"/,'previous cached URI remains readable');
     const listing=await call('tools/list');assert.ok(listing.tools.some(t=>t.name==='workbench_edit'));
     assert.ok(listing.tools.some(t=>t.name==='workbench_import_preview'),'聊天 AI 必须有导入预览工具');
     assert.ok(listing.tools.some(t=>t.name==='workbench_import'),'聊天 AI 必须有携带预览证明的导入工具');
     const openTool=listing.tools.find(t=>t.name==='workbench_open');
-    assert.equal(openTool._meta.ui.resourceUri,'ui://moji/cloud-v0102');
+    assert.equal(openTool._meta.ui.resourceUri,'ui://moji/cloud-v0120');
     assert.equal(openTool._meta['openai/outputTemplate'],openTool._meta.ui.resourceUri);
     const updateResource=await call('resources/read',{uri:openTool._meta.ui.resourceUri});
     assert.ok(updateResource.contents[0]._meta.ui.csp.connectDomains.includes('https://raw.githubusercontent.com'));
@@ -43,6 +44,28 @@ test('真实 Worker：OAuth 保护、MCP 初始化、工具读写及原生 UI �
     const novelId=opened.structuredContent.result.books[0].id;
     assert.ok(opened.structuredContent.result.capabilities.queryActions.includes('writing.search'));
     assert.ok(opened.structuredContent.result.capabilities.editActions.includes('writing.review.submit'));
+    // Check the actual MCP discovery text against the same runtime capability list
+    // the model receives; human-only/retired commands must not be advertised.
+    const editDescription=listing.tools.find(t=>t.name==='workbench_edit').description;
+    const {queryActions,editActions}=opened.structuredContent.result.capabilities;
+    const advertisedActions=[...editDescription.matchAll(/\b(?:novel|volume|chapter|graph|edge|story|writing)\.[A-Za-z]+(?:\.[A-Za-z]+)?\b/g)].map(match=>match[0]);
+    for(const action of advertisedActions)assert.ok([...queryActions,...editActions].includes(action),`description advertises unavailable action: ${action}`);
+    assert.ok(advertisedActions.includes('story.apply'));
+    assert.ok(advertisedActions.includes('story.get'));
+    assert.match(editDescription,/workbench_query/);
+    assert.match(editDescription,/state\.revision/);
+    assert.match(editDescription,/内层 expectedRevision 是该卡片 revision/);
+    assert.match(editDescription,/原参数和原 requestId/);
+    assert.match(editDescription,/time\.narration/);
+    assert.match(editDescription,/storyAxis\.place/);
+    assert.match(editDescription,/AI 不能通过 confirmed:true 绕过/);
+    assert.doesNotMatch(editDescription,/\b(?:storyDate|plannedChapter|narrationOrder|enteringRefs|chapterRefs|beforeEventId|expectedOrder)\b/,'retired event fields are not the story-card write contract');
+    for(const action of ['writing.event.place','writing.event.move','writing.chapterPlan.create','writing.timelineForeshadow.create','writing.timelinePlan.create','writing.timelinePlan.move']){
+      assert.ok(!editDescription.includes(action),`retired action remains in description: ${action}`);
+      assert.ok(!editActions.includes(action));
+      const denied=await call('tools/call',{name:'workbench_edit',arguments:{action,args:{novelId}}});
+      assert.equal(denied.isError,true,action);assert.match(denied.content[0].text,/NOT_ALLOWED/);
+    }
     const badQuery=await call('tools/call',{name:'workbench_query',arguments:{action:'chapter.create',args:{novelId,title:'禁止通过查询创建'}}});assert.equal(badQuery.isError,true);assert.match(badQuery.content[0].text,/NOT_ALLOWED/);
     const badEdit=await call('tools/call',{name:'workbench_edit',arguments:{action:'chapter.get',args:{novelId}}});assert.equal(badEdit.isError,true);assert.match(badEdit.content[0].text,/NOT_ALLOWED/);
     const unknown=await call('tools/call',{name:'workbench_query',arguments:{action:'unknown.action',args:{novelId}}});assert.equal(unknown.isError,true);

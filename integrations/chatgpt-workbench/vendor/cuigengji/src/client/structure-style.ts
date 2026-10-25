@@ -33,11 +33,12 @@ export const structureStyles=`
 .cuigengji .timeline-event .row{flex-wrap:wrap;}.cuigengji .timeline-event h3{margin:10px 0;}.cuigengji .timeline-event p{white-space:pre-wrap;}
 .cuigengji .timeline-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}.cuigengji .timeline-links button{max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:left;}
 .cuigengji .relation-legend{display:flex;flex-wrap:wrap;gap:6px 16px;padding:6px 0;font-size:12px;}.cuigengji .relation-change{border-left:4px solid;padding-left:12px;}
-html[data-theme-preference=dark]{${dark}}
-html[data-theme-preference=light]{color-scheme:light;--dsw-alias-bg-base:#fff;--dsw-alias-label-primary:#252936;--dsw-alias-label-secondary:#737780;--dsw-alias-border-l1:#dde0e6;--dsw-alias-button-floating-fill:#fff;--dsw-alias-state-business-primary:#4d6bfe;--dsw-alias-label-on-color:#fff;}
-html[data-theme-preference=dark] body{background:#202624;color:#e6e8e1;}
-html[data-theme-preference=light] body{background:#fff;color:#252936;}
-@media(prefers-color-scheme:dark){html[data-theme-preference=system]:not([data-theme=light]){${dark}}html[data-theme-preference=system]:not([data-theme=light]) body{background:#202624;color:#e6e8e1;}}
+/* Shared-document hosts own html/body and their --dsw-* tokens. Only MoJi opts in. */
+.moji-preferences[data-theme-preference=dark]{${dark}}
+.moji-preferences[data-theme-preference=light]{color-scheme:light;--dsw-alias-bg-base:#fff;--dsw-alias-label-primary:#252936;--dsw-alias-label-secondary:#737780;--dsw-alias-border-l1:#dde0e6;--dsw-alias-button-floating-fill:#fff;--dsw-alias-state-business-primary:#4d6bfe;--dsw-alias-label-on-color:#fff;}
+html[data-theme=dark] .moji-preferences[data-theme-preference=system]{${dark}}
+html[data-theme=light] .moji-preferences[data-theme-preference=system]{color-scheme:light;}
+@media(prefers-color-scheme:dark){html:not([data-theme=light]) .moji-preferences[data-theme-preference=system]{${dark}}}
 .cuigengji .structure-page{padding:16px;overflow:auto;flex:1;min-height:0;}
 .cuigengji .structure-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0;}
 .cuigengji .structure-fields label{min-width:0;display:flex;flex-direction:column;gap:6px;}

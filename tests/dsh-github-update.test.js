@@ -69,6 +69,46 @@ test('missing or mismatched local library runtime evidence refuses installation'
  const f=await fixture(t);await rm(join(f.dataRoot,'runtime','upgrade.json'));await assert.rejects(updateDsh(f.options),/LOCAL_LIBRARY_EVIDENCE_REQUIRED/);assert.equal(f.calls.filter(c=>c[0]==='install').length,0);
  const mismatch=await fixture(t);await writeFile(join(mismatch.dataRoot,'runtime','upgrade.json'),JSON.stringify({format:'cuigengji-upgrade',version:1,status:'ready',pluginVersion:'0.11.4',dataRoot:'/unrelated'}));await assert.rejects(updateDsh(mismatch.options),/LOCAL_LIBRARY_EVIDENCE_MISMATCH/);
 });
+for(const storageVersion of [2,3,4])test(`legacy cuigengji-library v${storageVersion} remains an accepted updater source`,async t=>{
+ const f=await fixture(t),library=JSON.stringify({format:'cuigengji-library',storageVersion});
+ await writeFile(join(f.dataRoot,'library.json'),library);
+ const result=await updateDsh(f.options);
+ assert.equal(result.status,'installed-restart-required');
+ assert.equal(await readFile(join(f.dataRoot,'library.json'),'utf8'),library);
+ assert.equal(await readFile(join(f.options.backupRoot,result.backupId,'works/library.json'),'utf8'),library);
+});
+test('MoJi v5 library with matching maintenance identity is backed up without physical migration',async t=>{
+ const f=await fixture(t),library=JSON.stringify({format:'moji-library',storageVersion:5});
+ await writeFile(join(f.dataRoot,'library.json'),library);
+ const path=join(f.dataRoot,'runtime/upgrade.json'),evidence=JSON.parse(await readFile(path,'utf8'));
+ await writeFile(path,JSON.stringify({...evidence,toStorageFormat:'moji-library',toStorageVersion:5}));
+ const result=await updateDsh(f.options);
+ assert.equal(result.status,'installed-restart-required'); assert.equal(f.calls.filter(c=>c[0]==='install').length,1);
+ assert.equal(await readFile(join(f.dataRoot,'library.json'),'utf8'),library);
+ assert.equal(await readFile(join(f.options.backupRoot,result.backupId,'works/library.json'),'utf8'),library);
+});
+for(const [format,storageVersion]of [['cuigengji-library',5],['moji-library',4],['moji-library',6],['other-library',5],['moji-library','5']]){
+ test(`unsupported updater source ${format} v${storageVersion} is refused before download or install`,async t=>{
+  const f=await fixture(t),library=JSON.stringify({format,storageVersion});
+  await writeFile(join(f.dataRoot,'library.json'),library);
+  const path=join(f.dataRoot,'runtime/upgrade.json'),evidence=JSON.parse(await readFile(path,'utf8'));
+  await writeFile(path,JSON.stringify({...evidence,toStorageFormat:format,toStorageVersion:storageVersion}));
+  await assert.rejects(updateDsh(f.options),{code:'LOCAL_LIBRARY_EVIDENCE_MISMATCH'});
+  assert.deepEqual(f.calls,[]); assert.equal(await readFile(join(f.dataRoot,'library.json'),'utf8'),library);
+  assert.deepEqual(JSON.parse(await readFile(join(f.profile,'package.json'),'utf8')),f.manifest);
+ });
+}
+test('same numeric version cannot substitute for matching MoJi maintenance identity',async t=>{
+ for(const identity of [{},{toStorageFormat:'cuigengji-library',toStorageVersion:5},{toStorageFormat:'moji-library',toStorageVersion:4}]){
+  const f=await fixture(t); await writeFile(join(f.dataRoot,'library.json'),JSON.stringify({format:'moji-library',storageVersion:5}));
+  const path=join(f.dataRoot,'runtime/upgrade.json'),evidence=JSON.parse(await readFile(path,'utf8'));
+  await writeFile(path,JSON.stringify({...evidence,...identity}));
+  await assert.rejects(updateDsh(f.options),{code:'LOCAL_LIBRARY_EVIDENCE_MISMATCH'}); assert.deepEqual(f.calls,[]);
+ }
+ const legacy=await fixture(t),path=join(legacy.dataRoot,'runtime/upgrade.json'),evidence=JSON.parse(await readFile(path,'utf8'));
+ await writeFile(path,JSON.stringify({...evidence,toStorageFormat:'moji-library',toStorageVersion:5}));
+ await assert.rejects(updateDsh(legacy.options),{code:'LOCAL_LIBRARY_EVIDENCE_MISMATCH'}); assert.deepEqual(legacy.calls,[]);
+});
 test('changed works are never restored over or reported safe, and malformed archive trailers rejected',async t=>{
  const f=await fixture(t);const install=f.options.install;f.options.install=async path=>{await install(path);await writeFile(join(f.dataRoot,'work.json'),'NEW WORK');};await assert.rejects(updateDsh(f.options),/UPDATE_FAILED_WORKS_CHANGED_MANUAL_RECOVERY/);assert.equal(await readFile(join(f.dataRoot,'work.json'),'utf8'),'NEW WORK');assert.equal(f.calls.filter(c=>c[0]==='install').length,1);
  const {gunzipSync}=await import('node:zlib');const plain=gunzipSync(tar());plain[0]^=1;assert.throws(()=>validateTarball(gzipSync(plain),'0.11.5'),/PACKAGE_HEADER_CHECKSUM/);assert.throws(()=>validateTarball(gzipSync(gunzipSync(tar()).subarray(0,1024)),'0.11.5'),/PACKAGE_INVALID/);

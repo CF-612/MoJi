@@ -35,7 +35,7 @@ Windows 桌面更新请参考[安装说明](getting-started.md)。桌面内置 E
 
 正常用户更新由插件加载阶段的 `UpgradeCoordinator` 自动备份、恢复、迁移和校验，安装 Agent 再调用维护工具验收。`tests/upgrade.test.js` 使用公开 0.3.13 实际代码生成的合成库及 v2/v3/v4 布局，验证完整历史、回收站、导入原件、页面/批注、绑定/请求、重复升级、中断恢复和失败闸门。生成旧库的脚本与来源提交记录见 `scripts/generate-upgrade-fixture.mjs`、`tests/fixtures/public-0.3.13/provenance.json`；不会使用真实小说。
 
-布局版本 4 使用可读文件名，稳定业务 ID 和单本/全库导出格式保持不变。`tests/project-file-names.test.js` 覆盖文件名冲突、改名与恢复、完整页面内容、迁移中断及引用/备份兼容；目录与按需读写分别由 `project-directories.test.js`、`project-storage.test.js` 验证。
+当前物理格式为 `moji-library` v5：沿用旧布局 v4 的可读文件名，并将统一剧情及结构资料拆成可校验的实体／历史分片。它不是上游 `cuigengji-library` v5。稳定业务 ID 和单本/全库导出格式保持不变；格式、读取边界和回退方式见[分片存储说明](moji-granular-storage.md)。`tests/project-file-names.test.js` 覆盖文件名冲突、改名与恢复、完整页面内容、迁移中断及引用/备份兼容；目录与按需读写分别由 `project-directories.test.js`、`project-storage.test.js` 验证。
 
 迁移真实数据前先运行隔离演练：
 
@@ -43,7 +43,7 @@ Windows 桌面更新请参考[安装说明](getting-started.md)。桌面内置 E
 node scripts/check-project-names-migration.mjs <数据目录> <报告目录>
 ```
 
-脚本在锁内复制数据，不加载原目录；副本升级后逐条核对正文、设定、规划、历史、请求及额外文件的 SHA-256，另外核对索引除路径映射外完全相同、完整逻辑快照一致，以及工作数据导出/导入往返。支持布局 2、3、4，布局 4 再次运行不会重命名文件。单文件旧格式使用 `check-storage-migration.mjs <store.json> <报告目录>`。
+脚本在锁内复制数据，不加载原目录；副本升级后逐条核对未重分区的正文、设定、旧规划、历史、请求及额外文件的 SHA-256，并核对完整逻辑快照一致及工作数据导出/导入往返。项目元数据与新增剧情／结构分片单独按逻辑和内容哈希校验，不冒称重分区后的文件字节不变。支持旧布局 2、3、4 和新 `moji-library` v5。单文件旧格式使用 `check-storage-migration.mjs <store.json> <报告目录>`。
 
 桌面宿主与托盘进程退出、新插件安装通过后，可添加 `--apply` 将同样的核对应用于正式目录。迁移快照保存在数据目录的 `backups`，演练与应用报告保存在指定的报告目录。
 
@@ -71,6 +71,6 @@ node scripts/check-release-install.mjs --desktop-exe "C:\你的DSH安装目录\D
 
 ## 贡献
 
-欢迎在 Issues 里描述写作场景、复现步骤和期望体验。截图、日志和备份请先移除私人正文、设定、聊天和账号信息。涉及持久化、导入导出或协作冲突的修改，需要验证旧数据兼容与备份往返；前端修改应实际检查操作与布局。
+想要新功能可以先提 [Issue](https://github.com/CF-612/MoJi/issues/new)，也欢迎自行实现后提交 [PR](https://github.com/CF-612/MoJi/pulls)。AI 与开发者请先读[模块扩展与贡献指南](development-and-contributing.md)，其中包含当前共享 UI／业务／存储入口、最小功能接线示例、兼容边界和 PR 清单。较大改动建议先讨论并开 Draft PR；本地或个人 fork 定制不要求提交上游。
 
 [MIT 许可证](../LICENSE)适用于仓库源码，不授权使用他人的小说或导入资料。

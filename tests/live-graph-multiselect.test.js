@@ -4,10 +4,10 @@ import test from 'node:test';import assert from 'node:assert/strict';import {bui
 const built=await build({entryPoints:['integrations/chatgpt-workbench/vendor/cuigengji/src/client/shared/graph.tsx'],bundle:true,write:false,format:'esm',platform:'node',jsx:'transform',plugins:[{name:'shared-graph-hooks',setup(b){
  b.onResolve({filter:/^react(?:\/jsx-runtime)?$/},()=>({path:'react',namespace:'harness'}));
  b.onResolve({filter:/^\.\/state\.js$|^\.\.\/dialog\.tsx$|^\.\/layout-queue\.mjs$/},()=>({path:'contexts',namespace:'harness'}));
- b.onLoad({filter:/.*/,namespace:'harness'},args=>({contents:args.path==='contexts'?`export const SessionScope={};export const readLocal=()=>null;export const useDialog=()=>({confirm:async()=>true});export const sharedLayoutQueue=()=>({snapshot:()=>({dirty:false}),flush:async()=>true,enqueue(){},sync(){},points:()=>({})});`:`
+ b.onLoad({filter:/.*/,namespace:'harness'},args=>({contents:args.path==='contexts'?`export const SessionScope={};export const TransientViewContext={value:false};export const TourTransitionContext={value:{current:false}};export const readLocal=()=>null;export const useDialog=()=>({confirm:async()=>true});export const createLayoutQueue=()=>sharedLayoutQueue();export const sharedLayoutQueue=()=>({snapshot:()=>({dirty:false}),flush:async()=>true,enqueue(){},sync(){},points:()=>({})});`:`
  export const useRef=value=>{const h=globalThis.__liveGraphHooks,index=h.index++;return h.values[index]??=({current:value});};
  export const useState=value=>{const h=globalThis.__liveGraphHooks,index=h.index++;if(!(index in h.values))h.values[index]=typeof value==='function'?value():value;return [h.values[index],next=>h.values[index]=typeof next==='function'?next(h.values[index]):next];};
- export const jsx=()=>null,jsxs=()=>null,Fragment=Symbol();export const useContext=()=>'';export const useEffect=()=>{};export const useLayoutEffect=()=>{};export default {};`}));
+ export const jsx=()=>null,jsxs=()=>null,Fragment=Symbol();export const useContext=context=>context.value??'';export const useEffect=()=>{};export const useLayoutEffect=()=>{};export default {};`}));
 }}]});
 const {useGraph}=await import('data:text/javascript;base64,'+Buffer.from(built.outputFiles[0].text).toString('base64'));
 class Target{constructor(id){this.dataset=id?{nodeId:id}:{};}closest(selector){return selector==='[data-node-id]'&&this.dataset.nodeId?this:null;}}

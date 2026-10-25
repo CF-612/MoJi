@@ -1,7 +1,7 @@
 import {useDialog} from '../dialog.tsx';
-import {sharedLayoutQueue} from './layout-queue.mjs';
+import {sharedLayoutQueue,createLayoutQueue} from './layout-queue.mjs';
 import React,{useContext,useEffect,useLayoutEffect,useRef,useState} from 'react';
-import {SessionScope,readLocal} from './state.js';
+import {SessionScope,readLocal,TransientViewContext,TourTransitionContext} from './state.js';
 import {CARD_WIDTH,CARD_HEIGHT,PORT_Y,connectionPortsEnabled,connectionHitScale,contains,fitCamera,minimumZoom,validCamera,zoomLabel,toWorld,zoomAt,curve} from './graph-geometry.ts';
 import type {Camera,Rect} from './graph-geometry.ts';
 import {canvasGestureKind,dragExceeded,marqueeRect,intersectingIds,appendSelection,isAdditiveSelection} from './canvas-gestures.ts';
@@ -62,9 +62,10 @@ export function GraphControls({graph,busy,help}:{graph:ReturnType<typeof useGrap
 /** One world coordinate system. Viewport changes are local preferences, never novel edits. */
 export function useGraph(options:Options){
   const {confirm}=useDialog();
+  const transient=useContext(TransientViewContext),tourTransition=useContext(TourTransitionContext);
   const opts=useRef(options);opts.current=options;
   const scope=useContext(SessionScope),storageKey=`cuigengji:camera:${scope}:${options.scopeKey}`;
-  const saved=useRef(readLocal(storageKey,null));
+  const saved=useRef(transient?null:readLocal(storageKey,null));
   const validSaved=validCamera(saved.current);
   const [camera,setCamera]=useState<Camera>(validSaved?saved.current:{x:0,y:0,zoom:1});
   const cameraRef=useRef(camera);cameraRef.current=camera;
@@ -83,11 +84,13 @@ export function useGraph(options:Options){
   const editable=(target:EventTarget|null)=>target instanceof Element&&!!target.closest('input,textarea,select,[contenteditable=true],[data-graph-editor]');
   const touchPair=()=>{const [a,b]=[...touches.current.values()];return a&&b?{center:relative((a.x+b.x)/2,(a.y+b.y)/2),distance:Math.max(1,Math.hypot(a.x-b.x,a.y-b.y))}:null;};
   const layoutKey=storageKey+':draft';
-  const queue=sharedLayoutQueue(layoutKey,{persist:options.onLayout,read:()=>readLocal(layoutKey,null),write:value=>{if(Object.keys(value.pending).length||value.flight)localStorage.setItem(layoutKey,JSON.stringify(value));else localStorage.removeItem(layoutKey);}});
+  const previewQueue=useRef<ReturnType<typeof createLayoutQueue>|null>(null);
+  if(transient&&!previewQueue.current)previewQueue.current=createLayoutQueue({persist:(points:Record<string,Point>,revisions:Record<string,number>,requestId:string)=>opts.current.onLayout(points,revisions,requestId)});
+  const queue=transient?previewQueue.current!:sharedLayoutQueue(layoutKey,{persist:options.onLayout,read:()=>readLocal(layoutKey,null),write:value=>{if(Object.keys(value.pending).length||value.flight)localStorage.setItem(layoutKey,JSON.stringify(value));else localStorage.removeItem(layoutKey);}});
   const [layoutStatus,setLayoutStatus]=useState(()=>queue.snapshot());
   useEffect(()=>queue.subscribe(next=>{setLayoutStatus(next);setFailed(!!next.error);setError(next.error);const overlay=queue.points();const g=gesture.current;if(g?.kind==='card'&&g.moved)for(const id of g.ids)overlay[id]=localRef.current[id];if(JSON.stringify(localRef.current)!==JSON.stringify(overlay))setLocal(overlay);}),[queue]);
   useEffect(()=>{queue.sync(options.nodes);const overlay=queue.points();const g=gesture.current;if(g?.kind==='card'&&g.moved)for(const id of g.ids)overlay[id]=localRef.current[id];if(JSON.stringify(localRef.current)!==JSON.stringify(overlay))setLocal(overlay);},[options.nodes,queue]);
-  useEffect(()=>{const hidden=()=>{if(document.hidden)void queue.flush();},leave=(e:BeforeUnloadEvent)=>{if(queue.snapshot().dirty){e.preventDefault();e.returnValue='';}};document.addEventListener('visibilitychange',hidden);window.addEventListener('beforeunload',leave);return()=>{document.removeEventListener('visibilitychange',hidden);window.removeEventListener('beforeunload',leave);void queue.flush();};},[queue]);
+  useEffect(()=>{const hidden=()=>{if(document.hidden)void queue.flush();},leave=(e:BeforeUnloadEvent)=>{if(queue.snapshot().dirty){e.preventDefault();e.returnValue='';}};document.addEventListener('visibilitychange',hidden);window.addEventListener('beforeunload',leave);return()=>{document.removeEventListener('visibilitychange',hidden);window.removeEventListener('beforeunload',leave);if(!tourTransition.current)void queue.flush();};},[queue]);
   const undoStack=useRef<LayoutChange[]>([]),redoStack=useRef<LayoutChange[]>([]),[,historyTick]=useState(0);
   const points=Object.fromEntries(options.nodes.map(n=>[n.id,local[n.id]||n.position||options.fallback[n.id]||{x:40,y:60}]));
   const pointsRef=useRef(points);pointsRef.current=points;
@@ -95,7 +98,7 @@ export function useGraph(options:Options){
   const select=(ids:string[])=>{selection.current=ids;setSelectedState(ids);setSelectedEdge(null);};
   const chooseEdge=(id:string|null)=>{selection.current=[];setSelectedState([]);setSelectedEdge(id);};
   const updateWire=(next:Wire|null)=>{if(!next||!wireRef.current||next.id!==wireRef.current.id||next.side!==wireRef.current.side)wireEpoch.current++;wireRef.current=next;setWire(next);};
-  const rememberCamera=(next=cameraRef.current)=>{try{localStorage.setItem(storageKey,JSON.stringify(next));}catch{}};
+  const rememberCamera=(next=cameraRef.current)=>{if(transient||tourTransition.current)return;try{localStorage.setItem(storageKey,JSON.stringify(next));}catch{}};
   const updateCamera=(next:Camera,persist=false)=>{cameraRef.current=next;if(!connectionPortsEnabled(next.zoom)){updateWire(null);if(gesture.current?.kind==='wire')gesture.current=null;}setCamera(next);if(persist)rememberCamera(next);};
   const relative=(x:number,y:number):Point=>{const r=scroll.current!.getBoundingClientRect();return{x:x-r.left,y:y-r.top};};
   const clientPoint=(x:number,y:number)=>toWorld(relative(x,y),cameraRef.current);

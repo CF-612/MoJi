@@ -1,6 +1,6 @@
 // 内置模块的唯一目录。显示偏好不改变云端权限或作品数据。
 export const modules=Object.freeze([
- {id:'pages',name:'规划页面',description:'按页面组织规划卡片；关闭后汇总查看',defaultEnabled:true,dependencies:[]},
+ {id:'pages',name:'多页画布',description:'创建和切换多个规划画布；关闭后显示基础画布',defaultEnabled:true,dependencies:[]},
  {id:'groups',name:'资料与规划分组',description:'按自定义分组整理资料和规划；关闭后显示全部',defaultEnabled:true,dependencies:[]},
  {id:'summary',name:'Summary 本章梗概',description:'在正文开头显示梗概；隐藏会保留已写内容',defaultEnabled:true,dependencies:[]},
  {id:'overview',name:'创作仪表盘',description:'字数图表、写作目标与进度概览',page:'overview',dependencies:[]},
@@ -15,7 +15,7 @@ export const moduleExtensions=Object.freeze({
  evolution:{pages:['planning.timeline.relations'],cardMarkers:['relationship'],associations:['story.cards.points'],actions:['story.apply']},
 });
 export function enabledExtensions(value){const enabled=normalizeModules(value);return Object.entries(moduleExtensions).filter(([id])=>enabled[id]).map(([id,extension])=>({id,...extension}));}
-export const profiles=Object.freeze({minimal:{name:'极简',enabled:[]},standard:{name:'标准',enabled:['timeline','foreshadow']},complete:{name:'完整',enabled:modules.map(m=>m.id)}});
+export const profiles=Object.freeze({minimal:{name:'极简',enabled:[]},standard:{name:'标准',enabled:['overview','timeline','foreshadow']},complete:{name:'完整',enabled:modules.map(m=>m.id)}});
 export function normalizeModules(value){
  const result=Object.fromEntries(modules.map(m=>[m.id,typeof value?.[m.id]==='boolean'?value[m.id]:(m.defaultEnabled??true)]));
  // Defaults must not undo an author's explicit opt-out when a dependent module is missing.

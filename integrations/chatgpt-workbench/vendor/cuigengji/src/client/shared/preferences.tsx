@@ -18,7 +18,7 @@ export interface Preferences {
   fontFamily:string; fontColor:string; fontWeight:number; fontItalic:boolean; fontUnderline:boolean; letterSpacing:number; titleAlign:string; pageMargin:number; mobilePageMargin:number; bottomSpace:number; showInfoBar:boolean; transparentTitle:boolean; countPunctuation:boolean; wordCountPosition:string; backdropBlur:boolean; openAtEnd:boolean; quickInput:boolean; pairedPunctuation:boolean; writingSpeed:boolean; writingSpeedCompact:boolean; writingSpeedDisplay:'banner'|'floating';
   planningView: 'canvas' | 'outline' | 'timeline'; memoryView: 'canvas' | 'list'; motion: 'system' | 'reduce';
 }
-export const defaults: Preferences = { ...editorDefaults, modules:normalizeModules(), numbering:'chinese', theme:'system', cardColors: {...defaultCardColors}, fontSize: 18, leading: 1.95, directory: true, planningView: 'timeline', memoryView: 'list', motion: 'system' };
+export const defaults: Preferences = { ...editorDefaults, modules:normalizeModules(), numbering:'chinese', theme:'system', cardColors: {...defaultCardColors}, fontSize: 18, leading: 1.95, directory: true, planningView: 'canvas', memoryView: 'list', motion: 'system' };
 const key = 'cuigengji:workbench:preferences:v1';
 function read(): Preferences {
   try {
@@ -33,7 +33,6 @@ const Context = createContext({ preferences: defaults, update: (_: Partial<Prefe
 export const useWorkbenchPreferences = () => useContext(Context);
 export function PreferencesProvider({children}: {children: React.ReactNode}) {
   const [preferences, set] = useState(read), [error, setError] = useState('');
-  useEffect(()=>{document.documentElement.dataset.themePreference=preferences.theme;document.documentElement.dataset.backdropBlur=String(preferences.backdropBlur);},[preferences.theme,preferences.backdropBlur]);
   const update = (next: Partial<Preferences>) => set(previous => {
     const value = {...previous, ...next,modules:normalizeModules(next.modules??previous.modules)};
     try {localStorage.setItem(key, JSON.stringify(value)); setError('');}
@@ -41,7 +40,9 @@ export function PreferencesProvider({children}: {children: React.ReactNode}) {
     return value;
   });
   useEffect(() => {const sync = (e: StorageEvent) => {if(e.key === key) set(read());}; window.addEventListener('storage', sync); return () => window.removeEventListener('storage', sync);}, []);
-  return <Context.Provider value={{preferences, update, error}}><style>{`html:not([data-backdrop-blur=true]) dialog::backdrop{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}html[data-backdrop-blur=true] dialog::backdrop{backdrop-filter:blur(3px)!important;-webkit-backdrop-filter:blur(3px)!important}`}</style>{children}</Context.Provider>;
+  // DSH mounts the workbench in the host document, not an iframe. Keep preferences
+  // on our own subtree; mutating html also themes the conversation and other plugins.
+  return <Context.Provider value={{preferences, update, error}}><div className="moji-preferences" data-theme-preference={preferences.theme} data-backdrop-blur={String(preferences.backdropBlur)} style={{display:'contents'}}><style>{`.moji-preferences:not([data-backdrop-blur=true]) dialog::backdrop{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}.moji-preferences[data-backdrop-blur=true] dialog::backdrop{backdrop-filter:blur(3px)!important;-webkit-backdrop-filter:blur(3px)!important}`}</style>{children}</div></Context.Provider>;
 }
 export function Modal({title, close, children, className = ''}: {title: string; close: () => void; children: React.ReactNode; className?: string}) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -70,9 +71,9 @@ function ModuleToggle({id}:{id:string}) {
   if(!module)return null;
   return <label className="settings-row settings-switch-row"><span className="settings-row-text"><strong>{module.name}</strong><small>{id==='foreshadow'?'在规划和仪表盘显示伏笔；关闭仅隐藏入口，不删除数据。':module.description}{module.dependencies.length?' · 需要时间线':''}</small></span><input type="checkbox" className="settings-switch" aria-label={`显示${module.name}`} checked={p.modules[module.id]} onChange={event=>update({modules:toggleModule(p.modules,module.id,event.target.checked)})}/></label>;
 }
-export function PreferencesDialog({close, novelTitle, onPreset}: {close: () => void; novelTitle?: string; onPreset?: () => void}) {
+export function PreferencesDialog({close, novelTitle, onPreset, initialTab='appearance', guide}: {close: () => void; novelTitle?: string; onPreset?: () => void; initialTab?:SettingsTab; guide?:React.ReactNode}) {
   const {preferences:p, update, error} = useWorkbenchPreferences();
-  const [tab, setTab] = useState<SettingsTab>('appearance');
+  const [tab, setTab] = useState<SettingsTab>(initialTab);
   const themeKey = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const step = event.key==='ArrowRight'||event.key==='ArrowDown' ? 1 : event.key==='ArrowLeft'||event.key==='ArrowUp' ? -1 : 0;
     if (!step) return;
@@ -83,7 +84,7 @@ export function PreferencesDialog({close, novelTitle, onPreset}: {close: () => v
     (event.currentTarget.querySelector(`[data-theme-choice="${next.id}"]`) as HTMLElement|null)?.focus();
   };
   return <Modal title="设置" close={close} className="settings-modal">
-    <style>{settingsStyles}</style>
+    <style>{settingsStyles}</style>{guide}
     <div className="settings-layout">
       <nav className="settings-nav" aria-label="设置分类">
         {settingsTabs.map(([id,label])=><button key={id} type="button" aria-current={tab===id?'true':undefined} onClick={()=>setTab(id)}>{label}</button>)}

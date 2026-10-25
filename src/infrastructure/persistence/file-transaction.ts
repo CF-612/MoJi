@@ -119,7 +119,7 @@ export class FileTransaction {
     if (moves.length) {
       const libraryIndex = journal.entries.findIndex(entry => entry.path === 'library.json');
       const library = libraryIndex >= 0 && contents[libraryIndex] ? JSON.parse(contents[libraryIndex]!) : null;
-      if (!([3, 4].includes(library?.storageVersion) && moves.every(move => library.directories?.[move.novelId] === move.to.slice(7)))) corrupt('目录迁移与暂存的作品索引不一致');
+      if (!(((library?.format === 'cuigengji-library' && [3,4].includes(library.storageVersion)) || (library?.format === 'moji-library' && library.storageVersion === 5)) && moves.every(move => library.directories?.[move.novelId] === move.to.slice(7)))) corrupt('目录迁移与暂存的作品索引不一致');
     }
     for (const move of moves) await this.applyMove(move);
     // Remove renamed managed files before promoting new names. This also makes

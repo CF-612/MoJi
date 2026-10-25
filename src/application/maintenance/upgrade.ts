@@ -4,14 +4,20 @@ import {join, resolve} from 'node:path';
 import {Store} from '../store.js';
 import {digest, errorCode} from '../../infrastructure/persistence/file-transaction.ts';
 import {backupParent, createUpgradeBackup, durableJson, exists, optionalJson, validBackupPath, verifyUpgradeBackup} from '../../infrastructure/persistence/upgrade-backup.ts';
-import type {Workspace} from '../../infrastructure/persistence/project-layout.ts';
+import {STORAGE_FORMAT, STORAGE_VERSION, type Workspace} from '../../infrastructure/persistence/project-layout.ts';
 
 type Status = 'running' | 'ready' | 'failed';
 type Summary = ReturnType<typeof workspaceSummary>;
+type StorageLayout = {format: string | null; version: number};
+const currentLayout = (layout: StorageLayout) => layout.format === STORAGE_FORMAT && layout.version === STORAGE_VERSION;
+// Historical single-file stores have no format field; this is a report label,
+// not a new on-disk discriminator.
+const legacyStorageFormat = (version: number | null) => version === 1 ? 'legacy-store-json' : version !== null && [2,3,4].includes(version) ? 'cuigengji-library' : null;
 export interface UpgradeReport {
   format: 'cuigengji-upgrade'; version: 1; pluginVersion: string; dataRoot: string;
   status: Status; stage: string; startedAt: string; completedAt?: string;
-  fromStorageVersion: number | null; toStorageVersion: 4; migrated: boolean;
+  fromStorageFormat: string | null; fromStorageVersion: number | null;
+  toStorageFormat: typeof STORAGE_FORMAT; toStorageVersion: typeof STORAGE_VERSION; migrated: boolean;
   backupPath: string | null; backupComplete: boolean; beforeStateDigest: string | null;
   afterStateDigest?: string; summary?: Summary; error?: {code: string; message: string};
   failedStage?: string;
@@ -54,32 +60,41 @@ export class UpgradeCoordinator {
   }
   private get reportFile() {return join(this.root,'runtime/upgrade.json');}
   private async persist(report: UpgradeReport) {this.report = structuredClone(report); await durableJson(this.reportFile,report);}
-  private async detectVersion(): Promise<number> {
+  private async detectLayout(): Promise<StorageLayout> {
     if (await exists(join(this.root,'library.json'))) {
       const library = await optionalJson(join(this.root,'library.json'));
-      if (library?.format !== 'cuigengji-library' || ![2,3,4].includes(library.storageVersion)) return failure('CORRUPT_STORE','不支持的小说存储格式');
-      return library.storageVersion;
+      const layout = {format:library?.format,version:library?.storageVersion};
+      if (currentLayout(layout) || layout.format === 'cuigengji-library' && [2,3,4].includes(layout.version)) return layout;
+      if (typeof layout.format === 'string' && Number.isSafeInteger(layout.version)) return failure('UNSUPPORTED_STORAGE_VERSION','不支持此作品库的格式与版本组合；催更姬 v5 与墨叽 v5 不是同一布局。请保留原库，通过原应用导出完整作品包，不要手改版本号。');
+      return failure('CORRUPT_STORE','不支持的小说存储格式');
     }
-    return await exists(join(this.root,'store.json')) || await exists(join(this.root,'store.pending.json')) ? 1 : 0;
+    return await exists(join(this.root,'store.json')) || await exists(join(this.root,'store.pending.json'))
+      ? {format:'legacy-store-json',version:1} : {format:null,version:0};
   }
   private async run(): Promise<UpgradeReport> {
     let release: (() => Promise<void>) | undefined;
     let report: UpgradeReport = {format:'cuigengji-upgrade',version:1,pluginVersion:this.pluginVersion,dataRoot:this.root,status:'running',stage:'prepare',
-      startedAt:stamp(),fromStorageVersion:null,toStorageVersion:4,migrated:false,backupPath:null,backupComplete:false,beforeStateDigest:null};
+      startedAt:stamp(),fromStorageFormat:null,fromStorageVersion:null,toStorageFormat:STORAGE_FORMAT,toStorageVersion:STORAGE_VERSION,migrated:false,backupPath:null,backupComplete:false,beforeStateDigest:null};
     try {
       release = await this.store.acquire();
+      // A known but unsupported physical identity is not ours to back up,
+      // recover or mark with a new runtime report. Malformed supported input
+      // still follows the raw-snapshot-first diagnostic path below.
+      try {await this.detectLayout();}
+      catch (error) {if (errorCode(error) === 'UNSUPPORTED_STORAGE_VERSION') throw error;}
       let saved: UpgradeReport | undefined;
       try {saved = await optionalJson(this.reportFile) as UpgradeReport | undefined;}
       catch {return failure('UPGRADE_REPORT_INVALID','升级记录无法解析，原记录已保留；请先检查升级备份');}
       if (saved && (saved.format !== 'cuigengji-upgrade' || saved.version !== 1 || saved.dataRoot !== this.root || !['ready','running','failed'].includes(saved.status))) return failure('UPGRADE_REPORT_INVALID','升级记录与当前数据目录不匹配');
       const resume = saved?.status === 'running' || saved?.status === 'failed';
-      if (resume && saved) report = {...report,startedAt:saved.startedAt,fromStorageVersion:saved.fromStorageVersion,migrated:saved.migrated,
+      if (resume && saved) report = {...report,startedAt:saved.startedAt,fromStorageFormat:saved.fromStorageFormat ?? legacyStorageFormat(saved.fromStorageVersion),fromStorageVersion:saved.fromStorageVersion,migrated:saved.migrated,
         backupPath:saved.backupPath,backupComplete:saved.backupComplete,beforeStateDigest:saved.beforeStateDigest};
       const hasSource = (await Promise.all(['library.json','store.json','store.pending.json','transaction.pending.json','novels'].map(path => exists(join(this.root,path))))).some(Boolean);
       // Take a raw snapshot before parsing old records or recovering a journal.
       // A completed interrupted upgrade retains its original backup forever.
-      const sameCompleted = !resume && saved?.status === 'ready' && saved.pluginVersion === this.pluginVersion;
-      if (hasSource && (!sameCompleted || await this.detectVersion() !== 4)) {
+      const sameCompleted = !resume && saved?.status === 'ready' && saved.pluginVersion === this.pluginVersion
+        && saved.toStorageFormat === STORAGE_FORMAT && saved.toStorageVersion === STORAGE_VERSION;
+      if (hasSource && (!sameCompleted || !currentLayout(await this.detectLayout()))) {
         report.stage = 'backup';
         if (resume && report.backupComplete) {
           if (!validBackupPath(this.root,report.backupPath)) return failure('UPGRADE_BACKUP_INVALID','升级记录中的备份路径无效');
@@ -95,11 +110,14 @@ export class UpgradeCoordinator {
         report.backupPath = saved.backupPath; report.backupComplete = saved.backupComplete;
       }
       report.stage = 'recover'; await this.persist(report);
+      // Never replay a journal against another application's layout merely
+      // because it happens to use the same numeric version.
+      await this.detectLayout();
       await this.store.transaction.recover();
-      const currentVersion = await this.detectVersion();
-      if (currentVersion === 0 && saved?.summary && saved.summary.counts.novels > 0) return failure('UPGRADE_SOURCE_MISSING','已有工作库的索引全部缺失，未创建空库');
-      report.fromStorageVersion ??= currentVersion;
-      report.migrated = report.fromStorageVersion > 0 && report.fromStorageVersion < 4;
+      const layout = await this.detectLayout();
+      if (layout.version === 0 && saved?.summary && saved.summary.counts.novels > 0) return failure('UPGRADE_SOURCE_MISSING','已有工作库的索引全部缺失，未创建空库');
+      if (report.fromStorageVersion === null) {report.fromStorageVersion = layout.version; report.fromStorageFormat = layout.format;}
+      report.migrated = report.fromStorageVersion > 0 && !currentLayout({format:report.fromStorageFormat,version:report.fromStorageVersion});
       // Read the old physical format without triggering prepare(), then persist
       // an independent logical baseline before the first migration write.
       const before = await this.store.readStoredWorkspace();
@@ -108,13 +126,13 @@ export class UpgradeCoordinator {
       const state = await this.store.load(), after = workspaceDigest(state);
       report.stage = 'verify'; await this.persist(report);
       if (after !== report.beforeStateDigest) return failure('UPGRADE_CONTENT_MISMATCH','迁移前后的作品、正文历史或引用不一致；数据与备份已保留');
-      if (await this.detectVersion() !== 4) return failure('UPGRADE_INCOMPLETE','物理存储迁移未完成');
+      if (!currentLayout(await this.detectLayout())) return failure('UPGRADE_INCOMPLETE','物理存储迁移未完成');
       report = {...report,status:'ready',stage:'complete',completedAt:stamp(),afterStateDigest:after,summary:workspaceSummary(state)};
       await this.persist(report); return structuredClone(report);
     } catch (error) {
       report = {...report,status:'failed',failedStage:report.stage,stage:'failed',completedAt:stamp(),error:{code:errorCode(error) || 'UPGRADE_FAILED',message:error instanceof Error ? error.message : String(error)}};
       this.report = report;
-      if (release && report.error?.code !== 'UPGRADE_REPORT_INVALID') {try {await this.persist(report);} catch { /* In-memory status survives an unwritable report directory. */ }}
+      if (release && !['UPGRADE_REPORT_INVALID','UNSUPPORTED_STORAGE_VERSION'].includes(report.error?.code || '')) {try {await this.persist(report);} catch { /* In-memory status survives an unwritable report directory. */ }}
       return structuredClone(report);
     } finally {if (release) await release();}
   }
@@ -140,8 +158,9 @@ export class UpgradeCoordinator {
     if (report.status !== 'ready') return {report,verified:false,checks};
     const release = await this.store.acquire();
     try {
+      if (!currentLayout(await this.detectLayout())) return failure('UPGRADE_REQUIRED','当前存储格式已变化，请重新加载插件');
       await this.store.transaction.recover();
-      if (await this.detectVersion() !== 4) return failure('UPGRADE_REQUIRED','当前存储格式已变化，请重新加载插件');
+      if (!currentLayout(await this.detectLayout())) return failure('UPGRADE_REQUIRED','当前存储格式已变化，请重新加载插件');
       const state = await this.store.readStoredWorkspace(), summary = workspaceSummary(state);
       if (options.expectedNovelIds) checks.push({name:'novelIds',ok:options.expectedNovelIds.every(id => Object.hasOwn(state.novels,id)),expected:options.expectedNovelIds,actual:Object.keys(state.novels)});
       checks.push({name:'fullWorkspace',ok:true});

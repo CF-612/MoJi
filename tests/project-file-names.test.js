@@ -65,7 +65,7 @@ test('v3 migration changes managed names and indexes only, preserving all record
   await writeFile(join(legacy, base, 'chapters', occupied), '作者自己的同名文件');
   await writeFile(join(legacy, base, 'notes.txt'), '作者额外摘录');
   const migrated = new Store(legacy); assert.deepEqual(await migrated.load(), expected);
-  const index = await indexes(legacy, novel.id); assert.equal(index.library.storageVersion, 4);
+  const index = await indexes(legacy, novel.id); assert.equal(index.library.storageVersion, 5);
   assert.ok(index.chapters[chapter.id].file.includes('（2）--'));
   for (const [path, content] of original) {
     if (path === 'library.json' || /\/(chapters|settings|planning)\/index\.json$/.test(path)) continue;
@@ -86,7 +86,7 @@ test('v3 migration changes managed names and indexes only, preserving all record
   assert.equal((await migrated.dispatch('planning.get', {novelId:novel.id, nodeId:plan.mapping.scene})).node.memoryRefs[0], character.id);
   const portable = await new WorkData(migrated).export(), restored = new Store(join(root, 'restored'));
   await new WorkData(restored).import(portable); assert.deepEqual(await restored.load(), expected);
-  assert.equal((await new WorkData(migrated).status()).storageVersion, 4);
+  assert.equal((await new WorkData(migrated).status()).storageVersion, 5);
 });
 
 test('chapter and setting renames remove old managed files, preserve historical references, and restore the original chapter title', async t => {
@@ -140,7 +140,7 @@ test('interrupted migration after deleting a legacy filename resumes with the co
   assert.equal((await json(join(legacy, 'library.json'))).storageVersion, 3);
   assert.ok(await stat(join(legacy, 'transaction.pending.json')));
   const recovered = new Store(legacy); assert.deepEqual(await recovered.load(), expected);
-  assert.equal((await json(join(legacy, 'library.json'))).storageVersion, 4);
+  assert.equal((await json(join(legacy, 'library.json'))).storageVersion, 5);
   await assert.rejects(stat(join(legacy, 'transaction.pending.json')), {code:'ENOENT'});
   assert.equal((await readdir(join(legacy, 'backups'))).filter(name => name.startsWith('before-readable-files-')).length, 1);
 });

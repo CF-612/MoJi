@@ -54,7 +54,7 @@ test('desktop-compatible portable connection, original branding, no embedded cre
   const plugin = JSON.parse(unpacked.get('plugin.json'));
   const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url)));
   assert.equal(plugin.$schema, 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json');
-  assert.equal(plugin.name, 'moji'); assert.equal(plugin.version, '1.0.6'); assert.equal(plugin.description, pkg.description);
+  assert.equal(plugin.name, 'moji'); assert.equal(plugin.version, '1.0.7'); assert.equal(plugin.description, pkg.description);
   const ui = plugin.extensions['com.openai'].interface;
   assert.equal(ui.displayName, pkg.displayName);
   assert.ok([...ui.shortDescription].length <= 30);

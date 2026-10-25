@@ -3,4 +3,8 @@ html,body,#root{height:100%;margin:0}html{color-scheme:light}body{background:#ff
 html[data-host-mode=inline],html[data-host-mode=pip]{height:160px;overflow:hidden}html[data-host-mode=fullscreen],html[data-host-mode=fullscreen] body{overflow:hidden}.native-summary{box-sizing:border-box;height:160px;overflow:auto;padding:16px;font:14px/1.5 system-ui}.native-summary h1{font-size:16px;margin:0 0 8px}.native-summary p{margin:0 0 10px}.native-summary button{padding:7px 12px;background:#4d6bfe;border:0;border-radius:6px;color:#fff;cursor:pointer}
 html[data-host-mode=fullscreen] #root{box-sizing:border-box;height:var(--cg-visible-height,100dvh);padding:0 var(--cg-host-right,0px) var(--cg-host-bottom,0px) var(--cg-host-left,0px)}
 html[data-host-platform=mobile][data-host-mode=fullscreen] .workbench-header.workbench-navigation{padding-right:48px}
+/* Page background belongs to this standalone/iframe entry, never the native bundle. */
+html:has(#root .moji-preferences[data-theme-preference=dark]) body{background:#202624;color:#e6e8e1}
+html:has(#root .moji-preferences[data-theme-preference=light]) body{background:#fff;color:#252936}
+@media(prefers-color-scheme:dark){html:not([data-theme=light]):has(#root .moji-preferences[data-theme-preference=system]) body{background:#202624;color:#e6e8e1}}
 </style></head><body><div id="root"><p role="status">正在读取小说工作台…</p></div><!-- SCRIPT --></body></html>

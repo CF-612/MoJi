@@ -12,17 +12,17 @@ test('cloud update regenerates actual archive preserving app, name, required fla
  const before=await buildPlugin(url,{appId,pluginName:'my-existing-moji'});
  const old=edit(before,'.app.json',value=>{value.apps['my-existing-moji'].required=false;return value;});
  const updated=await buildPluginFromZip(old), meta=readPluginZipMetadata(updated.zip);
- assert.deepEqual(meta,{appId,pluginName:'my-existing-moji',required:false,version:'1.0.6',mode:'cloud-update'});
+ assert.deepEqual(meta,{appId,pluginName:'my-existing-moji',required:false,version:'1.0.7',mode:'cloud-update'});
  assert.equal(updated.url,undefined);assert.equal(updated.uploadRequired,true);assert.equal(updated.cloudDeployed,false);
  assert.equal(updated.zip.includes(Buffer.from(url)),false);assert.equal(updated.entries.some(([p])=>p==='mcp.json'),false);
- assert.equal(JSON.parse(updated.entries[0][1]).version,'1.0.6');
+ assert.equal(JSON.parse(updated.entries[0][1]).version,'1.0.7');
  assert.deepEqual(await buildPluginFromZip(updated.zip),updated);
 });
 test('desktop update preserves exact plugin identity and normalized original endpoint',async()=>{
  const original=await buildPlugin(url,{desktopOnly:true});
  const old=edit(original,'plugin.json',v=>({...v,name:'my-moji-desktop'}));
  const next=await buildPluginFromZip(old);
- assert.deepEqual(readPluginZipMetadata(next.zip),{pluginName:'my-moji-desktop',url:url+'/mcp',version:'1.0.6',mode:'desktop-only'});
+ assert.deepEqual(readPluginZipMetadata(next.zip),{pluginName:'my-moji-desktop',url:url+'/mcp',version:'1.0.7',mode:'desktop-only'});
  assert.equal(next.mode,'desktop-only');assert.equal(next.appId,undefined);
 });
 test('unsafe identity/config and credentials fail closed, do not leak input',async()=>{
@@ -59,8 +59,8 @@ test('update-from CLI grammar is explicit and source remains unchanged',async()=
 test('older metadata upgrades but newer metadata cannot be downgraded',async()=>{
  const result=await buildPlugin(url,{appId});
  const older=edit(result,'plugin.json',p=>({...p,version:'1.0.5'}));
- assert.equal(readPluginZipMetadata((await buildPluginFromZip(older)).zip).version,'1.0.6');
- const newer=edit(result,'plugin.json',p=>({...p,version:'1.0.7'}));
+ assert.equal(readPluginZipMetadata((await buildPluginFromZip(older)).zip).version,'1.0.7');
+ const newer=edit(result,'plugin.json',p=>({...p,version:'1.0.8'}));
  await assert.rejects(buildPluginFromZip(newer),/不降级/);
 });
 

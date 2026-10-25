@@ -24,7 +24,7 @@ test('云端大作品批量导入、预览冲突、快照恢复、旧备份与�
     preview=await rpc('transfer.preview',{file,options});const args={file,options,proof:preview.proof,requestId:crypto.randomUUID()};
     await rpc('transfer.import',args);assert.ok((await rpc('transfer.import',args)).repeated);
     assert.equal((await rpc('chapter.list',{novelId})).length,61);
-    const raw=await db.prepare('SELECT state FROM workspaces WHERE owner=?').bind('author').first();assert.equal(JSON.parse(raw.state).format,'cuigengji-workspace-fragments');assert.ok((await decodeWorkspace(raw.state,db,'author')).novels[novelId]);
+    const raw=await db.prepare('SELECT state FROM workspaces WHERE owner=?').bind('author').first();assert.equal(JSON.parse(raw.state).format,'moji-workspace-fragments');assert.ok((await decodeWorkspace(raw.state,db,'author')).novels[novelId]);
     const storedCount=(await db.prepare('SELECT count(*) AS count FROM workspace_blobs WHERE owner=?').bind('author').first()).count;
     const backup=await rpc('transfer.export',{selection:{kind:'workspace'},format:'package'});const restoreFile={name:backup.filename,...(backup.gzipBase64?{gzipBase64:backup.gzipBase64}:{text:backup.content})};assert.equal((await rpc('transfer.inspect',{file:restoreFile})).kind,'workspace');
     const chapters=await rpc('chapter.list',{novelId}),chapterId=chapters.find(c=>c.title==='第1章 长篇').id;

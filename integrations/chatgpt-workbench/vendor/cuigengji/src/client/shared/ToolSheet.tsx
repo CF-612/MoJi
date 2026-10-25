@@ -22,11 +22,12 @@ export function ToolMenu({label,icon='plus',primary=false,items}:{label:string;i
  return desktop.wide&&desktop.mount?createPortal(body,desktop.mount):body;
 }
 
-export function ToolSheet({label,title=label,icon='more',primary=false,text=false,dismissOnAction=false,desktopInline=false,children}:{label:string;title?:string;icon?:IconName;primary?:boolean;text?:boolean|string;dismissOnAction?:boolean;desktopInline?:boolean;children:React.ReactNode}){
- const [open,setOpen]=useState(false),desktop=useContext(DesktopToolsContext);
+export function ToolSheet({label,title=label,icon='more',primary=false,text=false,dismissOnAction=false,desktopInline=false,controlledOpen,onOpenChange,guide,children}:{label:string;title?:string;icon?:IconName;primary?:boolean;text?:boolean|string;dismissOnAction?:boolean;desktopInline?:boolean;controlledOpen?:boolean;onOpenChange?:(open:boolean)=>void;guide?:React.ReactNode;children:React.ReactNode}){
+ const [localOpen,setLocalOpen]=useState(false),desktop=useContext(DesktopToolsContext);
+ const open=controlledOpen??localOpen,setOpen=(value:boolean)=>{if(controlledOpen===undefined)setLocalOpen(value);onOpenChange?.(value);};
  const expanded=desktopInline&&desktop.wide&&!!desktop.mount;
  useEffect(()=>{if(expanded)setOpen(false);},[expanded]);
  if(expanded)return createPortal(<section className="desktop-tool-section"><h3>{title}</h3><div className="sheet-actions">{children}</div></section>,desktop.mount!);
  return <><button type="button" className={`tool-trigger ${primary?'primary':''}`} aria-label={label} aria-expanded={open} title={label} onClick={()=>{document.querySelectorAll('details.menu[open]').forEach(el=>el.removeAttribute('open'));setOpen(true);}}><Icon name={icon}/>{text&&<span>{typeof text==='string'?text:label}</span>}</button>
- {open&&<Modal title={title} close={()=>setOpen(false)} className="tool-sheet"><div className="sheet-actions" onClick={e=>{if(dismissOnAction&&(e.target as Element).closest('button'))setOpen(false);}}>{children}</div></Modal>}</>;
+ {open&&<Modal title={title} close={()=>setOpen(false)} className="tool-sheet">{guide}<div className="sheet-actions" onClick={e=>{if(dismissOnAction&&(e.target as Element).closest('button')){setLocalOpen(false);if(controlledOpen===undefined)onOpenChange?.(false);}}}>{children}</div></Modal>}</>;
 }

@@ -5,7 +5,9 @@ import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 import {Store} from '../src/core/store.js';
 import {WorkData} from '../src/application/backup/workspace.js';
-import {fileId, bookPath, storedChapterFile, storedSettingFile, storedPageFile} from '../src/infrastructure/persistence/project-layout.ts';
+import {STORAGE_FORMAT, STORAGE_VERSION, fileId, bookPath, storedChapterFile, storedSettingFile, storedPageFile} from '../src/infrastructure/persistence/project-layout.ts';
+
+import {extensionFragmentIds} from '../src/infrastructure/persistence/story-fragments.ts';
 
 const source = process.argv[2] && resolve(process.argv[2]), apply = process.argv.includes('--apply');
 const output = process.argv[3] && !process.argv[3].startsWith('--') ? resolve(process.argv[3]) : null;
@@ -46,7 +48,8 @@ let state, previous, current, originalRecords, renamedFiles = 0, checkpoints, in
 try {
   assert.ok(!(await readdir(target)).includes('transaction.pending.json'), 'Finish pending storage recovery before auditing a published layout');
   previous = await json(target, 'library.json');
-  assert.ok([2, 3, 4].includes(previous.storageVersion), 'Expected a partitioned project layout');
+  assert.ok(previous.format === 'cuigengji-library' && [2,3,4].includes(previous.storageVersion) || previous.format === STORAGE_FORMAT && previous.storageVersion === STORAGE_VERSION, 'Expected a supported partitioned project layout');
+  const logicalBefore=await store.readStoredWorkspace();
   const before = await fileHashes(target);
   indexes = {};
   for (const id of Object.keys(previous.novels)) {
@@ -55,11 +58,20 @@ try {
     if ((await json(target, `${base}/project.json`)).sections.includes('planning')) indexes[id].planning = await json(target, `${base}/planning/index.json`);
   }
   state = await store.load(); current = await json(target, 'library.json');
-  assert.equal(current.storageVersion, 4);
+  assert.equal(current.format, STORAGE_FORMAT);assert.equal(current.storageVersion, STORAGE_VERSION);
+  assert.deepEqual(state,logicalBefore,'Every logical field, history snapshot and reference must survive repartitioning');
   assert.deepEqual(current.novels, previous.novels); assert.deepEqual(current.metadata, previous.metadata);
-  const remap = new Map(), rewritten = new Set(['library.json']);
+  const remap = new Map(), rewritten = new Set(['library.json']), repartitioned = new Set();
   for (const id of Object.keys(current.novels)) {
     const old = indexes[id], base = bookPath(id, current.directories);
+    if(previous.format !== STORAGE_FORMAT){
+      rewritten.add(`${old.base}/project.json`);
+      const project=await json(target,`${base}/project.json`);
+      for(const kind of ['story','writing'])if(project.sections.includes(kind)){
+        repartitioned.add(`${base}/${kind}/index.json`);
+        for(const hash of extensionFragmentIds(kind,await json(target,`${base}/${kind}/index.json`)))repartitioned.add(`${base}/${kind}/fragments/${hash}.json`);
+      }
+    }
     const chapters = await json(target, `${base}/chapters/index.json`), settings = await json(target, `${base}/settings/index.json`);
     assert.deepEqual(stripFiles(chapters), stripFiles(old.chapters));
     assert.deepEqual(stripFiles(settings), stripFiles(old.settings));
@@ -76,6 +88,7 @@ try {
   }
   const normalized = {};
   for (let [path, hash] of Object.entries(await fileHashes(target))) {
+    if(repartitioned.has(path))continue;
     const managed = remap.get(path);
     if (managed) path = managed;
     else for (const [id, directory] of Object.entries(current.directories)) {
@@ -88,7 +101,7 @@ try {
   assert.deepEqual(normalized, original, 'All managed bodies, histories, runtime records and extra files must keep identical bytes');
   originalRecords = Object.keys(original).length;
   const existingCheckpoints = await readdir(join(target, 'backups')).catch(error => {if (error.code === 'ENOENT') return []; throw error;});
-  checkpoints = existingCheckpoints.filter(name => name.startsWith('before-project-names-') || name.startsWith('before-readable-files-'));
+  checkpoints = existingCheckpoints.filter(name => name.startsWith('before-project-names-') || name.startsWith('before-readable-files-') || name.startsWith('before-moji-fragments-'));
   // Old backups can predate later edits. Only this run's migration snapshots are compared.
   if (previous.storageVersion < 4) {
     const checkpoint = checkpoints.filter(name => name.startsWith('before-readable-files-')).sort().at(-1);
@@ -98,8 +111,8 @@ try {
 } finally {await release();}
 const backup = await new WorkData(store).export(), restored = new Store(join(scratch, 'restored'));
 await new WorkData(restored).import(backup); assert.deepEqual(await restored.load(), state);
-const report = {mode:apply ? 'applied' : 'isolated-rehearsal', source, target, fromStorageVersion:previous.storageVersion, storageVersion:4,
-  byteIdenticalOriginalRecords:originalRecords, renamedFiles, logicalDataUnchanged:true, backupRoundtrip:true,
+const report = {mode:apply ? 'applied' : 'isolated-rehearsal', source, target, fromStorageFormat:previous.format, fromStorageVersion:previous.storageVersion, storageFormat:current.format, storageVersion:current.storageVersion,
+  byteIdenticalUnchangedRecords:originalRecords, repartitionedMetadataVerified:true, renamedFiles, logicalDataUnchanged:true, backupRoundtrip:true,
   directories:Object.entries(current.novels).map(([id, novel]) => ({id, title:novel.title, directory:current.directories[id]})),
   beforeMigrationBackups:checkpoints.map(name => join(target, 'backups', name))};
 if (output) {await mkdir(output, {recursive:true}); await writeFile(join(output, apply ? 'applied.json' : 'rehearsal.json'), JSON.stringify(report, null, 2));}

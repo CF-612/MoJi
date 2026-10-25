@@ -1,6 +1,7 @@
 import {checkedTypeId,relationView} from '../domain/relationship-types.js';
 import {memoryVersionValue} from '../domain/memory/history-value.js';
-import {storyAction,validateStory} from '../domain/story-v31.js';
+import {storyAction,validateStory,storySources} from '../domain/story-v31.js';
+import {reconcile,validateRestore} from '../domain/story-workspace.mjs';
 import {proseFind,replaceProse} from '../domain/prose-find.js';
 import {applySelection} from '../domain/selection-proof.js';
 import {timelineLayoutAction,validateTimelineLayout} from '../domain/timeline-layout.js';
@@ -147,6 +148,16 @@ export class Store extends ProjectStore {
 
   validateProject(novel) {
     this.importNovel({novels: {}}, {backup: {format: 'cuigengji', schemaVersion: 2, novel}});
+  }
+
+  validateStoryView(novel) {
+    if (!novel.story) return;
+    const data=novel.story;
+    if (!Array.isArray(data.history) || data.history.length>30 || data.redo!==undefined&&!Array.isArray(data.redo)) fail('CORRUPT_STORE','剧情历史目录无效');
+    // Structural validation needs only current story + chapter metadata. Proof
+    // bodies and old snapshots remain validated on their full-read boundaries.
+    try {const current=clone(data.state), sources=storySources(novel);reconcile(current,sources);validateRestore(current,sources);}
+    catch {fail('CORRUPT_STORE','当前剧情结构无效，未覆盖原数据');}
   }
 
   async dispatch(action, args = {}, actor = {}) {

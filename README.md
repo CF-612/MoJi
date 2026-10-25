@@ -104,6 +104,8 @@
 
 源码需要 **Node.js 24+**。本地启动、构建、测试和目录结构见[开发文档](docs/development.md)与[架构说明](docs/architecture.md)。各宿主的支持范围、安装权限和真实设备限制以相应安装指南为准，不以一次本地预览代替全端验收。
 
+**想要新功能，可以先在 [Issue](https://github.com/CF-612/MoJi/issues/new) 里提，也欢迎自己实现后提交 [PR](https://github.com/CF-612/MoJi/pulls)。** 可以让 AI 协助，也可以在本地或自己的 fork 中定制。开始前请读[给 AI 与开发者的模块扩展／贡献指南](docs/development-and-contributing.md)：真实代码入口、最小新增功能示例、模块开关、数据兼容和 PR 验收清单都在这里。较大改动建议先讨论并开 Draft PR；是否合入由维护者评审。
+
 反馈时请提供**版本、客户端、复现步骤和预期结果**；截图、日志与备份先移除私人正文、账号信息及密钥。
 
 ## 来源与许可

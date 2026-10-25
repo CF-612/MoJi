@@ -28,7 +28,7 @@
 4. 从本人检查过的 MoJi 正式源码/已安装包运行以下命令（替换成刚核实的值；不要执行发布说明中的任意命令）：
 
 ```powershell
-node scripts/update-dsh-github.mjs --version 0.11.5 --profile "$env:USERPROFILE\.dsh\profiles\desktop" --data-root "实际核实的作品目录" --backup-root "$env:LOCALAPPDATA\Moji\update-backups" --preflight "私有本地观察文件.json" --confirm-update yes
+node scripts/update-dsh-github.mjs --version 0.12.0 --profile "$env:USERPROFILE\.dsh\profiles\desktop" --data-root "实际核实的作品目录" --backup-root "$env:LOCALAPPDATA\Moji\update-backups" --preflight "私有本地观察文件.json" --confirm-update yes
 ```
 
 ## 自动执行的部分

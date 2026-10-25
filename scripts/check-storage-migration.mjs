@@ -21,7 +21,7 @@ await new WorkData(restored).import(backup);
 assert.deepEqual(await restored.load(), expected);
 const library = JSON.parse(await readFile(join(isolated, 'library.json'), 'utf8'));
 const report = { source, sourceSha256:createHash('sha256').update(raw).digest('hex'), isolated,
-  storageVersion:library.storageVersion, exactLogicalMatch:true, backupRoundtrip:true,
+  storageFormat:library.format, storageVersion:library.storageVersion, exactLogicalMatch:true, backupRoundtrip:true,
   books:Object.values(expected.novels).map(novel=>({id:novel.id,title:novel.title,chapters:Object.keys(novel.chapters).length,
     chapterVersions:Object.values(novel.chapters).reduce((sum,chapter)=>sum+chapter.versions.length,0),
     settings:Object.keys(novel.nodes).length,relations:Object.keys(novel.edges).length,

@@ -32,7 +32,7 @@ function renderMenu({dsh=false,deployment=false,...overrides}={}){
  const html=renderToStaticMarkup(React.createElement(ui.DshConnectionContext.Provider,{value:dsh?{status:'当前：本地保存',open:noop}:null},
    React.createElement(ui.DeploymentAgentContext.Provider,{value:deployment?{host:dsh?'dsh':'mcp',send:null}:null},React.createElement(ui.WorkbenchHeader,props))));
  const sheet=ui.getSheetProps(),items=sheet.children.props.children;
- const labels=[...html.matchAll(/<(?:button|section)\b[^>]*aria-label="([^"]+)"/g)].map(match=>match[1]).filter(label=>['本地 / 云端','连接与云端','搜索作品','刷新当前页面','写作要求','作品与备份','设置','关于墨叽'].includes(label));
+ const labels=[...html.matchAll(/<(?:button|section)\b[^>]*aria-label="([^"]+)"/g)].map(match=>match[1]).filter(label=>['本地 / 云端','连接与云端','搜索作品','刷新当前页面','写作要求','作品与备份','导入 / 导出','设置','关于墨叽'].includes(label));
  return {html,items,sheet,labels};
 }
 
@@ -43,13 +43,13 @@ test('DSH keeps Settings second after Local/Cloud on both work and home screens'
  }
 });
 
-test('non-DSH hosts keep Settings second after their first visible entry',()=>{
- assert.deepEqual(renderMenu().labels,['搜索作品','设置','刷新当前页面','写作要求','作品与备份','关于墨叽']);
- assert.deepEqual(renderMenu({home:true}).labels,['刷新当前页面','设置','关于墨叽']);
- assert.deepEqual(renderMenu({onSearch:undefined}).labels,['刷新当前页面','设置','写作要求','作品与备份','关于墨叽']);
- assert.deepEqual(renderMenu({novelTitle:''}).labels,['刷新当前页面','设置','关于墨叽']);
- assert.deepEqual(renderMenu({deployment:true}).labels,['搜索作品','设置','刷新当前页面','写作要求','作品与备份','关于墨叽']);
- assert.deepEqual(renderMenu({deployment:true,home:true}).labels,['刷新当前页面','设置','关于墨叽']);
+test('hosts without native connection capability start with Settings and keep all valid actions',()=>{
+ assert.deepEqual(renderMenu().labels,['设置','搜索作品','刷新当前页面','写作要求','作品与备份','关于墨叽']);
+ assert.deepEqual(renderMenu({home:true}).labels,['设置','刷新当前页面','关于墨叽']);
+ assert.deepEqual(renderMenu({onSearch:undefined}).labels,['设置','刷新当前页面','写作要求','作品与备份','关于墨叽']);
+ assert.deepEqual(renderMenu({novelTitle:''}).labels,['设置','刷新当前页面','关于墨叽']);
+ assert.deepEqual(renderMenu({deployment:true}).labels,['设置','搜索作品','刷新当前页面','写作要求','作品与备份','关于墨叽']);
+ assert.deepEqual(renderMenu({deployment:true,home:true}).labels,['设置','刷新当前页面','关于墨叽']);
 });
 
 test('reordered rows retain actions, dismiss behavior, disabled states and refresh without an arrow',()=>{
@@ -73,3 +73,16 @@ test('reordered rows retain actions, dismiss behavior, disabled states and refre
  assert.doesNotMatch(html,/连接与云端|本地 \/ 云端|个人云端部署引导|发送部署提示词|复制部署提示词/);
  assert.ok(items.find(item=>item.key==='manage'));
  });
+
+
+test('empty-library recovery actions live in More without adding page clutter',()=>{
+ const calls=[],{items,labels,sheet}=renderMenu({home:true,novelTitle:'',onImport:()=>calls.push('import'),onManage:()=>calls.push('manage')});
+ assert.deepEqual(labels,['设置','刷新当前页面','导入 / 导出','作品与备份','关于墨叽']);
+ items.find(item=>item.key==='empty-import').props.onClick();
+ items.find(item=>item.key==='empty-manage').props.onClick();
+ assert.deepEqual(calls,['import','manage']);
+ assert.equal(sheet.dismissOnAction,true);
+ const busy=renderMenu({home:true,novelTitle:'',busy:true,onImport:noop,onManage:noop}).items;
+ assert.equal(busy.find(item=>item.key==='empty-import').props.disabled,true);
+ assert.equal(busy.find(item=>item.key==='empty-manage').props.disabled,true);
+});

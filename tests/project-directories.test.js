@@ -108,7 +108,7 @@ test('version 2 migration preserves every project file byte, IDs, cached request
   const {root,store,novel,actor}=await seed(t),expected=await store.load(),legacy=join(root,'v2');
   const source=await versionTwo(legacy,expected),migrated=new Store(legacy);
   assert.deepEqual(await migrated.load(),expected);
-  const index=await library(legacy);assert.equal(index.storageVersion,4);assert.equal(index.directories[novel.id],'旧书名');
+  const index=await library(legacy);assert.equal(index.storageVersion,5);assert.equal(index.directories[novel.id],'旧书名');
   const readableFiles=splitWorkspace(expected,index.directories,4);
   for(const [path,content] of readableFiles) if(path!=='library.json') assert.equal(await readFile(join(legacy,path),'utf8'),content,path);
   assert.ok(!(await readdir(join(legacy,'novels'))).includes(fileId(novel.id)));
@@ -130,9 +130,9 @@ test('an interrupted version 2 directory migration resumes before reading or wri
   assert.equal((await library(legacy)).storageVersion,2);
   assert.ok(await stat(join(legacy,'transaction.pending.json')));
   const recovered=new Store(legacy);assert.deepEqual(await recovered.load(),expected);
-  assert.equal((await library(legacy)).storageVersion,4);
+  assert.equal((await library(legacy)).storageVersion,5);
   await assert.rejects(stat(join(legacy,'transaction.pending.json')),{code:'ENOENT'});
-  assert.equal((await readdir(join(legacy,'backups'))).length,2,'recovery reuses the staged migrations');
+  assert.equal((await readdir(join(legacy,'backups'))).length,3,'recovery reuses directory/readable checkpoints and adds one MoJi checkpoint');
 });
 
 test('interrupted rename recovers mapping, metadata and request identity as one transaction',async t=>{

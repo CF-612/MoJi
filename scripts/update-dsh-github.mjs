@@ -12,6 +12,17 @@ const fail=code=>{throw Object.assign(new Error(code),{code});};
 const version=v=>typeof v==='string'&&/^\d+\.\d+\.\d+$/.test(v);
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const files=['package.json','pnpm-lock.yaml','cordis.patch.yml'];
+// This updater is shipped as a standalone script, so keep the accepted physical
+// identities explicit rather than importing TypeScript application modules.
+// Upstream cuigengji-library v5 is NOT MoJi's same-numbered layout.
+function supportedLibraryEvidence(library,evidence){
+ if(library?.format==='moji-library'&&library.storageVersion===5)return evidence.toStorageFormat==='moji-library'&&evidence.toStorageVersion===5;
+ if(library?.format!=='cuigengji-library'||![2,3,4].includes(library.storageVersion))return false;
+ // Historical reports omitted the format and sometimes the target version.
+ // When identity fields are present, they must agree with the actual library.
+ return (evidence.toStorageFormat===undefined||evidence.toStorageFormat===library.format)
+   &&(evidence.toStorageVersion===undefined||evidence.toStorageVersion===library.storageVersion);
+}
 export function releaseUrls(target){
  if(!version(target))fail('INVALID_VERSION');
  const base=`https://github.com/CF-612/MoJi/releases/download/moji-v${target}`;
@@ -94,7 +105,7 @@ async function updateUnlocked({target,profile,dataRoot,backupRoot,hostStopped,in
  // Require a real, ready local Moji library previously opened by this installed version.
  // The operator must obtain this exact resolved root via settings.get before stopping DSH.
  let evidence,library;try{evidence=JSON.parse(await readFile(join(dataRoot,'runtime','upgrade.json')));library=JSON.parse(await readFile(join(dataRoot,'library.json')));}catch{fail('LOCAL_LIBRARY_EVIDENCE_REQUIRED');}
- if(evidence.format!=='cuigengji-upgrade'||evidence.version!==1||evidence.status!=='ready'||evidence.pluginVersion!==old.version||typeof evidence.dataRoot!=='string'||resolve(evidence.dataRoot)!==dataRoot||library.format!=='cuigengji-library'||![2,3,4].includes(library.storageVersion))fail('LOCAL_LIBRARY_EVIDENCE_MISMATCH');
+ if(evidence.format!=='cuigengji-upgrade'||evidence.version!==1||evidence.status!=='ready'||evidence.pluginVersion!==old.version||typeof evidence.dataRoot!=='string'||resolve(evidence.dataRoot)!==dataRoot||!supportedLibraryEvidence(library,evidence))fail('LOCAL_LIBRARY_EVIDENCE_MISMATCH');
 
  const checksums=await download(urls.checksums,{limit:1024*1024}),bytes=await download(urls.asset,{limit:MAX_BYTES});
  if(sha(bytes)!==expectedChecksum(checksums.toString(),target))fail('CHECKSUM_MISMATCH');validateTarball(bytes,target);

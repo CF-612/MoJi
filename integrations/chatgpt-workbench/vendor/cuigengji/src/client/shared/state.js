@@ -20,16 +20,20 @@ function initialDraft(key, entityKey, initial) {
   return restoreDraft(localStorage,key,initial);
 }
 export const SessionScope = createContext('local');
+// Tour previews use real pages, but never replace the author's saved view/selection.
+export const TransientViewContext = createContext(false);
+export const TourTransitionContext = createContext({current:false});
 export function readLocal(key, fallback) {
   try { const value = localStorage.getItem(key); return value === null ? fallback : JSON.parse(value); } catch { return fallback; }
 }
 export function usePreference(name, fallback) {
+  const transient=useContext(TransientViewContext);
   const scope = useContext(SessionScope);
   const key = `cuigengji:ui:${scope}:${name}`;
-  const [value, setValue] = useState(() => readLocal(key, fallback));
+  const [value, setValue] = useState(() => transient?fallback:readLocal(key, fallback));
   const update = next => setValue(previous => {
     const value = typeof next === 'function' ? next(previous) : next;
-    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+    if(!transient)try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
     return value;
   });
   return [value, update];
@@ -86,6 +90,8 @@ export function useResource(loader, deps, cacheName=null) {
 }
 
 export function useScrollPosition(name) {
+  const tourTransition=useContext(TourTransitionContext);
+  const transient=useContext(TransientViewContext);
   const scope = useContext(SessionScope);
   const ref = useRef(null);
   const key = `cuigengji:scroll:${scope}:${name}`;
@@ -94,10 +100,10 @@ export function useScrollPosition(name) {
     if (!element) return;
     element.scrollTop = readLocal(key, 0);
     let timer;
-    const save = () => { try { localStorage.setItem(key, JSON.stringify(element.scrollTop)); } catch {} };
+    const save = () => { if(transient||tourTransition.current)return;try { localStorage.setItem(key, JSON.stringify(element.scrollTop)); } catch {} };
     const scroll = () => { clearTimeout(timer); timer = setTimeout(save, 150); };
     element.addEventListener('scroll', scroll);
     return () => { clearTimeout(timer); save(); element.removeEventListener('scroll', scroll); };
-  }, [key]);
+  }, [key,transient]);
   return ref;
 }

@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, writeFile, open } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile, open, statfs } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
@@ -9,6 +9,8 @@ import { bookPath, fileId, pageKey, own, without, libraryRow, projectRecord, ind
   storedChapterFile, storedSettingFile, storedPageFile, planningPageFiles, namedChapterFiles, namedSettingFiles, validManagedFileName,
   managedFileKey, type OccupiedProjectFiles,
   type Row, type Workspace, type Library, type LegacyLibrary, type Project, type ChapterIndex, type PlanningIndex } from './project-layout.ts';
+import {encodeExtension, decodeExtension, extensionFragmentIds, checkFragment, type DeferredSnapshots} from './story-fragments.ts';
+import {STORAGE_FORMAT, STORAGE_VERSION} from './project-layout.ts';
 import { normalizePlanningOperations } from '../../domain/planning/operations.ts';
 
 type LoadedBook = {
@@ -16,6 +18,7 @@ type LoadedBook = {
   chapters: Record<string, ChapterIndex>; nodes: Record<string, Row>; planning?: PlanningIndex | null;
   chapterBodies: Set<string>; chapterHistories: Set<string>; nodeBodies: Set<string>;
   pages: Set<string | null>; transactions: Set<string>;
+  extensions: Partial<Record<'story'|'writing', Row>>; deferred: DeferredSnapshots;
 };
 type View = { library: Library; baseline: Map<string, string>; books: Map<string, LoadedBook>; full: boolean; requests: Set<string> };
 const corrupt = (message: string): never => { throw Object.assign(new Error(message), { code: 'CORRUPT_STORE' }); };
@@ -37,6 +40,7 @@ export class ProjectStore extends AtomicStore<Workspace> {
 
   protected validateMigration(_state: Workspace) {}
   protected validateProject(_novel: Row) {}
+  protected validateStoryView(_novel: Row) {}
   protected async readText(path: string) { return readFile(join(this.root, path), 'utf8'); }
   private async json(path: string, view?: View, optional = false): Promise<any> {
     try {
@@ -52,9 +56,10 @@ export class ProjectStore extends AtomicStore<Workspace> {
   private checkLibrary(value: unknown): asserts value is Library | LegacyLibrary {
     if (!object(value)) return corrupt('不支持的小说存储格式');
     if (value.format === 'cuigengji-library' && Number.isSafeInteger(value.storageVersion) && value.storageVersion > 4) {
-      throw Object.assign(new Error(`作品库目录布局 v${value.storageVersion} 比当前墨叽支持的 v4 更新，未读取或转换作品。请保留原库，用创建它的应用导出完整作品数据包，再在独立的墨叽工作库中预览导入；不要手改版本号或原地降级。参见 docs/cuigengji-migration.md。`), {code:'UNSUPPORTED_STORAGE_VERSION'});
+      throw Object.assign(new Error(`不支持催更姬作品库目录布局 v${value.storageVersion}；墨叽兼容旧催更姬 v2/v3/v4，自有 moji-library v5 并非上游 v5。未读取或转换作品。请保留原库，用创建它的应用导出完整作品数据包，再在独立的墨叽工作库中预览导入；不要手改版本号或原地降级。参见 docs/cuigengji-migration.md。`), {code:'UNSUPPORTED_STORAGE_VERSION'});
     }
-    if (!object(value) || value.format !== 'cuigengji-library' || ![2, 3, 4].includes(value.storageVersion) || value.metadata?.schemaVersion !== 1 || !object(value.novels)) corrupt('不支持的小说存储格式');
+    if (value.format === STORAGE_FORMAT && value.storageVersion !== STORAGE_VERSION) throw Object.assign(new Error('此墨叽存储格式版本不受支持，原库未修改'), {code:'UNSUPPORTED_STORAGE_VERSION'});
+    if (!(value.format === 'cuigengji-library' && [2,3,4].includes(value.storageVersion) || value.format === STORAGE_FORMAT && value.storageVersion === STORAGE_VERSION) || value.metadata?.schemaVersion !== 1 || !object(value.novels)) corrupt('不支持的小说存储格式');
     for (const [id, novel] of Object.entries(value.novels)) if (!object(novel) || novel.id !== id || typeof novel.title !== 'string' || ['__proto__', 'constructor', 'prototype'].includes(id)) corrupt('作品索引无效');
     if (value.storageVersion >= 3) {
       if (!object(value.directories) || Object.keys(value.directories).length !== Object.keys(value.novels).length) corrupt('作品目录映射无效');
@@ -131,7 +136,54 @@ export class ProjectStore extends AtomicStore<Workspace> {
     return {...source, storageVersion: 4};
   }
 
+  private async migrateExtensions(source: Library): Promise<Library> {
+    if (source.format === STORAGE_FORMAT) return source;
+    // Validate the complete source (including proof-bearing historical records)
+    // before creating a checkpoint or staging any replacement project metadata.
+    const state = await this.loadWorkspace(source), changes: FileChanges = new Map();
+    for (const [id,novel] of Object.entries(state.novels)) {
+      const base=bookPath(id,source.directories);
+      for(const kind of ['story','writing'] as const) if(own(novel,kind)) {
+        const {index,blobs}=encodeExtension(kind,novel[kind]);
+        const restored=await decodeExtension(kind,index,async hash=>checkFragment(blobs.get(hash)!,hash));
+        if(!isDeepStrictEqual(restored,novel[kind])) corrupt('剧情分片迁移校验失败，未修改原库');
+        for(const [hash,text] of blobs) changes.set(`${base}/${kind}/fragments/${hash}.json`,text);
+        changes.set(`${base}/${kind}/index.json`,JSON.stringify(index));
+      }
+      changes.set(`${base}/project.json`,JSON.stringify(projectRecord(novel)));
+    }
+    const library: Library={...source,format:STORAGE_FORMAT,storageVersion:STORAGE_VERSION};
+    changes.set('library.json',JSON.stringify(library));
+    // Newly managed paths must not overwrite the author's own same-named files.
+    for(const [path,text] of changes) if(path.includes('/story/')||path.includes('/writing/')) {
+      const previous=await this.readText(path).catch(error=>{if(errorCode(error)==='ENOENT')return undefined;throw error;});
+      if(previous!==undefined && previous!==text) corrupt(`迁移目标已存在，保留原文件：${path}`);
+    }
+    const snapshot=JSON.stringify(state),originalLibrary=await this.readText('library.json');
+    const required=Buffer.byteLength(snapshot)+Buffer.byteLength(originalLibrary)+[...changes.values()].reduce((n,text)=>n+Buffer.byteLength(text||'')*3,0)+65536;
+    const space=await statfs(this.root);
+    if(space.bavail*space.bsize<required) throw Object.assign(new Error('磁盘空间不足以同时保留备份与暂存文件，未迁移原库'),{code:'ENOSPC'});
+    const checkpoint=join(this.root,'backups','before-moji-fragments-'+Date.now()+'-'+randomUUID());
+    await mkdir(checkpoint,{recursive:true,mode:0o700});
+    for(const [name,text] of new Map([
+      ['store.json',snapshot],['library.json',originalLibrary],
+      ['migration.json',JSON.stringify({from:{format:source.format,version:source.storageVersion},to:{format:STORAGE_FORMAT,version:STORAGE_VERSION},sourceSha256:digest(snapshot),createdAt:new Date().toISOString()})],
+    ])) {
+      const handle=await open(join(checkpoint,name),'wx',0o600);
+      try{await handle.writeFile(text);await handle.sync();}finally{await handle.close();}
+    }
+    // Directory barriers make the checkpoint discoverable before publication.
+    for(const path of [checkpoint,join(this.root,'backups')]) {
+      try{const handle=await open(path,'r');try{await handle.sync();}finally{await handle.close();}}
+      catch(error){if(!(process.platform==='win32'&&['EBADF','EISDIR','EINVAL','ENOSYS','ENOTSUP','EPERM'].includes(errorCode(error))))throw error;}
+    }
+    await this.transaction.commit(changes);
+    return library;
+  }
+
   private async prepare(): Promise<Library> {
+    const beforeRecovery=await this.json('library.json',undefined,true);
+    if(beforeRecovery!==undefined)this.checkLibrary(beforeRecovery);
     await this.transaction.recover();
     if (!this.cleaned) { await this.transaction.cleanOrphans(); this.cleaned = true; }
     const existing = await this.json('library.json', undefined, true);
@@ -139,7 +191,7 @@ export class ProjectStore extends AtomicStore<Workspace> {
       this.checkLibrary(existing);
       let library: Library = existing.storageVersion === 2 ? await this.migrateDirectories(existing) : existing;
       if (library.storageVersion === 3) library = await this.migrateReadableFiles(library);
-      return library;
+      return this.migrateExtensions(library);
     }
     const old = await this.json('store.json', undefined, true), pending = await this.json('store.pending.json', undefined, true);
     const state = old === undefined && pending === undefined ? this.makeEmpty() : await super.load();
@@ -149,12 +201,12 @@ export class ProjectStore extends AtomicStore<Workspace> {
       await mkdir(directory, { recursive: true, mode: 0o700 });
       const source = await this.readText('store.json');
       await writeFile(join(directory, 'store.json'), source, { flag: 'wx', mode: 0o600 });
-      await writeFile(join(directory, 'migration.json'), JSON.stringify({ from: 1, to: 4, sourceSha256: digest(source), novelIds: Object.keys(state.novels), createdAt: new Date().toISOString() }), { flag: 'wx', mode: 0o600 });
+      await writeFile(join(directory, 'migration.json'), JSON.stringify({ from: 1, to: STORAGE_VERSION, toFormat: STORAGE_FORMAT, sourceSha256: digest(source), novelIds: Object.keys(state.novels), createdAt: new Date().toISOString() }), { flag: 'wx', mode: 0o600 });
     }
     const {directories} = planProjectDirectories(state.novels, {}, {}, await this.occupiedDirectories());
     await this.transaction.commit(splitWorkspace(state, directories));
     const library = await this.json('library.json'); this.checkLibrary(library);
-    if (library.storageVersion !== 4) return corrupt('作品文件名迁移未完成'); return library;
+    if (library.format !== STORAGE_FORMAT || library.storageVersion !== STORAGE_VERSION) return corrupt('墨叽作品分片迁移未完成'); return library;
   }
 
   private async begin(full = false, existing?: Library): Promise<{ state: Workspace; view: View }> {
@@ -176,7 +228,7 @@ export class ProjectStore extends AtomicStore<Workspace> {
     for (const field of project.sections) if (!own(novel, field)) novel[field] = null;
     if (project.sections.includes('preset')) novel.preset = project.preview.preset ? structuredClone(project.preview.preset) : null;
     if (project.sections.includes('plan')) novel.plan = project.preview.plan ? { ...structuredClone(project.preview.plan), content: '' } : null;
-    const loaded: LoadedBook = { id, project, loaded: new Set(), chapters: {}, nodes: {}, chapterBodies: new Set(), chapterHistories: new Set(), nodeBodies: new Set(), pages: new Set(), transactions: new Set() };
+    const loaded: LoadedBook = { id, project, loaded: new Set(), chapters: {}, nodes: {}, chapterBodies: new Set(), chapterHistories: new Set(), nodeBodies: new Set(), pages: new Set(), transactions: new Set(), extensions: {}, deferred: new WeakMap() };
     state.novels[id] = novel; view.books.set(id, loaded); return loaded;
   }
 
@@ -224,6 +276,23 @@ export class ProjectStore extends AtomicStore<Workspace> {
     if (!isDeepStrictEqual(indexMemory(node, book.nodes[id].file), book.nodes[id])) corrupt('设定索引与条目不一致');
     novel.nodes[id] = node; book.nodeBodies.add(id);
   }
+  private async extension(novel: Row, book: LoadedBook, view: View, kind: 'story'|'writing', history = true) {
+    if(view.library.storageVersion<5)return; // v2–v4 stored these fields in project.json.
+    if(book.loaded.has(kind) && (kind!=='story'||!history||book.loaded.has('storyHistory')))return;
+    if(book.project.sections.includes(kind)) {
+      const base=bookPath(book.id,view.library.directories);
+      const index=book.extensions[kind]??await this.json(`${base}/${kind}/index.json`,view);
+      extensionFragmentIds(kind,index); // Reject invalid historic refs without loading their bodies.
+      book.extensions[kind]=index;
+      const cache=new Map<string,any>();
+      novel[kind]=await decodeExtension(kind,index,async hash=>{
+        if(!cache.has(hash))cache.set(hash,checkFragment(await this.readText(`${base}/${kind}/fragments/${hash}.json`).catch(error=>{if(errorCode(error)==='ENOENT')corrupt('墨叽剧情／结构资料片段缺失，未覆盖原数据');throw error;}),hash));
+        return structuredClone(cache.get(hash)); // Current and historical records never share mutable objects.
+      },{history,deferred:book.deferred});
+    }else delete novel[kind];
+    book.loaded.add(kind);if(kind==='story'&&history)book.loaded.add('storyHistory');
+  }
+
   private async section(novel: Row, book: LoadedBook, view: View, field: string, path: string) {
     if (book.loaded.has(field)) return;
     if (book.project.sections.includes(field)) novel[field] = await this.json(`${bookPath(book.id, view.library.directories)}/${path}`, view);
@@ -302,6 +371,7 @@ export class ProjectStore extends AtomicStore<Workspace> {
       for (const id of Object.keys(novel.chapters)) await this.chapter(novel, book, view, id, true);
       for (const id of Object.keys(novel.nodes)) await this.node(novel, book, view, id);
       for (const [field, path] of [['edges', 'settings/relations.json'], ['memoryGroups', 'settings/groups.json'], ['preset', 'preset.json'], ['plan', 'planning/legacy.json'], ['tavernSources', 'imports/originals.json']]) await this.section(novel, book, view, field, path);
+      await this.extension(novel,book,view,'story',true); await this.extension(novel,book,view,'writing',true);
       await this.board(novel, book, view);
       if (book.planning) {
         if (book.planning.hasLegacy) { novel.planning.legacy = await this.json(`${bookPath(id, view.library.directories)}/history/planning-legacy.json`, view); book.loaded.add('planningLegacy'); }
@@ -334,7 +404,25 @@ export class ProjectStore extends AtomicStore<Workspace> {
     const id = action === 'novel.import' ? args.backup?.novel?.id : args.novelId || binding?.novelId;
     if (!id || !own(state.novels, id)) return state;
     const book = await this.book(state, view, id), novel = state.novels[id];
+    if (['story.get','story.backup','story.apply'].includes(action)) {
+      await this.extension(novel,book,view,'writing');
+      await this.extension(novel,book,view,'story',false);
+      await this.chapterIndex(novel,book,view);
+      this.validateStoryView(novel);
+      // Current story API returns all cards/pages, but chapter sources are metadata.
+      // Only changed/new proof references need prose/history bodies.
+      if(action==='story.apply') {
+        await this.memoryIndex(novel,book,view);
+        const chapterIds=new Set<string>();
+        const visit=(value:any)=>{if(!value||typeof value!=='object')return;if(typeof value.chapterId==='string'&&typeof value.evidence==='string')chapterIds.add(value.chapterId);for(const child of Object.values(value))visit(child);};
+        visit(args.operation);for(const id of chapterIds)await this.chapter(novel,book,view,id,true);
+      }
+      return state;
+    }
+    if (['writing.fields.list','writing.relationshipType.list','writing.history'].includes(action)) {await this.extension(novel,book,view,'writing');return state;}
     if (action === 'novel.import' || action === 'novel.export' || action === 'chapter.create' && (args.characters?.length || args.events?.length) || action.startsWith('writing.') || action.startsWith('story.') || ['graph.history','graph.restore','graph.update'].includes(action) || action === 'writing_context.get') return this.fullBook(state, view, book);
+    if(action.startsWith('graph.')||action.startsWith('edge.'))await this.extension(novel,book,view,'writing');
+    if(action==='novel.handoff')await this.extension(novel,book,view,'story',false);
     const preset = action.startsWith('preset.');
     const directory = !preset && !['novel.update', 'novel.archive', 'volume.list', 'volume.create', 'volume.update'].includes(action);
     if (directory) await this.chapterIndex(novel, book, view);
@@ -408,6 +496,7 @@ export class ProjectStore extends AtomicStore<Workspace> {
     for (const id of Object.keys(novel.chapters)) await this.chapter(novel, book, view, id, true);
     for (const id of Object.keys(novel.nodes)) await this.node(novel, book, view, id);
     for (const [field, path] of [['edges', 'settings/relations.json'], ['memoryGroups', 'settings/groups.json'], ['preset', 'preset.json'], ['plan', 'planning/legacy.json'], ['tavernSources', 'imports/originals.json']]) await this.section(novel, book, view, field, path);
+    await this.extension(novel,book,view,'story',true); await this.extension(novel,book,view,'writing',true);
     await this.board(novel, book, view);
     if (book.planning) {
       if (book.planning.hasLegacy) { novel.planning.legacy = await this.json(`${bookPath(book.id, view.library.directories)}/history/planning-legacy.json`, view); book.loaded.add('planningLegacy'); }
@@ -423,6 +512,7 @@ export class ProjectStore extends AtomicStore<Workspace> {
     if (!view) { const previous = await this.load(); view = this.views.get(previous)!; this.views.set(state, view); }
     const {directories, moves} = planProjectDirectories(state.novels, view.library.directories, view.library.novels, await this.occupiedDirectories());
     const changes: FileChanges = new Map(attachments);
+    const extensionUpdates: {book:LoadedBook;kind:'story'|'writing';index?:Row}[]=[];
     const put = async (path: string, value: unknown) => {
       const content = JSON.stringify(value);
       let previous = view!.baseline.get(path);
@@ -437,6 +527,25 @@ export class ProjectStore extends AtomicStore<Workspace> {
         continue;
       }
       await put(`${base}/project.json`, projectRecord(novel));
+      for(const kind of ['story','writing'] as const) if(book.loaded.has(kind)) {
+        if(!own(novel,kind)){
+          const previous=book.extensions[kind];
+          if(previous){for(const hash of extensionFragmentIds(kind,previous))changes.set(`${base}/${kind}/fragments/${hash}.json`,null);changes.set(`${base}/${kind}/index.json`,null);extensionUpdates.push({book,kind});}
+          continue;
+        }
+        const {index,blobs}=encodeExtension(kind,novel[kind],book.deferred);
+        for(const [hash,text] of blobs) {
+          const path=`${base}/${kind}/fragments/${hash}.json`;
+          const previous=await this.readText(`${sourceBase}/${kind}/fragments/${hash}.json`).catch(error=>{if(errorCode(error)==='ENOENT')return undefined;throw error;});
+          if(previous!==undefined && previous!==text) corrupt('已有剧情片段校验失败，未覆盖原数据');
+          if(previous===undefined)changes.set(path,text);
+        }
+        const next=extensionFragmentIds(kind,index),previous=book.extensions[kind];
+        if(previous){for(const hash of extensionFragmentIds(kind,previous))if(!next.has(hash))changes.set(`${base}/${kind}/fragments/${hash}.json`,null);}
+        else {const occupied=await this.readText(`${sourceBase}/${kind}/index.json`).catch(error=>{if(errorCode(error)==='ENOENT')return undefined;throw error;});if(occupied!==undefined)corrupt('剧情迁移目标已存在，保留原文件');}
+        await put(`${base}/${kind}/index.json`,index);
+        extensionUpdates.push({book,kind,index});
+      }
       const occupied = await this.occupiedProjectFiles(sourceBase);
       if (book.loaded.has('chapters')) {
         const index: Record<string, ChapterIndex> = {};
@@ -499,9 +608,11 @@ export class ProjectStore extends AtomicStore<Workspace> {
     if (view.full) for (const id of view.requests) if (!own(state.requests, id)) changes.set(`runtime/requests/${fileId(id)}.json`, null);
     const novels = view.full ? {} : structuredClone(view.library.novels);
     for (const [id, novel] of Object.entries(state.novels)) novels[id] = libraryRow(novel);
-    const library: Library = {format: 'cuigengji-library', storageVersion: 4, metadata: without(state, ['novels', 'bindings', 'requests']), novels, directories};
+    const library: Library = {format: STORAGE_FORMAT, storageVersion: STORAGE_VERSION, metadata: without(state, ['novels', 'bindings', 'requests']), novels, directories};
     await put('library.json', library);
     await this.transaction.commit(changes, moves);
+    for(const {book,kind,index} of extensionUpdates){if(index)book.extensions[kind]=index;else delete book.extensions[kind];}
+    for(const [id,book] of view.books)if(state.novels[id])book.project=projectRecord(state.novels[id]);
     for (const move of moves) for (const [path, content] of [...view.baseline]) if (path.startsWith(move.from + '/')) {view.baseline.delete(path); view.baseline.set(move.to + path.slice(move.from.length), content);}
     for (const [path, content] of changes) if (content === null) view.baseline.delete(path); else view.baseline.set(path, content);
     view.library = library;

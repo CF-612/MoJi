@@ -11,12 +11,12 @@ import {NativeConnection} from './src/client/native-connection.tsx';
 import {WorkbenchHeader} from './integrations/chatgpt-workbench/vendor/cuigengji/src/client/shared/WorkbenchHeader.tsx';
 import {styles} from './integrations/chatgpt-workbench/vendor/cuigengji/src/client/style.ts';
 import {DeploymentAgentContext} from '#moji-shared-ui';
-const mode=new URLSearchParams(location.search).get('mode')||'dsh';if(new URLSearchParams(location.search).has('dark'))document.documentElement.dataset.themePreference='dark';window.calls=[];window.sent=[];
+const mode=new URLSearchParams(location.search).get('mode')||'dsh';window.calls=[];window.sent=[];
 let state={mode:'local',authenticated:false,pending:false,instanceUrl:''};
 window.completeLogin=()=>{state={...state,authenticated:true,pending:false};};
 const rpc=async(action,args)=>{window.calls.push(action);if(action==='connection.status'){if(mode==='error'&&!window.recovered)throw new Error('连接状态读取失败');if(mode==='loading')await new Promise(r=>setTimeout(r,1000));return {...state};}if(action==='connection.configure'){state={...state,...args};window.recovered=true;return {};}if(action==='connection.login'){state.pending=true;return {authorizationUrl:'https://example.invalid/authorize'};}if(action==='connection.logout'){state.authenticated=false;return {};}throw new Error(action);};
 const send=mode==='unsupported'?null:async text=>{window.sent.push(text);if(mode==='send-error')throw new Error('宿主拒绝');return '部署提示词已交给当前 Agent';};
-function Workbench(){return <section className="cuigengji"><style>{styles}</style><WorkbenchHeader home tab="" busy={false} refreshing={false} onHome={()=>{}} onTab={()=>{}} onRefresh={()=>{}} onSettings={()=>{}} onAbout={()=>{}}/><h1>测试作品</h1></section>}
+function Workbench(){return <div className="moji-preferences" data-theme-preference={new URLSearchParams(location.search).has('dark')?'dark':'light'} style={{display:'contents'}}><section className="cuigengji"><style>{styles}</style><WorkbenchHeader home tab="" busy={false} refreshing={false} onHome={()=>{}} onTab={()=>{}} onRefresh={()=>{}} onSettings={()=>{}} onAbout={()=>{}}/><h1>测试作品</h1></section></div>}
 const dsh=!['web','mcp','unsupported','send-error'].includes(mode);
 const content=dsh?<NativeConnection rpc={rpc} sessionId="test" Workbench={Workbench}/>:<Workbench/>;
 createRoot(document.getElementById('root')).render(mode==='web'?content:<DeploymentAgentContext.Provider value={{host:dsh?'dsh':'mcp',send}}>{content}</DeploymentAgentContext.Provider>);
