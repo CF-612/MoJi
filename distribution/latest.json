@@ -1,6 +1,6 @@
 {
   "product": "moji",
-  "version": "0.11.4",
-  "downloadUrl": "https://github.com/CF-612/MoJi/releases/tag/moji-v0.11.4",
-  "notes": "墨叽0.11.4补齐七款默认头像、选择器与全视图/导出支持，优化正文关联区和资料搜索。请更新所有连接同一作品库的客户端；云端需重新部署原实例，安装包或Git push不会自动更新云端。"
+  "version": "0.11.5",
+  "downloadUrl": "https://github.com/CF-612/MoJi/releases/tag/moji-v0.11.5",
+  "notes": "墨叽0.11.5兼容DSH0.2.1-rc.3，修复时间线拖动保存，支持催更姬0.5.0整本备份与历史恢复，提供Agent执行GitHub更新及个人插件ZIP更新。请先备份：不能直接打开或降级v5库；旧规划只读保留，部分不安全复用会被阻止。个人云端需另行授权更新原实例，手机端才会使用新版本。"
 }
