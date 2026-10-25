@@ -1,15 +1,17 @@
 # 墨叽 · 发布入口
 
-当前正式版为 **[0.11.5](https://github.com/CF-612/MoJi/releases/tag/moji-v0.11.5)**。`moji-release` 是默认发布分支，`codex/main` 是开发分支；日常安装优先使用正式 Release，不以开发分支代替发布包。
+当前正式版为 **[0.12.0](https://github.com/CF-612/MoJi/releases/tag/moji-v0.12.0)**。`moji-release` 是默认发布分支，`codex/main` 是开发分支；日常安装优先使用正式 Release，不以开发分支代替发布包。
+
+本版更新按 **Bug修复、架构更新、新增内容** 整理，详见[0.12.0 更新说明](../docs/release-0.12.0.md)。新本地库是独立的 `moji-library` v5；升级前备份，旧版不能直接打开迁移后的库，回退应在独立目录恢复升级前备份。
 
 ## 选择安装包
 
 | 用途 | 正式版文件 |
 | --- | --- |
-| DSH 原生插件 | [dsh-moji-0.11.5.tgz](https://github.com/CF-612/MoJi/releases/download/moji-v0.11.5/dsh-moji-0.11.5.tgz) |
-| Windows 独立本机版 | [Moji-0.11.5-windows-x64.zip](https://github.com/CF-612/MoJi/releases/download/moji-v0.11.5/Moji-0.11.5-windows-x64.zip) |
-| 个人云端插件包生成器 | [Moji-0.11.5-plugin-generator.zip](https://github.com/CF-612/MoJi/releases/download/moji-v0.11.5/Moji-0.11.5-plugin-generator.zip) |
-| SHA-256 校验文件 | [SHA256SUMS-0.11.5.txt](https://github.com/CF-612/MoJi/releases/download/moji-v0.11.5/SHA256SUMS-0.11.5.txt) |
+| DSH 原生插件 | [dsh-moji-0.12.0.tgz](https://github.com/CF-612/MoJi/releases/download/moji-v0.12.0/dsh-moji-0.12.0.tgz) |
+| Windows 独立本机版 | [Moji-0.12.0-windows-x64.zip](https://github.com/CF-612/MoJi/releases/download/moji-v0.12.0/Moji-0.12.0-windows-x64.zip) |
+| 个人云端插件包生成器 | [Moji-0.12.0-plugin-generator.zip](https://github.com/CF-612/MoJi/releases/download/moji-v0.12.0/Moji-0.12.0-plugin-generator.zip) |
+| SHA-256 校验文件 | [SHA256SUMS-0.12.0.txt](https://github.com/CF-612/MoJi/releases/download/moji-v0.12.0/SHA256SUMS-0.12.0.txt) |
 
 - **DSH**：安装 `.tgz` 原生插件，可使用本机作品库或连接自己的个人云端。
 - **Windows 独立版**：解压后按包内说明启动本机工作台，不是 Codex 插件的本地模式。
