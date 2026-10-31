@@ -76,7 +76,7 @@
 | --- | --- | --- |
 | **电脑 Codex，主要创作入口** | 完整可视化插件连接自己的个人云端 | [部署与连接](docs/cloud-agent-deployment.md) → [创建 MCP 后原位更新 ZIP](docs/plugin-package.md) |
 | **手机 ChatGPT / 网页 ChatGPT** | 使用个人云端，继续访问同一份作品；宿主需支持对应插件入口 | [跨端使用指南](docs/cloud-agent-deployment.md) |
-| **DSH 原生插件** | **本地或个人云端可选**，保留 DSH 原生入口与会话协作 | [DSH 安装、更新与连接](docs/agent-installation.md) |
+| **DSH 原生插件** | **本地或个人云端可选**，保留 DSH 原生入口与会话协作 | [DSH 安装、更新与连接](docs/agent-installation.md) · [DSH 更新报错自助指南](docs/dsh-update-troubleshooting.md) |
 | **Gemini 网页端** | MCP 内容读取、修改；**没有可视化工作台**，手机端目前不支持 | [个人实例与 MCP 连接](docs/cloud-agent-deployment.md) |
 | **Windows 独立版 / 本机浏览器** | 独立本地写作入口，不是 Codex 插件的本地模式 | [安装与开始使用](docs/getting-started.md) |
 
